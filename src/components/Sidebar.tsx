@@ -7,6 +7,7 @@ import {
   Users, 
   ClipboardList, 
   Database, 
+  Settings,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -57,14 +58,8 @@ const Sidebar = () => {
       <nav className="flex-1 p-3 space-y-2">
         <SidebarItem 
           icon={<Home size={20} />} 
-          label="Home" 
+          label="Dashboard" 
           to="/dashboard" 
-          isCollapsed={isCollapsed} 
-        />
-        <SidebarItem 
-          icon={<FileText size={20} />} 
-          label="AI Pilot Spec" 
-          to="/dashboard/spec" 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 
@@ -83,6 +78,12 @@ const Sidebar = () => {
           icon={<Database size={20} />} 
           label="Memory" 
           to="/dashboard/memory" 
+          isCollapsed={isCollapsed} 
+        />
+        <SidebarItem 
+          icon={<Settings size={20} />} 
+          label="Settings" 
+          to="/dashboard/settings" 
           isCollapsed={isCollapsed} 
         />
       </nav>

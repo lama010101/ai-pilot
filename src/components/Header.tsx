@@ -1,9 +1,10 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { LogOut } from 'lucide-react';
+import { USE_FAKE_AUTH } from '@/lib/supabaseClient';
 
 const Header = () => {
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   
   return (
     <header className="flex items-center justify-between h-16 px-6 border-b border-border bg-card">
@@ -13,21 +14,23 @@ const Header = () => {
           <span className="mr-2 h-2 w-2 rounded-full bg-secondary animate-pulse-light"></span>
           Phase 1
         </div>
+        
+        {USE_FAKE_AUTH && (
+          <div className="ml-4 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs">
+            Dev Mode
+          </div>
+        )}
       </div>
       
       <div className="flex items-center space-x-4">
-        {user && (
-          <>
-            <span className="text-sm text-muted-foreground">{user.email}</span>
-            <button 
-              onClick={signOut}
-              className="p-2 rounded-md hover:bg-muted transition-colors"
-              aria-label="Log out"
-            >
-              <LogOut size={18} />
-            </button>
-          </>
-        )}
+        <button 
+          onClick={signOut}
+          className={`p-2 rounded-md transition-colors ${USE_FAKE_AUTH ? 'text-muted-foreground hover:bg-muted/50' : 'hover:bg-muted'}`}
+          aria-label="Log out"
+          disabled={USE_FAKE_AUTH}
+        >
+          <LogOut size={18} className={USE_FAKE_AUTH ? 'opacity-50' : ''} />
+        </button>
       </div>
     </header>
   );

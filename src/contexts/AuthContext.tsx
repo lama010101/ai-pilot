@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, USE_FAKE_AUTH } from '@/lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  isAuthenticated: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -18,23 +19,35 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!USE_FAKE_AUTH);
+  const [isAuthenticated, setIsAuthenticated] = useState(USE_FAKE_AUTH);
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Skip Supabase session check if using fake auth
+    if (USE_FAKE_AUTH) {
+      return;
+    }
+
     // Check if there's an active session
     const checkSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error getting session:', error);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setIsLoading(false);
+          return;
+        }
+        
+        setSession(session);
+        setUser(session?.user || null);
+        setIsAuthenticated(!!session);
         setIsLoading(false);
-        return;
+      } catch (error) {
+        console.error('Error checking session:', error);
+        setIsLoading(false);
       }
-      
-      setSession(session);
-      setUser(session?.user || null);
-      setIsLoading(false);
     };
 
     checkSession();
@@ -43,6 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user || null);
+      setIsAuthenticated(!!session);
       setIsLoading(false);
     });
 
@@ -51,16 +65,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  // Check if the user's email is authorized
-  useEffect(() => {
-    if (user && user.email !== 'emartin6867@gmail.com') {
-      signOut();
-      navigate('/unauthorized');
-      toast.error('You are not authorized to access this application');
-    }
-  }, [user, navigate]);
-
   const signInWithGoogle = async () => {
+    if (USE_FAKE_AUTH) {
+      // Fake authentication - just redirect to dashboard
+      setIsAuthenticated(true);
+      navigate('/dashboard');
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -79,6 +91,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
+    if (USE_FAKE_AUTH) {
+      // Fake sign out - just redirect to login
+      setIsAuthenticated(false);
+      navigate('/login');
+      return;
+    }
+
     try {
       await supabase.auth.signOut();
       navigate('/login');
@@ -92,6 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     session,
     isLoading,
+    isAuthenticated,
     signInWithGoogle,
     signOut,
   };

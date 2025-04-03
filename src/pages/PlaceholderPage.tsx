@@ -1,37 +1,38 @@
 
-import { useLocation } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const PlaceholderPage = () => {
-  const location = useLocation();
-  const pageName = location.pathname.split('/').pop();
-  
-  // Capitalize the first letter of the page name
-  const formattedPageName = pageName 
-    ? pageName.charAt(0).toUpperCase() + pageName.slice(1) 
-    : 'Page';
+interface PlaceholderPageProps {
+  title?: string;
+  description?: string;
+}
 
+const PlaceholderPage = ({ 
+  title = "Coming Soon", 
+  description = "This feature is currently in development and will be available in a future update." 
+}: PlaceholderPageProps) => {
   return (
-    <div className="h-full flex flex-col items-center justify-center py-20">
-      <div className="bg-pilot-600/10 text-pilot-500 p-4 rounded-full">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M15.5 2H12a10 10 0 0 0 0 20h8a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-2.76a10 10 0 0 0 .76-4V4a2 2 0 0 0-2-2Z"></path>
-          <circle cx="7" cy="12" r="5"></circle>
-        </svg>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">{title}</h1>
+        <p className="text-muted-foreground mt-1">
+          {description}
+        </p>
       </div>
-      <h1 className="text-2xl font-bold mt-6">{formattedPageName} Module</h1>
-      <p className="text-muted-foreground mt-2 text-center max-w-md">
-        This module is currently in development and will be available in a future update.
-      </p>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Under Development</CardTitle>
+          <CardDescription>
+            This module is part of the AI Pilot roadmap
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <div className="w-16 h-16 border-4 border-dashed rounded-full border-muted animate-spin-slow"></div>
+          <p className="mt-6 text-center max-w-md">
+            Our AI team is currently working on this feature. Check back soon for updates.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -1,12 +1,14 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { agents, activityLogs } from "@/data/agents";
+import { useState } from "react";
 
 const Dashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">AI Pilot Dashboard</h1>
+        <h1 className="text-3xl font-bold">Welcome to Pilot, Leader</h1>
         <p className="text-muted-foreground mt-1">
           Central control for autonomous AI agents
         </p>
@@ -16,7 +18,7 @@ const Dashboard = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="agents">Active Agents</TabsTrigger>
-          <TabsTrigger value="tasks">Recent Tasks</TabsTrigger>
+          <TabsTrigger value="activity">Activity Feed</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-4">
@@ -36,51 +38,30 @@ const Dashboard = () => {
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle>Budget</CardTitle>
-                <CardDescription>Monthly compute budget</CardDescription>
+                <CardTitle>Agents</CardTitle>
+                <CardDescription>Active AI agents</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$100.00</div>
+                <div className="text-2xl font-bold">{agents.length}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  $0.00 spent this month
+                  {agents.filter(a => a.status === 'running').length} currently running
                 </p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle>Core AIs</CardTitle>
-                <CardDescription>Specialist AI agents</CardDescription>
+                <CardTitle>Activity</CardTitle>
+                <CardDescription>Recent agent activities</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">5/5</div>
+                <div className="text-2xl font-bold">{activityLogs.length}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  All core agents online
+                  Last activity: {activityLogs[0]?.timestamp || 'None'}
                 </p>
               </CardContent>
             </Card>
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Start building with AI Pilot</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-              <button className="flex items-center justify-between p-3 border rounded-md hover:bg-card transition-colors">
-                <span>Create New App</span>
-                <span className="text-pilot-400 text-sm">Coming Soon</span>
-              </button>
-              <button className="flex items-center justify-between p-3 border rounded-md hover:bg-card transition-colors">
-                <span>Deploy Agent</span>
-                <span className="text-pilot-400 text-sm">Coming Soon</span>
-              </button>
-              <button className="flex items-center justify-between p-3 border rounded-md hover:bg-card transition-colors">
-                <span>Security Audit</span>
-                <span className="text-pilot-400 text-sm">Coming Soon</span>
-              </button>
-            </CardContent>
-          </Card>
         </TabsContent>
         
         <TabsContent value="agents">
@@ -97,67 +78,33 @@ const Dashboard = () => {
                   <thead>
                     <tr className="bg-muted/50">
                       <th className="p-3 text-left">Agent</th>
-                      <th className="p-3 text-left">Type</th>
                       <th className="p-3 text-left">Status</th>
                       <th className="p-3 text-left">Last Activity</th>
+                      <th className="p-3 text-left">Current Task</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-t">
-                      <td className="p-3">Pilot</td>
-                      <td className="p-3">Core</td>
-                      <td className="p-3">
-                        <span className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                          Online
-                        </span>
-                      </td>
-                      <td className="p-3">Just now</td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="p-3">Writer</td>
-                      <td className="p-3">Core</td>
-                      <td className="p-3">
-                        <span className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                          Online
-                        </span>
-                      </td>
-                      <td className="p-3">2m ago</td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="p-3">Code Builder</td>
-                      <td className="p-3">Core</td>
-                      <td className="p-3">
-                        <span className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                          Online
-                        </span>
-                      </td>
-                      <td className="p-3">5m ago</td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="p-3">Tester</td>
-                      <td className="p-3">Core</td>
-                      <td className="p-3">
-                        <span className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                          Online
-                        </span>
-                      </td>
-                      <td className="p-3">10m ago</td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="p-3">Security</td>
-                      <td className="p-3">Core</td>
-                      <td className="p-3">
-                        <span className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                          Online
-                        </span>
-                      </td>
-                      <td className="p-3">15m ago</td>
-                    </tr>
+                    {agents.map((agent) => (
+                      <tr key={agent.id} className="border-t">
+                        <td className="p-3">
+                          <a href={`/dashboard/agents/${agent.id}`} className="hover:underline font-medium">
+                            {agent.name}
+                          </a>
+                        </td>
+                        <td className="p-3">
+                          <span className="flex items-center gap-2">
+                            <span className={`h-2 w-2 rounded-full ${
+                              agent.status === 'running' ? 'bg-green-500' : 
+                              agent.status === 'error' ? 'bg-red-500' : 'bg-amber-500'
+                            }`}></span>
+                            {agent.status === 'running' ? 'Running' : 
+                             agent.status === 'error' ? 'Error' : 'Idle'}
+                          </span>
+                        </td>
+                        <td className="p-3">{agent.lastActive}</td>
+                        <td className="p-3">{agent.currentTask || 'None'}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -165,16 +112,24 @@ const Dashboard = () => {
           </Card>
         </TabsContent>
         
-        <TabsContent value="tasks">
+        <TabsContent value="activity">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Tasks</CardTitle>
-              <CardDescription>Tasks executed by AI agents</CardDescription>
+              <CardTitle>Activity Feed</CardTitle>
+              <CardDescription>Recent activities by AI agents</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-center py-8 text-muted-foreground">
-                No tasks have been executed yet.
-              </p>
+              <div className="space-y-4">
+                {activityLogs.map((log) => (
+                  <div key={log.id} className="flex items-start space-x-4 pb-4 border-b">
+                    <div className="w-2 h-2 mt-2 rounded-full bg-primary"></div>
+                    <div className="flex-1">
+                      <p className="text-sm">{log.message}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{log.timestamp}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
