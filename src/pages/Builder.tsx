@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { 
@@ -28,7 +27,7 @@ import { getAgentById } from '@/lib/supabase/agentService';
 import { createAppSpec } from '@/lib/supabase/appSpecService';
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserAppBuilds, createAppBuild, updateAppBuild } from '@/lib/buildService';
+import { getUserAppBuilds, createAppBuild, updateAppBuild, triggerAppBuild } from '@/lib/buildService';
 import { AppBuildDB } from '@/types/supabase';
 
 // Type for app builds history
@@ -64,7 +63,6 @@ const Builder = () => {
     'Complete!'
   ];
   
-  // Function to fetch build history from Supabase
   const fetchBuildHistory = async () => {
     if (!user) return;
     
@@ -72,7 +70,6 @@ const Builder = () => {
       const { data } = await getUserAppBuilds(user.id);
       
       if (data) {
-        // Map DB objects to AppBuild interface
         const builds: AppBuild[] = data.map(build => ({
           id: build.id,
           prompt: build.prompt,
@@ -89,7 +86,6 @@ const Builder = () => {
     }
   };
   
-  // Load build history on component mount
   useEffect(() => {
     if (user) {
       fetchBuildHistory();
@@ -114,112 +110,77 @@ const Builder = () => {
     setIsComplete(false);
     
     try {
-      // Step 1: Get the writer agent
-      const { data: writer } = await getAgentById('zapwriter');
-      
-      // Generate app name based on prompt
       const appName = generateAppName(prompt);
       
-      // Create a new app build record
       const { data: buildData } = await createAppBuild(prompt, appName, user.id);
       
       if (!buildData) {
         throw new Error('Failed to create build record');
       }
       
-      // Simulate delay for analysis
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setCurrentStep(1);
+      const { data: buildResult, error: buildError } = await triggerAppBuild(buildData.id, prompt, user.id);
       
-      // Create a task for the writer
-      if (writer) {
-        const specTask = await createAgentTask({
-          agent_id: writer.id,
-          command: `Generate app specification for: ${prompt}`,
-          result: '',
-          confidence: 0.9,
-          status: 'processing'
-        });
+      if (buildError) {
+        throw buildError;
       }
       
-      // Simulate spec generation with a delay
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      toast.info('Build process started. This may take a few minutes.');
       
-      // Generate a spec based on the prompt
-      const generatedSpec = generateSpec(prompt);
-      setSpec(generatedSpec);
-      setCurrentStep(2);
-      
-      // Update the build with the spec
-      await updateAppBuild(buildData.id, { 
-        spec: generatedSpec,
-        status: 'processing',
-      });
-      
-      // Create app spec in the database
-      await createAppSpec({
-        name: appName,
-        description: prompt,
-        status: 'draft',
-        content: generatedSpec,
-        author_id: user.id
-      });
-      
-      // Step 3: Generate code
-      toast.info('Starting code generation');
-      
-      // Simulate code generation with a delay
-      await new Promise(resolve => setTimeout(resolve, 4000));
-      
-      // Generate code based on the spec
-      const generatedCode = generateCode(generatedSpec);
-      setCode(generatedCode);
-      setCurrentStep(3);
-      
-      // Update the build with the code
-      await updateAppBuild(buildData.id, { 
-        code: generatedCode,
-      });
-      
-      // Step 4: Package the application
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setCurrentStep(4);
-      
-      // Step 5: Deploy the preview
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      setCurrentStep(5);
-      
-      // Update the build record with complete status and preview URL
-      const previewUrl = `https://zap-demo-${buildData.id}.vercel.app`;
-      await updateAppBuild(buildData.id, {
-        status: 'complete',
-        preview_url: previewUrl,
-        updated_at: new Date().toISOString(),
-        build_log: [
-          { step: "analyze", status: "success", timestamp: new Date().toISOString() },
-          { step: "generate_spec", status: "success", timestamp: new Date().toISOString() },
-          { step: "generate_code", status: "success", timestamp: new Date().toISOString() },
-          { step: "deploy_preview", status: "success", timestamp: new Date().toISOString() }
-        ]
-      });
-      
-      // Add to local state
-      const completedBuild: AppBuild = {
-        id: buildData.id,
-        prompt: prompt,
-        status: 'complete',
-        timestamp: buildData.timestamp,
-        previewUrl: previewUrl,
-        appName: appName
+      const checkBuildStatus = async () => {
+        const { data: updatedBuild } = await getAppBuildById(buildData.id);
+        
+        if (!updatedBuild) return;
+        
+        if (updatedBuild.build_log && updatedBuild.build_log.length > 0) {
+          const completedSteps = updatedBuild.build_log.filter(step => step.status === 'success').length;
+          setCurrentStep(Math.min(completedSteps, 5));
+        }
+        
+        if (updatedBuild.spec) {
+          setSpec(updatedBuild.spec);
+        }
+        
+        if (updatedBuild.code) {
+          setCode(updatedBuild.code);
+        }
+        
+        if (updatedBuild.status === 'complete') {
+          setIsComplete(true);
+          setIsProcessing(false);
+          
+          const completedBuild: AppBuild = {
+            id: updatedBuild.id,
+            prompt: updatedBuild.prompt,
+            status: 'complete',
+            timestamp: updatedBuild.timestamp,
+            previewUrl: updatedBuild.preview_url,
+            appName: updatedBuild.app_name
+          };
+          
+          setAppBuilds(prev => [completedBuild, ...prev]);
+          setSelectedBuild(completedBuild);
+          
+          toast.success('App successfully built!');
+          clearInterval(statusInterval);
+        } else if (updatedBuild.status === 'failed') {
+          setIsProcessing(false);
+          toast.error('App build failed. Please try again.');
+          clearInterval(statusInterval);
+        }
       };
       
-      setAppBuilds(prev => [completedBuild, ...prev]);
-      setSelectedBuild(completedBuild);
-      setIsComplete(true);
+      const statusInterval = setInterval(checkBuildStatus, 5000);
       
-      toast.success('App successfully built!');
+      await checkBuildStatus();
       
-      // Refresh build history
+      setTimeout(() => {
+        clearInterval(statusInterval);
+        if (isProcessing) {
+          setIsProcessing(false);
+          toast.error('Build process is taking longer than expected. Please check the build status later.');
+        }
+      }, 5 * 60 * 1000);
+      
       fetchBuildHistory();
     } catch (error) {
       console.error('Error building app:', error);
@@ -228,14 +189,12 @@ const Builder = () => {
         description: "Failed to build app. Please try again.",
         variant: "destructive"
       });
-    } finally {
       setIsProcessing(false);
     }
   };
   
   const handleViewPreview = (build: AppBuild) => {
     setSelectedBuild(build);
-    // In a real implementation, this would load an actual preview
     if (iframeRef.current && build.previewUrl) {
       // For demo purposes, we're not actually loading the URL since it doesn't exist
       // iframeRef.current.src = build.previewUrl;
@@ -245,13 +204,11 @@ const Builder = () => {
   const handleDeploy = () => {
     toast.info('Deployment in progress! Your app will be available shortly.');
     
-    // Simulate deployment process
     setTimeout(() => {
       toast.success('App deployed successfully! You can access it at the production URL.');
     }, 3000);
   };
   
-  // Helper function to generate an app name from the prompt
   const generateAppName = (prompt: string): string => {
     const words = prompt.split(' ');
     const nameWords = words.filter(word => 
@@ -266,9 +223,7 @@ const Builder = () => {
     return nameWords.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('') + 'App';
   };
   
-  // Helper function to generate a spec from the prompt
   const generateSpec = (prompt: string): string => {
-    // In a real implementation, this would use an LLM
     return `# App Specification for: ${prompt}\n
 ## Overview
 This application will provide users with the following features:
@@ -313,9 +268,7 @@ item_tags {
 \`\`\``;
   };
   
-  // Helper function to generate code from the spec
   const generateCode = (spec: string): string => {
-    // In a real implementation, this would use an LLM
     return `// App.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';

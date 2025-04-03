@@ -17,10 +17,10 @@ export const createAppBuild = async (prompt: string, appName: string, userId: st
         timestamp: new Date().toISOString(),
       })
       .select()
-      .single() as { data: AppBuildDB | null, error: any };
+      .single();
       
     if (error) throw error;
-    return { data };
+    return { data: data as AppBuildDB };
   } catch (error) {
     console.error('Error creating app build:', error);
     return { data: null, error };
@@ -36,10 +36,10 @@ export const getAppBuildById = async (buildId: string) => {
       .from('app_builds')
       .select('*')
       .eq('id', buildId)
-      .single() as { data: AppBuildDB | null, error: any };
+      .single();
       
     if (error) throw error;
-    return { data };
+    return { data: data as AppBuildDB };
   } catch (error) {
     console.error('Error fetching app build:', error);
     return { data: null, error };
@@ -56,10 +56,10 @@ export const updateAppBuild = async (buildId: string, updates: Partial<AppBuildD
       .update(updates)
       .eq('id', buildId)
       .select()
-      .single() as { data: AppBuildDB | null, error: any };
+      .single();
       
     if (error) throw error;
-    return { data };
+    return { data: data as AppBuildDB };
   } catch (error) {
     console.error('Error updating app build:', error);
     return { data: null, error };
@@ -75,12 +75,29 @@ export const getUserAppBuilds = async (userId: string) => {
       .from('app_builds')
       .select('*')
       .eq('user_id', userId)
-      .order('timestamp', { ascending: false }) as { data: AppBuildDB[] | null, error: any };
+      .order('timestamp', { ascending: false });
       
     if (error) throw error;
-    return { data };
+    return { data: data as AppBuildDB[] };
   } catch (error) {
     console.error('Error fetching user app builds:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Trigger a remote app build using the edge function
+ */
+export const triggerAppBuild = async (buildId: string, prompt: string, userId: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('build-app', {
+      body: { buildId, prompt, userId }
+    });
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error triggering app build:', error);
     return { data: null, error };
   }
 };
