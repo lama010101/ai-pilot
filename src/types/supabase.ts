@@ -17,6 +17,15 @@ export interface AppBuildDB {
   budget_usage?: number;
 }
 
+export interface AppBuild {
+  id: string;
+  prompt: string;
+  status: 'processing' | 'complete' | 'failed';
+  timestamp: string;
+  previewUrl?: string;
+  appName: string;
+}
+
 export interface GeneratedAppDB {
   id: string;
   build_id: string;
