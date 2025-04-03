@@ -1,4 +1,3 @@
-
 import { supabase, USE_FAKE_AUTH } from '../supabaseClient';
 import { AgentTaskDB } from '../supabaseTypes';
 import { generateId, calculateTaskCost, calculateMissionScore } from './utils';
@@ -256,7 +255,7 @@ export async function getAgentChain(parentTaskId: string) {
   if (USE_FAKE_AUTH) {
     // Get the parent task
     const parent = mockAgentTasks.find(t => t.id === parentTaskId);
-    if (!parent) return { data: [], error: null };
+    if (!parent) return { data: [] };
     
     // Get all child tasks
     const children = mockAgentTasks.filter(t => t.parent_task_id === parentTaskId);
@@ -264,7 +263,7 @@ export async function getAgentChain(parentTaskId: string) {
     // Combine parent and children
     const chain = [parent, ...children];
     
-    return { data: chain, error: null };
+    return { data: chain };
   }
   
   // Get the parent task
@@ -274,7 +273,7 @@ export async function getAgentChain(parentTaskId: string) {
     .eq('id', parentTaskId)
     .single();
     
-  if (parentError || !parent) return { data: [], error: null };
+  if (parentError || !parent) return { data: [] };
   
   // Get all child tasks
   const { data: children } = await supabase
@@ -285,7 +284,7 @@ export async function getAgentChain(parentTaskId: string) {
   // Combine parent and children
   const chain = [parent, ...(children || [])];
   
-  return { data: chain, error: null };
+  return { data: chain };
 }
 
 // This is an import function referenced inside this file
