@@ -22,13 +22,11 @@ import {
   Table
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { createAgentTask } from '@/lib/supabase/taskService';
-import { getAgentById } from '@/lib/supabase/agentService';
-import { createAppSpec } from '@/lib/supabase/appSpecService';
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserAppBuilds, createAppBuild, updateAppBuild, triggerAppBuild } from '@/lib/buildService';
+import { getUserAppBuilds, createAppBuild, getAppBuildById, triggerAppBuild } from '@/lib/buildService';
 import { AppBuildDB } from '@/types/supabase';
+import BuildHistory from '@/components/BuildHistory';
 
 // Type for app builds history
 interface AppBuild {
@@ -338,45 +336,10 @@ export default App;`;
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {appBuilds.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No build history yet. Create your first app!
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {appBuilds.map((build) => (
-                    <div 
-                      key={build.id} 
-                      className="border rounded-md p-4 hover:bg-accent/50 cursor-pointer transition-colors"
-                      onClick={() => handleViewPreview(build)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-medium">{build.appName}</h3>
-                          <p className="text-sm text-muted-foreground truncate max-w-md">
-                            {build.prompt}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs px-2 py-1 rounded-md ${
-                            build.status === 'complete' ? 'bg-green-100 text-green-800' : 
-                            build.status === 'processing' ? 'bg-blue-100 text-blue-800' : 
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {build.status.charAt(0).toUpperCase() + build.status.slice(1)}
-                          </span>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        {new Date(build.timestamp).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <BuildHistory 
+                builds={appBuilds} 
+                onViewBuild={handleViewPreview} 
+              />
             </CardContent>
           </Card>
         )}
