@@ -13,6 +13,9 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || defaultSupabas
 // Development flag for fake authentication
 export const USE_FAKE_AUTH = import.meta.env.VITE_USE_FAKE_AUTH === 'true';
 
+// Leader email for access control
+export const LEADER_EMAIL = import.meta.env.VITE_LEADER_EMAIL || 'emartin6867@gmail.com';
+
 // Only log warnings in development
 if (import.meta.env.DEV && (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY)) {
   console.warn('⚠️ Using default Supabase credentials. Set up your .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for proper functionality.');

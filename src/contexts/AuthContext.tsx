@@ -5,6 +5,9 @@ import { supabase, USE_FAKE_AUTH } from '@/lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+// Get the leader email from environment variables
+const LEADER_EMAIL = import.meta.env.VITE_LEADER_EMAIL || 'emartin6867@gmail.com';
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -40,9 +43,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
         
-        setSession(session);
-        setUser(session?.user || null);
-        setIsAuthenticated(!!session);
+        // If we have a session, check if the user is authorized
+        if (session) {
+          const userEmail = session.user?.email;
+          
+          if (userEmail !== LEADER_EMAIL) {
+            console.log('Unauthorized access attempt:', userEmail);
+            await supabase.auth.signOut();
+            navigate('/unauthorized');
+            setSession(null);
+            setUser(null);
+            setIsAuthenticated(false);
+          } else {
+            setSession(session);
+            setUser(session.user);
+            setIsAuthenticated(true);
+          }
+        }
+        
         setIsLoading(false);
       } catch (error) {
         console.error('Error checking session:', error);
@@ -54,16 +72,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user || null);
-      setIsAuthenticated(!!session);
+      // If session exists, check if user is authorized
+      if (session) {
+        const userEmail = session.user?.email;
+        
+        if (userEmail !== LEADER_EMAIL) {
+          console.log('Unauthorized access attempt:', userEmail);
+          supabase.auth.signOut().then(() => {
+            navigate('/unauthorized');
+          });
+          setSession(null);
+          setUser(null);
+          setIsAuthenticated(false);
+        } else {
+          setSession(session);
+          setUser(session.user);
+          setIsAuthenticated(true);
+        }
+      } else {
+        setSession(null);
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+      
       setIsLoading(false);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate]);
 
   const signInWithGoogle = async () => {
     if (USE_FAKE_AUTH) {
