@@ -1,7 +1,7 @@
 
 import { supabase } from './supabaseClient';
 import { USE_FAKE_AUTH } from './supabaseClient';
-import { generateId } from './utils';
+import { generateId } from './supabase/utils';
 
 // Types for chat messages
 export interface ChatMessageDB {
