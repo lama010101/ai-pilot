@@ -1,3 +1,4 @@
+
 import { supabase, USE_FAKE_AUTH } from '../supabaseClient';
 import { AgentTaskDB } from '../supabaseTypes';
 import { generateId, calculateTaskCost, calculateMissionScore } from './utils';
@@ -151,7 +152,7 @@ export async function injectZapWriterTask() {
 export async function spawnFollowUpAgents(parentTaskId: string) {
   // Get the parent task
   const { data: parentTask } = USE_FAKE_AUTH 
-    ? { data: mockAgentTasks.find(t => t.id === parentTaskId), error: null }
+    ? { data: mockAgentTasks.find(t => t.id === parentTaskId) }
     : await supabase.from('agent_tasks').select('*').eq('id', parentTaskId).single();
   
   if (!parentTask) return;
@@ -241,7 +242,7 @@ export async function getTasksForAppSpec(specId: string) {
   // In a real implementation, this would get all tasks related to an app spec
   // For now, we'll just return all tasks
   if (USE_FAKE_AUTH) {
-    return { data: mockAgentTasks, error: null };
+    return { data: mockAgentTasks };
   }
   
   return await supabase
