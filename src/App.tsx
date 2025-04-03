@@ -6,7 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { seedInitialAgents } from "./lib/supabaseService";
+import { seedInitialAgents } from "./lib/supabase";
+import { initializeChatTable } from "./lib/chatService";
 import { peacefulHello } from "./utils/peacefulHello";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -20,8 +21,9 @@ import Apps from "./pages/Apps";
 import AppDetail from "./pages/AppDetail";
 import DeveloperSettings from "./pages/DeveloperSettings";
 import AuthGuard from "./components/AuthGuard";
+import Chat from "./pages/Chat";
 
-// Import the new Greeting page
+// Import the Greeting page
 import Greeting from "./pages/Greeting";
 
 const queryClient = new QueryClient();
@@ -52,6 +54,7 @@ const AppInitializer = ({ children }: { children: React.ReactNode }) => {
     const initializeApp = async () => {
       try {
         await seedInitialAgents();
+        await initializeChatTable(); // Initialize the chat table
         peacefulHello(); // Log our peaceful hello world
       } catch (error) {
         console.error("Error initializing app:", error);
@@ -86,6 +89,7 @@ const App = () => (
                 <Route path="apps/:id" element={<AppDetail />} />
                 <Route path="logs" element={<PlaceholderPage title="Logs" />} />
                 <Route path="memory" element={<PlaceholderPage title="Memory" />} />
+                <Route path="chat" element={<Chat />} />
                 <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                 <Route path="settings/budget" element={<BudgetSettings />} />
                 <Route path="settings/developer" element={<DeveloperSettings />} />
