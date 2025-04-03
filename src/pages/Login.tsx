@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { USE_FAKE_AUTH } from '@/lib/supabaseClient';
+import { ArrowRight } from 'lucide-react';
 
 const Login = () => {
   const { signInWithGoogle, isAuthenticated, isLoading } = useAuth();
@@ -47,6 +48,16 @@ const Login = () => {
             </svg>
             {USE_FAKE_AUTH ? 'Sign in (Dev Mode)' : 'Sign in with Google'}
           </Button>
+          
+          <div className="mt-6 text-center">
+            <Button 
+              variant="link" 
+              onClick={() => navigate('/greeting')}
+              className="text-muted-foreground flex items-center gap-1"
+            >
+              Back to Welcome <ArrowRight size={16} />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

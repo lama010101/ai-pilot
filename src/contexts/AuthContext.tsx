@@ -107,6 +107,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (USE_FAKE_AUTH) {
       // Fake authentication - just redirect to dashboard
       setIsAuthenticated(true);
+      toast("Welcome, Leader", {
+        description: "You have been signed in with Dev Mode"
+      });
       navigate('/dashboard');
       return;
     }
@@ -132,12 +135,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (USE_FAKE_AUTH) {
       // Fake sign out - just redirect to login
       setIsAuthenticated(false);
+      toast("Signed out", {
+        description: "You have been signed out"
+      });
       navigate('/login');
       return;
     }
 
     try {
       await supabase.auth.signOut();
+      toast("Signed out", {
+        description: "You have been signed out successfully"
+      });
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);

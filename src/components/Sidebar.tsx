@@ -10,7 +10,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  LayoutGrid
+  LayoutGrid,
+  MessageSquare
 } from 'lucide-react';
 
 interface SidebarItemProps {
@@ -85,6 +86,12 @@ const Sidebar = () => {
           icon={<Database size={20} />} 
           label="Memory" 
           to="/dashboard/memory" 
+          isCollapsed={isCollapsed} 
+        />
+        <SidebarItem 
+          icon={<MessageSquare size={20} />} 
+          label="Chat" 
+          to="/dashboard/chat" 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 

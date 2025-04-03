@@ -5,7 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AuthProvider } from "./contexts/AuthContext";
 import { seedInitialAgents } from "./lib/supabase";
 import { initializeChatTable } from "./lib/chatService";
 import { peacefulHello } from "./utils/peacefulHello";
@@ -20,32 +20,10 @@ import BudgetSettings from "./pages/BudgetSettings";
 import Apps from "./pages/Apps";
 import AppDetail from "./pages/AppDetail";
 import DeveloperSettings from "./pages/DeveloperSettings";
-import AuthGuard from "./components/AuthGuard";
 import Chat from "./pages/Chat";
-
-// Import the Greeting page
 import Greeting from "./pages/Greeting";
 
 const queryClient = new QueryClient();
-
-// Route guard component for any route
-const ProtectedRoute = ({ element }: { element: JSX.Element }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-12 h-12 rounded-full border-4 border-pilot-600 border-t-transparent animate-spin"></div>
-      </div>
-    );
-  }
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/unauthorized" replace />;
-  }
-  
-  return element;
-};
 
 // App initialization component
 const AppInitializer = ({ children }: { children: React.ReactNode }) => {
