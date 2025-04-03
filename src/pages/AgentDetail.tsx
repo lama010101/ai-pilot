@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,8 @@ import { agents } from "@/data/agents";
 import AgentFeedback from "@/components/AgentFeedback";
 import FeedbackSummary from "@/components/FeedbackSummary";
 import CommandSuggestions from "@/components/CommandSuggestions";
+import RunAgentButton from "@/components/RunAgentButton";
+import { useManualTriggersEnabled } from "@/components/DeveloperSettings";
 
 const AgentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +33,7 @@ const AgentDetail = () => {
   const [command, setCommand] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const manualTriggersEnabled = useManualTriggersEnabled();
 
   const fetchData = async () => {
     if (!id) return;
@@ -176,6 +180,14 @@ const AgentDetail = () => {
             {mockAgent?.status === 'running' ? 'Running' :
             mockAgent?.status === 'error' ? 'Error' : 'Idle'}
           </span>
+          
+          {/* Add Run Agent Now button */}
+          {manualTriggersEnabled && id && (
+            <RunAgentButton 
+              agentId={id} 
+              onSuccess={fetchData}
+            />
+          )}
         </div>
       </div>
       

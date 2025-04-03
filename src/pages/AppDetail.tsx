@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +11,11 @@ import {
   updateAppSpec, 
   getAgentChain,
   getAgentById,
-  getTasksForAppSpec
+  getTasksForAppSpec,
+  getTaskMemory,
+  injectZapWriterTask
 } from "@/lib/supabaseService";
-import { AppSpecDB, AgentTaskDB, AgentDB } from "@/lib/supabaseTypes";
+import { AppSpecDB, AgentTaskDB, AgentDB, TaskMemoryDB } from "@/lib/supabaseTypes";
 import { toast } from "sonner";
 import { 
   ArrowDown, 
@@ -23,15 +26,20 @@ import {
   PenLine,
   Code, 
   TestTube, 
-  Upload
+  Upload,
+  ScrollText
 } from "lucide-react";
+import RunAgentChainButton from "@/components/RunAgentChainButton";
+import { useManualTriggersEnabled } from "@/components/DeveloperSettings";
 
 const AppDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [appSpec, setAppSpec] = useState<AppSpecDB | null>(null);
   const [agentChain, setAgentChain] = useState<AgentTaskDB[]>([]);
   const [agents, setAgents] = useState<Record<string, AgentDB>>({});
+  const [taskMemories, setTaskMemories] = useState<Record<string, TaskMemoryDB[]>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const manualTriggersEnabled = useManualTriggersEnabled();
 
   const fetchAppDetails = async () => {
     if (!id) return;
@@ -72,6 +80,16 @@ const AppDetail = () => {
               }
               
               setAgents(agentDetails);
+              
+              // Fetch task memories for each task
+              const memories: Record<string, TaskMemoryDB[]> = {};
+              for (const task of chainData) {
+                const { data: memoryData } = await getTaskMemory(task.id);
+                if (memoryData && memoryData.length > 0) {
+                  memories[task.id] = memoryData;
+                }
+              }
+              setTaskMemories(memories);
             }
           }
         }
@@ -87,6 +105,19 @@ const AppDetail = () => {
   useEffect(() => {
     fetchAppDetails();
   }, [id]);
+  
+  // Inject ZapWriter Task if none exists
+  useEffect(() => {
+    const injectTask = async () => {
+      try {
+        await injectZapWriterTask();
+      } catch (error) {
+        console.error("Error injecting ZapWriter task:", error);
+      }
+    };
+    
+    injectTask();
+  }, []);
 
   const handleStatusChange = async (newStatus: AppSpecDB['status']) => {
     if (!appSpec) return;
@@ -192,6 +223,14 @@ const AppDetail = () => {
               Deploy App
             </Button>
           )}
+          
+          {/* Add Run Agent Chain button */}
+          {manualTriggersEnabled && agentChain.length > 0 && (
+            <RunAgentChainButton 
+              parentTaskId={agentChain[0].id}
+              onSuccess={fetchAppDetails}
+            />
+          )}
         </div>
       </div>
       
@@ -200,6 +239,7 @@ const AppDetail = () => {
           <TabsTrigger value="spec">Specification</TabsTrigger>
           <TabsTrigger value="chain">Agent Chain</TabsTrigger>
           <TabsTrigger value="memory">Memory</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
         
         <TabsContent value="spec" className="space-y-4">
@@ -318,6 +358,79 @@ const AppDetail = () => {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">No task memory available yet.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Add new Logs tab */}
+        <TabsContent value="logs" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ScrollText className="h-5 w-5" /> Execution Logs
+              </CardTitle>
+              <CardDescription>
+                Detailed logs of agent execution and task processing
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {Object.keys(taskMemories).length > 0 ? (
+                <div className="space-y-6">
+                  {Object.entries(taskMemories).map(([taskId, memories]) => {
+                    const task = agentChain.find(t => t.id === taskId);
+                    const agent = task ? agents[task.agent_id] : null;
+                    
+                    return (
+                      <div key={taskId} className="border rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          {agent && getRoleIcon(agent.role)}
+                          <h3 className="font-medium">
+                            {agent?.name || task?.agent_id || "Unknown Agent"}
+                          </h3>
+                          <Badge variant="outline" className={
+                            task?.status === 'success' 
+                              ? 'bg-green-50 text-green-800 border-green-200'
+                              : task?.status === 'failure'
+                              ? 'bg-red-50 text-red-800 border-red-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }>
+                            {task?.status || "unknown"}
+                          </Badge>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          {memories.map((memory, index) => (
+                            <div key={memory.id} className="bg-muted p-3 rounded-md">
+                              <div className="flex justify-between mb-2">
+                                <div className="text-sm font-medium">Log Entry #{index + 1}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(memory.timestamp).toLocaleString()}
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground">Input:</div>
+                                  <div className="text-sm whitespace-pre-wrap">{memory.prompt}</div>
+                                </div>
+                                
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground">Output:</div>
+                                  <div className="text-sm whitespace-pre-wrap">{memory.result}</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No execution logs available yet.</p>
                 </div>
               )}
             </CardContent>

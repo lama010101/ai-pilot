@@ -61,7 +61,7 @@ const TimelineContent = React.forwardRef<
 TimelineContent.displayName = "TimelineContent";
 
 // Define the TimelineItemComponent type that includes subcomponents
-interface TimelineCompoundComponent
+interface TimelineItemType
   extends React.ForwardRefExoticComponent<
     React.HTMLAttributes<HTMLDivElement> & React.RefAttributes<HTMLDivElement>
   > {
@@ -70,13 +70,14 @@ interface TimelineCompoundComponent
 }
 
 // Create the compound component
-const TimelineItem = TimelineItemComponent as TimelineCompoundComponent;
+const TimelineItem = TimelineItemComponent as TimelineItemType;
 
 // Attach subcomponents
 TimelineItem.Indicator = TimelineIndicator;
 TimelineItem.Content = TimelineContent;
 
-export const Timeline = React.forwardRef<
+// Create and export the Timeline component
+const Timeline = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, children, ...props }, ref) => (
@@ -90,5 +91,4 @@ export const Timeline = React.forwardRef<
 ));
 Timeline.displayName = "Timeline";
 
-// Export the compound component
-export { TimelineItem };
+export { Timeline, TimelineItem };

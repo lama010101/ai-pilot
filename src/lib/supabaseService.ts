@@ -281,7 +281,7 @@ export async function injectZapWriterTask() {
   if (!tasks || tasks.length === 0) {
     await createAgentTask({
       agent_id: 'zapwriter',
-      command: "Write a full app spec for Zap: a no-code AI webapp builder aligned with the AI Pilot mission.",
+      command: "Write a complete app spec for Zap: a no-code AI webapp builder that builds apps using other AIs. Follow the peace mission and v0.6 Dashboard format.",
       result: "",
       confidence: 0.9,
       status: 'processing'
@@ -293,7 +293,11 @@ export async function injectZapWriterTask() {
       summary: 'Auto-injected Zap spec creation task',
       status: 'success'
     });
+    
+    return { success: true, message: "ZapWriter task injected successfully" };
   }
+  
+  return { success: false, message: "ZapWriter tasks already exist" };
 }
 
 // Auto-spawn follow-up agents for the chain
@@ -620,7 +624,7 @@ export async function getMonthlySpending() {
   return { data: totalSpend, error: null };
 }
 
-// Mock LLM call to generate agent from spec
+// Update the generateAgentFromSpec function to return the correct type
 export async function generateAgentFromSpec(spec: string) {
   // This is a mock implementation. In a real app, this would call an API or use AI
   // to generate agent configuration based on the spec.
@@ -634,7 +638,8 @@ export async function generateAgentFromSpec(spec: string) {
         is_ephemeral: false,
         phase: 1,
         initialTask: "Write full spec for Zap based on mission"
-      }
+      },
+      error: null
     };
   }
   
@@ -646,7 +651,8 @@ export async function generateAgentFromSpec(spec: string) {
       is_ephemeral: Math.random() > 0.5, // 50% chance of being ephemeral
       phase: 1,
       initialTask: `Process the following specification: ${spec.substring(0, 30)}...`
-    }
+    },
+    error: null
   };
 }
 
