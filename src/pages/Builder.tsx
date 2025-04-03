@@ -1,45 +1,28 @@
-import React, { useState, useRef, useEffect } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle,
-  CardDescription,
-  CardFooter
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { 
-  PlayCircle, 
-  Code2, 
-  FileText, 
-  Rocket,
-  Loader2,
-  History,
-  Eye,
-  Table
-} from 'lucide-react';
+import { History } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserAppBuilds, createAppBuild, getAppBuildById, triggerAppBuild } from '@/lib/buildService';
-import { AppBuildDB } from '@/types/supabase';
-import BuildHistory from '@/components/BuildHistory';
+import { 
+  getUserAppBuilds, 
+  createAppBuild, 
+  getAppBuildById, 
+  triggerAppBuild 
+} from '@/lib/buildService';
+import { AppBuild } from '@/types/supabase';
 
-// Type for app builds history
-interface AppBuild {
-  id: string;
-  prompt: string;
-  status: 'processing' | 'complete' | 'failed';
-  timestamp: string;
-  previewUrl?: string;
-  appName: string;
-}
+// Import our new components
+import PromptInput from '@/components/builder/PromptInput';
+import BuildProgress from '@/components/builder/BuildProgress';
+import BuildPreview from '@/components/builder/BuildPreview';
+import BuildHistoryList from '@/components/builder/BuildHistoryList';
 
 const Builder = () => {
-  const [prompt, setPrompt] = useState<string>('');
+  // State variables
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [spec, setSpec] = useState<string>('');
@@ -48,10 +31,12 @@ const Builder = () => {
   const [appBuilds, setAppBuilds] = useState<AppBuild[]>([]);
   const [selectedBuild, setSelectedBuild] = useState<AppBuild | null>(null);
   const [isShowingHistory, setIsShowingHistory] = useState<boolean>(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
+  
   const { toast: uiToast } = useToast();
   const { user } = useAuth();
   
+  // Steps for the build process
   const steps = [
     'Analyzing prompt...',
     'Generating app specification...',
@@ -61,10 +46,12 @@ const Builder = () => {
     'Complete!'
   ];
   
+  // Fetch build history when user is available
   const fetchBuildHistory = async () => {
     if (!user) return;
     
     try {
+      setIsLoadingHistory(true);
       const { data } = await getUserAppBuilds(user.id);
       
       if (data) {
@@ -81,6 +68,8 @@ const Builder = () => {
       }
     } catch (error) {
       console.error('Error fetching build history:', error);
+    } finally {
+      setIsLoadingHistory(false);
     }
   };
   
@@ -90,12 +79,8 @@ const Builder = () => {
     }
   }, [user]);
   
-  const handleSubmit = async () => {
-    if (!prompt.trim()) {
-      toast.error('Please enter a prompt to build an app');
-      return;
-    }
-    
+  // Handle app build submission
+  const handleSubmit = async (prompt: string) => {
     if (!user) {
       toast.error('You need to be logged in to build an app');
       return;
@@ -191,22 +176,12 @@ const Builder = () => {
     }
   };
   
-  const handleViewPreview = (build: AppBuild) => {
+  // Handle viewing a build from history
+  const handleViewBuild = (build: AppBuild) => {
     setSelectedBuild(build);
-    if (iframeRef.current && build.previewUrl) {
-      // For demo purposes, we're not actually loading the URL since it doesn't exist
-      // iframeRef.current.src = build.previewUrl;
-    }
   };
   
-  const handleDeploy = () => {
-    toast.info('Deployment in progress! Your app will be available shortly.');
-    
-    setTimeout(() => {
-      toast.success('App deployed successfully! You can access it at the production URL.');
-    }, 3000);
-  };
-  
+  // Generate an app name from the prompt
   const generateAppName = (prompt: string): string => {
     const words = prompt.split(' ');
     const nameWords = words.filter(word => 
@@ -219,87 +194,6 @@ const Builder = () => {
     }
     
     return nameWords.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('') + 'App';
-  };
-  
-  const generateSpec = (prompt: string): string => {
-    return `# App Specification for: ${prompt}\n
-## Overview
-This application will provide users with the following features:
-- User authentication with email/password
-- Create, read, update, and delete items
-- Categorize items with tags
-- Filter and search functionality
-- Responsive design for mobile and desktop
-
-## Technical Requirements
-- Frontend: Next.js with Tailwind CSS
-- Backend: Supabase for authentication and database
-- State Management: React Query
-- UI Components: shadcn/ui
-
-## Pages
-1. Login/Register
-2. Dashboard
-3. Item Detail
-4. Settings
-
-## Data Models
-\`\`\`
-items {
-  id: uuid
-  user_id: uuid
-  title: string
-  description: string
-  created_at: timestamp
-  updated_at: timestamp
-}
-
-tags {
-  id: uuid
-  name: string
-}
-
-item_tags {
-  item_id: uuid
-  tag_id: uuid
-}
-\`\`\``;
-  };
-  
-  const generateCode = (spec: string): string => {
-    return `// App.tsx
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from './components/ui/toaster';
-import { AuthProvider } from './contexts/AuthContext';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import ItemDetail from './pages/ItemDetail';
-import Settings from './pages/Settings';
-import ProtectedRoute from './components/ProtectedRoute';
-
-const queryClient = new QueryClient();
-
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/items/:id" element={<ProtectedRoute><ItemDetail /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          </Routes>
-        </BrowserRouter>
-        <Toaster />
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-}
-
-export default App;`;
   };
   
   return (
@@ -336,125 +230,39 @@ export default App;`;
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <BuildHistory 
+              <BuildHistoryList 
                 builds={appBuilds} 
-                onViewBuild={handleViewPreview} 
+                onViewBuild={handleViewBuild}
+                isLoading={isLoadingHistory}
               />
             </CardContent>
           </Card>
         )}
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Create New App</CardTitle>
-            <CardDescription>
-              Describe the app you want to build in plain English
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              placeholder="e.g., Build a to-do app with tasks and tags, dark mode support, and user authentication"
-              className="min-h-[120px]"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              disabled={isProcessing}
-            />
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <div className="text-sm text-muted-foreground">
-              {isProcessing && (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="animate-spin h-4 w-4" />
-                  <span>{steps[currentStep]}</span>
-                </div>
-              )}
-            </div>
-            <Button 
-              onClick={handleSubmit}
-              disabled={isProcessing || !prompt.trim()}
-              className="flex items-center gap-2"
-            >
-              <PlayCircle className="h-4 w-4" />
-              {isProcessing ? 'Building...' : 'Build App'}
-            </Button>
-          </CardFooter>
-        </Card>
+        <PromptInput 
+          isProcessing={isProcessing}
+          currentStep={currentStep}
+          steps={steps}
+          onSubmit={handleSubmit}
+        />
         
-        {(spec || code || isComplete || selectedBuild) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {selectedBuild ? selectedBuild.appName : 'Build Results'}
-              </CardTitle>
-              <CardDescription>
-                {selectedBuild 
-                  ? `App generated from prompt: ${selectedBuild.prompt.substring(0, 100)}${selectedBuild.prompt.length > 100 ? '...' : ''}`
-                  : 'App generated from your prompt'
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="spec" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="spec" className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" /> Specification
-                  </TabsTrigger>
-                  <TabsTrigger value="code" className="flex items-center gap-2">
-                    <Code2 className="h-4 w-4" /> Code Preview
-                  </TabsTrigger>
-                  <TabsTrigger value="preview" className="flex items-center gap-2">
-                    <Eye className="h-4 w-4" /> App Preview
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="spec" className="mt-4">
-                  <div className="bg-card-foreground/5 rounded-md p-4 overflow-auto max-h-[400px]">
-                    <pre className="whitespace-pre-wrap text-sm">{spec || "Specification will appear here after building."}</pre>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="code" className="mt-4">
-                  <div className="bg-card-foreground/5 rounded-md p-4 overflow-auto max-h-[400px]">
-                    <pre className="whitespace-pre-wrap text-sm">{code || "Code will appear here after building."}</pre>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="preview" className="mt-4">
-                  <div className="bg-card-foreground/5 rounded-md p-4 h-[400px] flex items-center justify-center">
-                    {selectedBuild?.previewUrl ? (
-                      <div className="w-full h-full border border-border rounded">
-                        <iframe 
-                          ref={iframeRef}
-                          className="w-full h-full"
-                          title="App Preview"
-                          src="about:blank"
-                        />
-                      </div>
-                    ) : (
-                      <div className="text-center text-muted-foreground">
-                        <Table className="h-12 w-12 mb-2 mx-auto opacity-50" />
-                        <p>Preview will be available after build completes.</p>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-            
-            {(isComplete || selectedBuild?.status === 'complete') && (
-              <CardFooter>
-                <Button 
-                  onClick={handleDeploy}
-                  className="flex items-center gap-2 ml-auto"
-                  variant="default"
-                >
-                  <Rocket className="h-4 w-4" />
-                  Deploy App
-                </Button>
-              </CardFooter>
-            )}
+        {isProcessing && (
+          <Card className="p-4">
+            <BuildProgress 
+              isProcessing={isProcessing}
+              currentStep={currentStep}
+              totalSteps={steps.length}
+              steps={steps}
+            />
           </Card>
         )}
+        
+        <BuildPreview 
+          spec={spec}
+          code={code}
+          isComplete={isComplete}
+          selectedBuild={selectedBuild}
+        />
       </div>
     </>
   );
