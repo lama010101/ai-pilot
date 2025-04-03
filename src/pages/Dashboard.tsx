@@ -1,40 +1,112 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { agents } from "@/data/agents";
 import { useEffect, useState } from "react";
-import { getActivityLogs, getAgents } from "@/lib/supabaseService";
+import { getActivityLogs, getAgents, createAgent, createActivityLog } from "@/lib/supabaseService";
 import { ActivityLogDB, AgentDB } from "@/lib/supabaseTypes";
 import { Link } from "react-router-dom";
+import { Plus, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import SystemStatusBanner from "@/components/SystemStatusBanner";
+import { USE_FAKE_AUTH } from "@/lib/supabaseClient";
 
 const Dashboard = () => {
   const [activityLogs, setActivityLogs] = useState<ActivityLogDB[]>([]);
   const [dbAgents, setDbAgents] = useState<AgentDB[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [liveMode, setLiveMode] = useState(false);
+  const [filterAgentType, setFilterAgentType] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>("");
+
+  const fetchData = async () => {
+    try {
+      // Fetch activity logs with filters
+      const { data: logData, error: logError } = await getActivityLogs(
+        10, 
+        filterAgentType, 
+        filterStatus
+      );
+      
+      if (!logError && logData) {
+        setActivityLogs(logData);
+      }
+
+      // Fetch agents
+      const { data: agentData, error: agentError } = await getAgents();
+      if (!agentError && agentData) {
+        setDbAgents(agentData);
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch activity logs
-        const { data: logData, error: logError } = await getActivityLogs(10);
-        if (!logError && logData) {
-          setActivityLogs(logData);
-        }
-
-        // Fetch agents
-        const { data: agentData, error: agentError } = await getAgents();
-        if (!agentError && agentData) {
-          setDbAgents(agentData);
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
-  }, []);
+  }, [filterAgentType, filterStatus]);
+
+  useEffect(() => {
+    // Set up polling for live mode
+    if (liveMode) {
+      const intervalId = setInterval(fetchData, 10000);
+      return () => clearInterval(intervalId);
+    }
+  }, [liveMode, filterAgentType, filterStatus]);
+
+  const handleCreateTestAgent = async () => {
+    if (!USE_FAKE_AUTH) return;
+    
+    try {
+      // Generate a random name
+      const names = ["Test Bot", "QA Agent", "Debug Helper", "Validation AI"];
+      const randomName = names[Math.floor(Math.random() * names.length)] + " " + Math.floor(Math.random() * 1000);
+      
+      const { data: newAgent, error } = await createAgent({
+        name: randomName,
+        role: "Tester",
+        phase: 1,
+        is_ephemeral: true
+      });
+      
+      if (error) throw error;
+      
+      if (newAgent) {
+        // Add to local state (optimistic update)
+        setDbAgents([newAgent, ...dbAgents]);
+        
+        // Log activity
+        await createActivityLog({
+          agent_id: newAgent.id,
+          action: "agent_created",
+          summary: `${newAgent.name} was created as a test agent`,
+          status: "success"
+        });
+        
+        toast.success(`Test agent "${newAgent.name}" created successfully`);
+        
+        // Refresh data
+        fetchData();
+      }
+    } catch (error) {
+      console.error("Error creating test agent:", error);
+      toast.error("Failed to create test agent");
+    }
+  };
+
+  // Filter agents based on criteria
+  const filteredAgents = agents.filter(agent => {
+    if (filterStatus && agent.status !== filterStatus) return false;
+    // We don't have agent types in our mock data, but we would filter here
+    return true;
+  });
 
   if (isLoading) {
     return (
@@ -51,6 +123,67 @@ const Dashboard = () => {
         <p className="text-muted-foreground mt-1">
           Central control for autonomous AI agents
         </p>
+      </div>
+      
+      <SystemStatusBanner />
+      
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex items-center space-x-2">
+            <Label htmlFor="live-mode">Live Mode</Label>
+            <Switch
+              id="live-mode"
+              checked={liveMode}
+              onCheckedChange={setLiveMode}
+            />
+          </div>
+
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All statuses</SelectItem>
+              <SelectItem value="running">Running</SelectItem>
+              <SelectItem value="idle">Idle</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterAgentType} onValueChange={setFilterAgentType}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All types</SelectItem>
+              <SelectItem value="Writer">Writer</SelectItem>
+              <SelectItem value="Coder">Coder</SelectItem>
+              <SelectItem value="Researcher">Researcher</SelectItem>
+              <SelectItem value="Tester">Tester</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchData} 
+            className="flex items-center gap-1"
+          >
+            <RefreshCw size={14} /> Refresh
+          </Button>
+          
+          {USE_FAKE_AUTH && (
+            <Button 
+              size="sm" 
+              onClick={handleCreateTestAgent}
+              className="flex items-center gap-1"
+            >
+              <Plus size={14} /> Spawn Test Agent
+            </Button>
+          )}
+        </div>
       </div>
       
       <Tabs defaultValue="overview">
@@ -125,12 +258,19 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {agents.map((agent) => (
+                    {filteredAgents.map((agent) => (
                       <tr key={agent.id} className="border-t">
                         <td className="p-3">
-                          <Link to={`/dashboard/agents/${agent.id}`} className="hover:underline font-medium">
-                            {agent.name}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link to={`/dashboard/agents/${agent.id}`} className="hover:underline font-medium">
+                              {agent.name}
+                            </Link>
+                            {dbAgents.find(a => a.id === agent.id)?.is_ephemeral && (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200">
+                                Ephemeral
+                              </Badge>
+                            )}
+                          </div>
                         </td>
                         <td className="p-3">
                           <span className="flex items-center gap-2">

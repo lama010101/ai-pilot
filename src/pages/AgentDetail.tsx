@@ -5,10 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { agents, Agent } from '@/data/agents';
 import { AgentTaskDB, AgentDB } from '@/lib/supabaseTypes';
 import { getAgentById, getAgentTasks, createAgentTask, createActivityLog } from '@/lib/supabaseService';
 import { toast } from 'sonner';
+import CommandSuggestions from '@/components/CommandSuggestions';
+import AgentFeedback from '@/components/AgentFeedback';
+import FeedbackSummary from '@/components/FeedbackSummary';
 
 const AgentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +22,7 @@ const AgentDetail = () => {
   const [tasks, setTasks] = useState<AgentTaskDB[]>([]);
   const [command, setCommand] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -52,17 +57,18 @@ const AgentDetail = () => {
     
     fetchAgent();
   }, [id, navigate]);
-
-  if (!agent) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 rounded-full border-primary border-t-transparent animate-spin"></div>
-      </div>
-    );
-  }
+  
+  const refreshTasks = async () => {
+    if (!id) return;
+    
+    const { data: taskData, error: taskError } = await getAgentTasks(id);
+    if (!taskError && taskData) {
+      setTasks(taskData);
+    }
+  };
 
   const handleSimulateTask = async () => {
-    if (isProcessing) return;
+    if (isProcessing || !agent || !id) return;
     
     setIsProcessing(true);
     toast.info(`${agent.name} is processing a new task...`);
@@ -83,7 +89,7 @@ const AgentDetail = () => {
       try {
         // Create new task
         const { data: newTask, error } = await createAgentTask({
-          agent_id: id!,
+          agent_id: id,
           command: `Execute: ${defaultTask}`,
           result,
           confidence,
@@ -95,11 +101,12 @@ const AgentDetail = () => {
         // Add to task list (optimistic update)
         if (newTask) {
           setTasks([newTask, ...tasks]);
+          setActiveTaskId(newTask.id);
         }
         
         // Log activity
         await createActivityLog({
-          agent_id: id!,
+          agent_id: id,
           action: 'execute_task',
           summary: `${agent.name} ${status === 'success' ? 'completed' : 'attempted'} ${defaultTask}`,
           status,
@@ -117,7 +124,7 @@ const AgentDetail = () => {
 
   const handleSendCommand = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!command.trim() || isProcessing) return;
+    if (!command.trim() || isProcessing || !agent || !id) return;
     
     setIsProcessing(true);
     toast.info(`${agent.name} is processing your command...`);
@@ -137,7 +144,7 @@ const AgentDetail = () => {
         
         // Create new task
         const { data: newTask, error } = await createAgentTask({
-          agent_id: id!,
+          agent_id: id,
           command,
           result,
           confidence,
@@ -149,11 +156,12 @@ const AgentDetail = () => {
         // Add to task list (optimistic update)
         if (newTask) {
           setTasks([newTask, ...tasks]);
+          setActiveTaskId(newTask.id);
         }
         
         // Log activity
         await createActivityLog({
-          agent_id: id!,
+          agent_id: id,
           action: 'process_command',
           summary: `${agent.name} processed command: "${command.substring(0, 30)}${command.length > 30 ? '...' : ''}"`,
           status,
@@ -170,12 +178,37 @@ const AgentDetail = () => {
     }, 2500); // Simulate processing delay
   };
 
+  const handleSelectCommand = (selectedCommand: string) => {
+    setCommand(selectedCommand);
+  };
+
+  if (!agent) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 rounded-full border-primary border-t-transparent animate-spin"></div>
+      </div>
+    );
+  }
+
+  // Determine the agent type for command templates
+  const agentRole = agentConfig?.role || agent.description || '';
+  const agentType = 
+    agentRole.toLowerCase().includes('write') ? 'Writer' :
+    agentRole.toLowerCase().includes('cod') ? 'Coder' :
+    agentRole.toLowerCase().includes('research') ? 'Researcher' :
+    agentRole.toLowerCase().includes('test') ? 'Tester' :
+    'Default';
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
+        <div className="flex items-center gap-2">
           <h1 className="text-3xl font-bold">{agent.name}</h1>
-          <p className="text-muted-foreground">{agent.description}</p>
+          {agentConfig?.is_ephemeral && (
+            <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200">
+              Ephemeral
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className={`h-3 w-3 rounded-full ${
@@ -188,6 +221,8 @@ const AgentDetail = () => {
           </span>
         </div>
       </div>
+      
+      <p className="text-muted-foreground">{agent.description}</p>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
@@ -219,6 +254,8 @@ const AgentDetail = () => {
             <CardDescription>Issue a direct command to the agent</CardDescription>
           </CardHeader>
           <CardContent>
+            <CommandSuggestions agentType={agentType} onSelectCommand={handleSelectCommand} />
+            
             <form onSubmit={handleSendCommand} className="flex gap-2">
               <Input
                 value={command}
@@ -243,6 +280,7 @@ const AgentDetail = () => {
       <Tabs defaultValue="tasks">
         <TabsList>
           <TabsTrigger value="tasks">Task History</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback</TabsTrigger>
           <TabsTrigger value="config">Agent Config</TabsTrigger>
         </TabsList>
         
@@ -256,23 +294,33 @@ const AgentDetail = () => {
               <div className="max-h-[400px] overflow-y-auto space-y-4">
                 {tasks.length > 0 ? (
                   tasks.map((task) => (
-                    <div key={task.id} className="flex items-start space-x-4 pb-4 border-b last:border-0">
-                      <div className={`mt-2 w-2 h-2 rounded-full ${
-                        task.status === 'success' ? 'bg-green-500' : 
-                        task.status === 'failure' ? 'bg-red-500' : 'bg-amber-500'
-                      }`}></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Command: {task.command}</p>
-                        <p className="text-sm mt-1">{task.result}</p>
-                        <div className="flex justify-between mt-1">
-                          <p className="text-xs text-muted-foreground">
-                            Confidence: {task.confidence}%
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(task.timestamp).toLocaleString()}
-                          </p>
+                    <div key={task.id} className="pb-4 border-b last:border-0">
+                      <div className="flex items-start space-x-4">
+                        <div className={`mt-2 w-2 h-2 rounded-full ${
+                          task.status === 'success' ? 'bg-green-500' : 
+                          task.status === 'failure' ? 'bg-red-500' : 'bg-amber-500'
+                        }`}></div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Command: {task.command}</p>
+                          <p className="text-sm mt-1">{task.result}</p>
+                          <div className="flex justify-between mt-1">
+                            <p className="text-xs text-muted-foreground">
+                              Confidence: {task.confidence}%
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(task.timestamp).toLocaleString()}
+                            </p>
+                          </div>
                         </div>
                       </div>
+                      
+                      {task.id === activeTaskId && (
+                        <AgentFeedback 
+                          agentId={id!} 
+                          taskId={task.id} 
+                          onFeedbackSubmitted={() => setActiveTaskId(null)}
+                        />
+                      )}
                     </div>
                   ))
                 ) : (
@@ -283,6 +331,10 @@ const AgentDetail = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="feedback">
+          <FeedbackSummary agentId={id!} />
         </TabsContent>
         
         <TabsContent value="config">
