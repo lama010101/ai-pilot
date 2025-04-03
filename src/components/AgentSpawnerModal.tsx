@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,7 +35,6 @@ import { AGENT_ROLES, ZAP_SPEC_TEMPLATE } from "@/lib/supabaseTypes";
 import { createAgent, createActivityLog, createAgentTask, generateAgentFromSpec } from "@/lib/supabaseService";
 import { toast } from "sonner";
 
-// Form validation schema
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   role: z.string().min(1, { message: "Please select a role." }),
@@ -89,7 +87,6 @@ const AgentSpawnerModal = ({ open, onOpenChange, onSuccess }: AgentSpawnerModalP
     setIsLoading(true);
     try {
       const response = await generateAgentFromSpec(spec);
-      // Handle the response without assuming error property exists
       
       if (response.data) {
         form.setValue("name", response.data.name);
@@ -110,7 +107,6 @@ const AgentSpawnerModal = ({ open, onOpenChange, onSuccess }: AgentSpawnerModalP
     setIsLoading(true);
     
     try {
-      // Create the agent
       const { data: agent, error } = await createAgent({
         name: values.name,
         role: values.role,
@@ -120,7 +116,6 @@ const AgentSpawnerModal = ({ open, onOpenChange, onSuccess }: AgentSpawnerModalP
       
       if (error) throw error;
       
-      // Log the creation
       if (agent) {
         await createActivityLog({
           agent_id: agent.id,
@@ -129,7 +124,6 @@ const AgentSpawnerModal = ({ open, onOpenChange, onSuccess }: AgentSpawnerModalP
           status: "success"
         });
         
-        // If created from spec, add initial task
         if (fromSpec && values.spec) {
           const initialTask = values.spec.includes("Zap") ? 
             "Write full spec for Zap based on mission" : 
@@ -146,7 +140,6 @@ const AgentSpawnerModal = ({ open, onOpenChange, onSuccess }: AgentSpawnerModalP
         
         toast.success(`Agent ${agent.name} created successfully`);
         
-        // Reset form and close modal
         form.reset();
         onOpenChange(false);
         if (onSuccess) onSuccess();
