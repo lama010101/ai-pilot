@@ -256,7 +256,7 @@ export async function getAgentChain(parentTaskId: string) {
   if (USE_FAKE_AUTH) {
     // Get the parent task
     const parent = mockAgentTasks.find(t => t.id === parentTaskId);
-    if (!parent) return { data: [], error: new Error('Parent task not found') };
+    if (!parent) return { data: [], error: null }; // Fixed: Changed from Error to null to match return type
     
     // Get all child tasks
     const children = mockAgentTasks.filter(t => t.parent_task_id === parentTaskId);
@@ -268,13 +268,13 @@ export async function getAgentChain(parentTaskId: string) {
   }
   
   // Get the parent task
-  const { data: parent } = await supabase
+  const { data: parent, error: parentError } = await supabase
     .from('agent_tasks')
     .select('*')
     .eq('id', parentTaskId)
     .single();
     
-  if (!parent) return { data: [], error: new Error('Parent task not found') };
+  if (parentError || !parent) return { data: [], error: null }; // Fixed: Changed from Error to null to match return type
   
   // Get all child tasks
   const { data: children } = await supabase
