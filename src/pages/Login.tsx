@@ -1,0 +1,53 @@
+
+import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+
+const Login = () => {
+  const { signInWithGoogle, user, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user && !isLoading) {
+      navigate('/dashboard');
+    }
+  }, [user, isLoading, navigate]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-lg">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-pilot-400">AI Pilot</h1>
+          <p className="mt-2 text-muted-foreground">Leader Control Dashboard</p>
+        </div>
+        
+        <div className="space-y-4">
+          <p className="text-center text-sm text-muted-foreground">
+            Access restricted to authorized personnel only
+          </p>
+          
+          <Button 
+            onClick={signInWithGoogle}
+            className="w-full bg-white hover:bg-gray-100 text-gray-900 font-semibold"
+            disabled={isLoading}
+          >
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 0 1-6.021-6.022 6.033 6.033 0 0 1 6.021-6.022c1.508 0 2.873.577 3.908 1.522l2.798-2.799A10.004 10.004 0 0 0 12.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748l-9.426-.013z"
+              />
+            </svg>
+            Sign in with Google
+          </Button>
+          
+          <p className="text-center text-xs text-muted-foreground">
+            Authorized user: emartin6867@gmail.com
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
