@@ -1,1 +1,5 @@
+
 project_id = "yonlkixpgeiiqiexengg"
+
+[functions.build-app]
+verify_jwt = true
