@@ -23,6 +23,7 @@ import DeveloperSettings from "./pages/DeveloperSettings";
 import Chat from "./pages/Chat";
 import Greeting from "./pages/Greeting";
 import Builder from "./pages/Builder";
+import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -55,7 +56,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<Index />} />
               <Route path="/greeting" element={<Greeting />} />
               <Route path="/login" element={<Login />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
