@@ -19,6 +19,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { seedInitialAgents } from "./lib/supabaseService";
 import DeveloperSettings from "./pages/DeveloperSettings";
 import AuthGuard from "./components/AuthGuard";
+import { peacefulHello } from "./utils/peacefulHello";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ const AppInitializer = ({ children }: { children: React.ReactNode }) => {
     const initializeApp = async () => {
       try {
         await seedInitialAgents();
+        peacefulHello(); // Log our peaceful hello world
       } catch (error) {
         console.error("Error initializing app:", error);
       }
