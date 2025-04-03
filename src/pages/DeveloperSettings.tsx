@@ -2,7 +2,7 @@
 import { Helmet } from "react-helmet";
 import DeveloperSettingsComponent from "@/components/DeveloperSettings";
 
-const DeveloperSettingsPage = () => {
+const DeveloperSettings = () => {
   return (
     <>
       <Helmet>
@@ -29,4 +29,4 @@ const DeveloperSettingsPage = () => {
   );
 };
 
-export default DeveloperSettingsPage;
+export default DeveloperSettings;

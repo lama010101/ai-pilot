@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +17,8 @@ import Apps from "./pages/Apps";
 import AppDetail from "./pages/AppDetail";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { seedInitialAgents } from "./lib/supabaseService";
+import DeveloperSettings from "./pages/DeveloperSettings";
+import AuthGuard from "./components/AuthGuard";
 
 const queryClient = new QueryClient();
 
@@ -79,13 +82,7 @@ const App = () => (
                 <Route path="memory" element={<PlaceholderPage title="Memory" />} />
                 <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                 <Route path="settings/budget" element={<BudgetSettings />} />
-                <Route path="settings/developer" element={
-                  <AuthGuard>
-                    <DashboardLayout>
-                      <DeveloperSettings />
-                    </DashboardLayout>
-                  </AuthGuard>
-                } />
+                <Route path="settings/developer" element={<DeveloperSettings />} />
               </Route>
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
