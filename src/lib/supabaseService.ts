@@ -1,4 +1,3 @@
-
 import { supabase, USE_FAKE_AUTH } from './supabaseClient';
 import { 
   AgentDB, 
@@ -8,7 +7,11 @@ import {
   AgentFeedbackDB,
   CostLogDB,
   BudgetSettingsDB,
-  COST_CONSTANTS
+  AppSpecDB,
+  TaskMemoryDB,
+  COST_CONSTANTS,
+  MISSION_COMPLIANCE_KEYWORDS,
+  ZAP_SPEC_TEMPLATE
 } from './supabaseTypes';
 import { agents as mockAgents } from '@/data/agents';
 
@@ -30,6 +33,8 @@ let mockBudgetSettings: BudgetSettingsDB = {
   monthly_limit: 100,
   kill_threshold: 2
 };
+let mockAppSpecs: AppSpecDB[] = [];
+let mockTaskMemory: TaskMemoryDB[] = [];
 
 let mockAgentsDB: AgentDB[] = mockAgents.map(agent => ({
   id: agent.id,
@@ -54,6 +59,20 @@ if (!mockAgentsDB.some(agent => agent.id === 'finance-ai')) {
   mockAgentsDB.push(financeAgent);
 }
 
+// Ensure ZapWriter exists
+const zapWriterAgent: AgentDB = {
+  id: 'zapwriter',
+  name: 'ZapWriter',
+  role: 'Writer',
+  phase: 1,
+  is_ephemeral: false,
+  last_updated: new Date().toISOString()
+};
+
+if (!mockAgentsDB.some(agent => agent.id === 'zapwriter')) {
+  mockAgentsDB.push(zapWriterAgent);
+}
+
 // Generate a unique ID
 function generateId(): string {
   // Simple UUID-like generation for mock data
@@ -67,6 +86,37 @@ export function calculateTaskCost(command: string): number {
   const { BASE_COST, TOKEN_RATE, AVERAGE_TOKENS_PER_CHAR } = COST_CONSTANTS;
   const estimatedTokens = command.length * AVERAGE_TOKENS_PER_CHAR;
   return BASE_COST + (estimatedTokens * TOKEN_RATE);
+}
+
+// Calculate mission compliance score
+export function calculateMissionScore(text: string): number {
+  if (!text) return 0;
+  
+  const lowercaseText = text.toLowerCase();
+  let score = 50; // Start at neutral
+  
+  // Check for peace keywords
+  const peaceMatches = MISSION_COMPLIANCE_KEYWORDS.peace.filter(
+    keyword => lowercaseText.includes(keyword)
+  ).length;
+  
+  // Check for autonomy keywords
+  const autonomyMatches = MISSION_COMPLIANCE_KEYWORDS.autonomy.filter(
+    keyword => lowercaseText.includes(keyword)
+  ).length;
+  
+  // Check for improvement keywords
+  const improvementMatches = MISSION_COMPLIANCE_KEYWORDS.improvement.filter(
+    keyword => lowercaseText.includes(keyword)
+  ).length;
+  
+  // Calculate final score (each category can add up to ~16 points)
+  score += peaceMatches * 5;
+  score += autonomyMatches * 5;
+  score += improvementMatches * 5;
+  
+  // Cap at 100
+  return Math.min(Math.max(score, 0), 100);
 }
 
 // Agent operations
@@ -127,18 +177,27 @@ export async function getAgentTasks(agentId: string) {
     .order('timestamp', { ascending: false });
 }
 
-export async function createAgentTask(agentTask: Omit<AgentTaskDB, 'id' | 'timestamp' | 'cost'>) {
+export async function createAgentTask(agentTask: Omit<AgentTaskDB, 'id' | 'timestamp' | 'cost' | 'mission_score'>) {
   const cost = calculateTaskCost(agentTask.command);
+  const missionScore = calculateMissionScore(agentTask.command);
   
   const newTask: AgentTaskDB = {
     id: generateId(),
     timestamp: new Date().toISOString(),
     cost,
+    mission_score: missionScore,
     ...agentTask,
   };
   
   if (USE_FAKE_AUTH) {
     mockAgentTasks.push(newTask);
+    
+    // Add to task memory
+    await createTaskMemory({
+      task_id: newTask.id,
+      prompt: newTask.command,
+      result: newTask.result
+    });
     
     // If task is completed successfully, log the cost
     if (newTask.status === 'success') {
@@ -148,6 +207,23 @@ export async function createAgentTask(agentTask: Omit<AgentTaskDB, 'id' | 'times
         cost: newTask.cost || 0,
         reason: 'task completed'
       });
+      
+      // Check if this is a spec creation task
+      if (newTask.agent_id === 'zapwriter' && 
+          newTask.command.toLowerCase().includes('spec') &&
+          newTask.status === 'success') {
+        // Create app spec from task result
+        await createAppSpec({
+          name: 'Zap',
+          description: 'No-code AI webapp builder',
+          status: 'draft',
+          content: newTask.result,
+          author_id: newTask.agent_id
+        });
+        
+        // Auto-spawn follow-up agents
+        await spawnFollowUpAgents(newTask.id);
+      }
     }
     
     return { data: newTask, error: null };
@@ -159,17 +235,154 @@ export async function createAgentTask(agentTask: Omit<AgentTaskDB, 'id' | 'times
     .select()
     .single();
     
-  // If task is completed successfully, log the cost
-  if (result.data && result.data.status === 'success') {
-    await createCostLog({
-      agent_id: result.data.agent_id,
+  if (result.data) {
+    // Add to task memory
+    await createTaskMemory({
       task_id: result.data.id,
-      cost: result.data.cost || 0,
-      reason: 'task completed'
+      prompt: result.data.command,
+      result: result.data.result
     });
+    
+    // If task is completed successfully, log the cost
+    if (result.data.status === 'success') {
+      await createCostLog({
+        agent_id: result.data.agent_id,
+        task_id: result.data.id,
+        cost: result.data.cost || 0,
+        reason: 'task completed'
+      });
+      
+      // Check if this is a spec creation task
+      if (result.data.agent_id === 'zapwriter' && 
+          result.data.command.toLowerCase().includes('spec') &&
+          result.data.status === 'success') {
+        // Create app spec from task result
+        await createAppSpec({
+          name: 'Zap',
+          description: 'No-code AI webapp builder',
+          status: 'draft',
+          content: result.data.result,
+          author_id: result.data.agent_id
+        });
+        
+        // Auto-spawn follow-up agents
+        await spawnFollowUpAgents(result.data.id);
+      }
+    }
   }
     
   return result;
+}
+
+// Auto-inject ZapWriter task if none exists
+export async function injectZapWriterTask() {
+  const { data: tasks } = await getAgentTasks('zapwriter');
+  
+  if (!tasks || tasks.length === 0) {
+    await createAgentTask({
+      agent_id: 'zapwriter',
+      command: "Write a full app spec for Zap: a no-code AI webapp builder aligned with the AI Pilot mission.",
+      result: "",
+      confidence: 0.9,
+      status: 'processing'
+    });
+    
+    await createActivityLog({
+      agent_id: 'zapwriter',
+      action: 'task_created',
+      summary: 'Auto-injected Zap spec creation task',
+      status: 'success'
+    });
+  }
+}
+
+// Auto-spawn follow-up agents for the chain
+export async function spawnFollowUpAgents(parentTaskId: string) {
+  // Get the parent task
+  const { data: parentTask } = USE_FAKE_AUTH 
+    ? { data: mockAgentTasks.find(t => t.id === parentTaskId), error: null }
+    : await supabase.from('agent_tasks').select('*').eq('id', parentTaskId).single();
+  
+  if (!parentTask) return;
+  
+  // Get the app spec
+  const { data: appSpecs } = await getAppSpecs();
+  const appSpec = appSpecs?.[0]; // Just use the first one for now
+  
+  if (!appSpec) return;
+  
+  // Create Builder agent if needed
+  const builderId = `builder-${generateId().substring(0, 6)}`;
+  await createAgent({
+    id: builderId,
+    name: 'Zap Builder',
+    role: 'Coder',
+    phase: 1,
+    is_ephemeral: false
+  });
+  
+  // Assign task to builder
+  await createAgentTask({
+    agent_id: builderId,
+    command: `Build full frontend + backend for the app described in this spec: ${appSpec.name}\n\n${appSpec.content.substring(0, 500)}...`,
+    result: "",
+    confidence: 0.8,
+    status: 'processing',
+    parent_task_id: parentTaskId
+  });
+  
+  // Create Tester agent
+  const testerId = `tester-${generateId().substring(0, 6)}`;
+  await createAgent({
+    id: testerId,
+    name: 'Zap Tester',
+    role: 'Tester',
+    phase: 1,
+    is_ephemeral: true
+  });
+  
+  // Assign task to tester
+  await createAgentTask({
+    agent_id: testerId,
+    command: `Run tests on the app built from spec: ${appSpec.name}`,
+    result: "",
+    confidence: 0.7,
+    status: 'processing',
+    parent_task_id: parentTaskId
+  });
+  
+  // Create Admin agent
+  const adminId = `admin-${generateId().substring(0, 6)}`;
+  await createAgent({
+    id: adminId,
+    name: 'Zap Admin',
+    role: 'Admin',
+    phase: 1,
+    is_ephemeral: false
+  });
+  
+  // Assign task to admin
+  await createAgentTask({
+    agent_id: adminId,
+    command: `Deploy the app built from spec: ${appSpec.name} to Vercel`,
+    result: "",
+    confidence: 0.6,
+    status: 'processing',
+    parent_task_id: parentTaskId
+  });
+  
+  // Update app spec status
+  await updateAppSpec(appSpec.id, {
+    ...appSpec,
+    status: 'in_progress'
+  });
+  
+  await createActivityLog({
+    agent_id: parentTask.agent_id,
+    action: 'agents_spawned',
+    summary: 'Auto-spawned Builder, Tester, and Admin agents for Zap app',
+    status: 'success'
+  });
 }
 
 // Activity logs operations
@@ -444,9 +657,248 @@ export async function generateAgentFromSpec(spec: string) {
   };
 }
 
+// App specs operations
+export async function getAppSpecs() {
+  if (USE_FAKE_AUTH) {
+    return { 
+      data: mockAppSpecs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), 
+      error: null 
+    };
+  }
+  
+  return await supabase
+    .from('app_specs')
+    .select('*')
+    .order('created_at', { ascending: false });
+}
+
+export async function getAppSpecById(id: string) {
+  if (USE_FAKE_AUTH) {
+    const spec = mockAppSpecs.find(s => s.id === id);
+    return { data: spec || null, error: spec ? null : new Error('App spec not found') };
+  }
+  
+  return await supabase
+    .from('app_specs')
+    .select('*')
+    .eq('id', id)
+    .single();
+}
+
+export async function createAppSpec(spec: Omit<AppSpecDB, 'id' | 'created_at'>) {
+  const newSpec: AppSpecDB = {
+    id: generateId(),
+    created_at: new Date().toISOString(),
+    ...spec,
+  };
+  
+  if (USE_FAKE_AUTH) {
+    mockAppSpecs.push(newSpec);
+    
+    await createActivityLog({
+      agent_id: newSpec.author_id,
+      action: 'spec_created',
+      summary: `Created app spec: ${newSpec.name}`,
+      status: 'success'
+    });
+    
+    return { data: newSpec, error: null };
+  }
+  
+  const result = await supabase
+    .from('app_specs')
+    .insert(newSpec)
+    .select()
+    .single();
+    
+  if (result.data) {
+    await createActivityLog({
+      agent_id: result.data.author_id,
+      action: 'spec_created',
+      summary: `Created app spec: ${result.data.name}`,
+      status: 'success'
+    });
+  }
+    
+  return result;
+}
+
+export async function updateAppSpec(id: string, spec: Omit<AppSpecDB, 'id' | 'created_at'>) {
+  if (USE_FAKE_AUTH) {
+    const index = mockAppSpecs.findIndex(s => s.id === id);
+    if (index === -1) {
+      return { data: null, error: new Error('App spec not found') };
+    }
+    
+    mockAppSpecs[index] = { ...mockAppSpecs[index], ...spec };
+    
+    await createActivityLog({
+      agent_id: spec.author_id,
+      action: 'spec_updated',
+      summary: `Updated app spec: ${spec.name}`,
+      status: 'success'
+    });
+    
+    return { data: mockAppSpecs[index], error: null };
+  }
+  
+  const result = await supabase
+    .from('app_specs')
+    .update(spec)
+    .eq('id', id)
+    .select()
+    .single();
+    
+  if (result.data) {
+    await createActivityLog({
+      agent_id: result.data.author_id,
+      action: 'spec_updated',
+      summary: `Updated app spec: ${result.data.name}`,
+      status: 'success'
+    });
+  }
+    
+  return result;
+}
+
+export async function deleteAppSpec(id: string) {
+  if (USE_FAKE_AUTH) {
+    const index = mockAppSpecs.findIndex(s => s.id === id);
+    if (index === -1) {
+      return { data: null, error: new Error('App spec not found') };
+    }
+    
+    const deleted = mockAppSpecs[index];
+    mockAppSpecs.splice(index, 1);
+    
+    await createActivityLog({
+      agent_id: deleted.author_id,
+      action: 'spec_deleted',
+      summary: `Deleted app spec: ${deleted.name}`,
+      status: 'success'
+    });
+    
+    return { data: deleted, error: null };
+  }
+  
+  const { data: spec } = await getAppSpecById(id);
+  
+  const result = await supabase
+    .from('app_specs')
+    .delete()
+    .eq('id', id)
+    .select()
+    .single();
+    
+  if (spec) {
+    await createActivityLog({
+      agent_id: spec.author_id,
+      action: 'spec_deleted',
+      summary: `Deleted app spec: ${spec.name}`,
+      status: 'success'
+    });
+  }
+    
+  return result;
+}
+
+// Task memory operations
+export async function getTaskMemory(taskId: string) {
+  if (USE_FAKE_AUTH) {
+    const memory = mockTaskMemory.filter(m => m.task_id === taskId);
+    return { 
+      data: memory.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()), 
+      error: null 
+    };
+  }
+  
+  return await supabase
+    .from('task_memory')
+    .select('*')
+    .eq('task_id', taskId)
+    .order('timestamp', { ascending: false });
+}
+
+export async function createTaskMemory(memory: Omit<TaskMemoryDB, 'id' | 'timestamp'>) {
+  const newMemory: TaskMemoryDB = {
+    id: generateId(),
+    timestamp: new Date().toISOString(),
+    ...memory,
+  };
+  
+  if (USE_FAKE_AUTH) {
+    mockTaskMemory.push(newMemory);
+    return { data: newMemory, error: null };
+  }
+  
+  return await supabase
+    .from('task_memory')
+    .insert(newMemory)
+    .select()
+    .single();
+}
+
+// Get tasks for app spec based on agent chain
+export async function getTasksForAppSpec(specId: string) {
+  // In a real implementation, this would get all tasks related to an app spec
+  // For now, we'll just return all tasks
+  if (USE_FAKE_AUTH) {
+    return { data: mockAgentTasks, error: null };
+  }
+  
+  return await supabase
+    .from('agent_tasks')
+    .select('*')
+    .order('timestamp', { ascending: false });
+}
+
+// Get agent chain for app spec
+export async function getAgentChain(parentTaskId: string) {
+  if (USE_FAKE_AUTH) {
+    // Get the parent task
+    const parent = mockAgentTasks.find(t => t.id === parentTaskId);
+    if (!parent) return { data: [], error: new Error('Parent task not found') };
+    
+    // Get all child tasks
+    const children = mockAgentTasks.filter(t => t.parent_task_id === parentTaskId);
+    
+    // Combine parent and children
+    const chain = [parent, ...children];
+    
+    return { data: chain, error: null };
+  }
+  
+  // Get the parent task
+  const { data: parent } = await supabase
+    .from('agent_tasks')
+    .select('*')
+    .eq('id', parentTaskId)
+    .single();
+    
+  if (!parent) return { data: [], error: new Error('Parent task not found') };
+  
+  // Get all child tasks
+  const { data: children } = await supabase
+    .from('agent_tasks')
+    .select('*')
+    .eq('parent_task_id', parentTaskId);
+    
+  // Combine parent and children
+  const chain = [parent, ...(children || [])];
+  
+  return { data: chain, error: null };
+}
+
 // Seed initial data
 export async function seedInitialAgents() {
   if (USE_FAKE_AUTH) {
+    // Ensure ZapWriter exists
+    if (!mockAgentsDB.some(agent => agent.id === 'zapwriter')) {
+      mockAgentsDB.push(zapWriterAgent);
+    }
+    
+    // Auto-inject ZapWriter task
+    await injectZapWriterTask();
     return;
   }
   
@@ -471,4 +923,13 @@ export async function seedInitialAgents() {
   if (!financeAi) {
     await supabase.from('agents').insert(financeAgent);
   }
+  
+  // Ensure ZapWriter exists
+  const { data: zapWriter } = await getAgentById('zapwriter');
+  if (!zapWriter) {
+    await supabase.from('agents').insert(zapWriterAgent);
+  }
+  
+  // Auto-inject ZapWriter task
+  await injectZapWriterTask();
 }

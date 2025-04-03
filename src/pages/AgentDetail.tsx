@@ -1,386 +1,352 @@
 
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { agents, Agent } from '@/data/agents';
-import { AgentTaskDB, AgentDB } from '@/lib/supabaseTypes';
-import { getAgentById, getAgentTasks, createAgentTask, createActivityLog } from '@/lib/supabaseService';
-import { toast } from 'sonner';
-import CommandSuggestions from '@/components/CommandSuggestions';
-import AgentFeedback from '@/components/AgentFeedback';
-import FeedbackSummary from '@/components/FeedbackSummary';
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, CheckCircle2, XCircle, Brain } from "lucide-react";
+import { toast } from "sonner";
+import { 
+  getAgentById, 
+  getAgentTasks, 
+  createAgentTask,
+  getAgentFeedback,
+  getTaskMemory
+} from "@/lib/supabaseService";
+import { AgentDB, AgentTaskDB, AgentFeedbackDB, TaskMemoryDB } from "@/lib/supabaseTypes";
+import { agents } from "@/data/agents";
+import AgentFeedback from "@/components/AgentFeedback";
+import FeedbackSummary from "@/components/FeedbackSummary";
+import CommandSuggestions from "@/components/CommandSuggestions";
 
 const AgentDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [agent, setAgent] = useState<Agent | undefined>();
-  const [agentConfig, setAgentConfig] = useState<AgentDB | null>(null);
+  const [agent, setAgent] = useState<AgentDB | null>(null);
   const [tasks, setTasks] = useState<AgentTaskDB[]>([]);
-  const [command, setCommand] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<AgentFeedbackDB[]>([]);
+  const [taskMemory, setTaskMemory] = useState<Record<string, TaskMemoryDB[]>>({});
+  const [mockAgent, setMockAgent] = useState(agents.find(a => a.id === id));
+  const [command, setCommand] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!id) return;
     
-    // Fetch agent data
-    const fetchAgent = async () => {
-      const { data, error } = await getAgentById(id);
+    try {
+      setIsLoading(true);
       
-      if (error || !data) {
-        const localAgent = agents.find(a => a.id === id);
-        if (localAgent) {
-          setAgent(localAgent);
-        } else {
-          navigate('/dashboard');
-          return;
-        }
-      } else {
-        setAgentConfig(data);
-        // Also update local agent from database for consistency
-        const localAgent = agents.find(a => a.id === id);
-        if (localAgent) {
-          setAgent(localAgent);
-        }
+      // Fetch agent details
+      const { data: agentData, error: agentError } = await getAgentById(id);
+      if (agentError) throw agentError;
+      
+      if (agentData) {
+        setAgent(agentData);
       }
       
-      // Fetch tasks
+      // Fetch agent tasks
       const { data: taskData, error: taskError } = await getAgentTasks(id);
-      if (!taskError && taskData) {
+      if (taskError) throw taskError;
+      
+      if (taskData) {
         setTasks(taskData);
+        
+        // Fetch task memory for each task
+        const memoryData: Record<string, TaskMemoryDB[]> = {};
+        for (const task of taskData) {
+          const { data: memory } = await getTaskMemory(task.id);
+          if (memory) {
+            memoryData[task.id] = memory;
+          }
+        }
+        setTaskMemory(memoryData);
       }
-    };
-    
-    fetchAgent();
-  }, [id, navigate]);
-  
-  const refreshTasks = async () => {
-    if (!id) return;
-    
-    const { data: taskData, error: taskError } = await getAgentTasks(id);
-    if (!taskError && taskData) {
-      setTasks(taskData);
+      
+      // Fetch agent feedback
+      const { data: feedbackData, error: feedbackError } = await getAgentFeedback(id);
+      if (feedbackError) throw feedbackError;
+      
+      if (feedbackData) {
+        setFeedback(feedbackData);
+      }
+    } catch (error) {
+      console.error("Error fetching agent data:", error);
+      toast.error("Failed to fetch agent data");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSimulateTask = async () => {
-    if (isProcessing || !agent || !id) return;
-    
-    setIsProcessing(true);
-    toast.info(`${agent.name} is processing a new task...`);
-    
-    // Generate a random confidence score between 60-100
-    const confidence = Math.floor(Math.random() * 41) + 60;
-    
-    // Randomly determine success or failure
-    const status = Math.random() > 0.2 ? 'success' : 'failure';
-    
-    const defaultTask = agent.currentTask || 'System analysis';
-    
-    const result = status === 'success' 
-      ? `Successfully completed ${defaultTask} with ${confidence}% confidence.`
-      : `Encountered difficulties with ${defaultTask}. Partial completion at ${confidence}% confidence.`;
-    
-    setTimeout(async () => {
-      try {
-        // Create new task
-        const { data: newTask, error } = await createAgentTask({
-          agent_id: id,
-          command: `Execute: ${defaultTask}`,
-          result,
-          confidence,
-          status,
-        });
-        
-        if (error) throw error;
-        
-        // Add to task list (optimistic update)
-        if (newTask) {
-          setTasks([newTask, ...tasks]);
-          setActiveTaskId(newTask.id);
-        }
-        
-        // Log activity
-        await createActivityLog({
-          agent_id: id,
-          action: 'execute_task',
-          summary: `${agent.name} ${status === 'success' ? 'completed' : 'attempted'} ${defaultTask}`,
-          status,
-        });
-        
-        toast.success(`${agent.name} has completed the task`);
-      } catch (error) {
-        console.error('Error creating task:', error);
-        toast.error(`Failed to process task: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      } finally {
-        setIsProcessing(false);
-      }
-    }, 2000); // Simulate processing delay
-  };
+  useEffect(() => {
+    fetchData();
+  }, [id]);
 
-  const handleSendCommand = async (e: React.FormEvent) => {
+  const handleCommandSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!command.trim() || isProcessing || !agent || !id) return;
     
-    setIsProcessing(true);
-    toast.info(`${agent.name} is processing your command...`);
+    if (!command.trim() || !id) {
+      toast.error("Please enter a command");
+      return;
+    }
     
-    // Generate a random confidence score between 60-100
-    const confidence = Math.floor(Math.random() * 41) + 60;
-    
-    // Randomly determine success or failure
-    const status = Math.random() > 0.2 ? 'success' : 'failure';
-    
-    setTimeout(async () => {
-      try {
-        // Generate AI-like response
-        const result = status === 'success'
-          ? `Command analyzed. ${confidence}% confidence in execution. Output: ${Math.random() > 0.5 ? 'Task complete with expected results.' : 'Objective achieved with minor optimizations.'}`
-          : `Command processed with difficulties. ${confidence}% partial completion. Further clarification needed.`;
+    try {
+      setIsSubmitting(true);
+      
+      // Create a new task
+      const { data: newTask, error } = await createAgentTask({
+        agent_id: id,
+        command,
+        result: "Processing...",
+        confidence: 0.75,
+        status: 'processing'
+      });
+      
+      if (error) throw error;
+      
+      if (newTask) {
+        setTasks([newTask, ...tasks]);
+        setCommand("");
+        toast.success("Command submitted successfully");
         
-        // Create new task
-        const { data: newTask, error } = await createAgentTask({
-          agent_id: id,
-          command,
-          result,
-          confidence,
-          status,
-        });
-        
-        if (error) throw error;
-        
-        // Add to task list (optimistic update)
-        if (newTask) {
-          setTasks([newTask, ...tasks]);
-          setActiveTaskId(newTask.id);
-        }
-        
-        // Log activity
-        await createActivityLog({
-          agent_id: id,
-          action: 'process_command',
-          summary: `${agent.name} processed command: "${command.substring(0, 30)}${command.length > 30 ? '...' : ''}"`,
-          status,
-        });
-        
-        setCommand('');
-        toast.success(`${agent.name} has processed your command`);
-      } catch (error) {
-        console.error('Error processing command:', error);
-        toast.error(`Failed to process command: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      } finally {
-        setIsProcessing(false);
+        // After a delay, update the task to success to simulate processing
+        setTimeout(async () => {
+          const mockResult = `Task completed: ${command}\n\nThis is a simulated result from the AI agent.`;
+          
+          // Update the task locally
+          const updatedTask = {
+            ...newTask,
+            result: mockResult,
+            status: 'success' as const
+          };
+          
+          // Update tasks list
+          setTasks(prevTasks => 
+            prevTasks.map(t => t.id === newTask.id ? updatedTask : t)
+          );
+          
+          toast.info("Task completed", {
+            description: "The agent has processed your command"
+          });
+        }, 3000);
       }
-    }, 2500); // Simulate processing delay
+    } catch (error) {
+      console.error("Error submitting command:", error);
+      toast.error("Failed to submit command");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSelectCommand = (selectedCommand: string) => {
+  const handleCommandSelect = (selectedCommand: string) => {
     setCommand(selectedCommand);
   };
 
-  if (!agent) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 rounded-full border-primary border-t-transparent animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  // Determine the agent type for command templates
-  const agentRole = agentConfig?.role || agent.description || '';
-  const agentType = 
-    agentRole.toLowerCase().includes('write') ? 'Writer' :
-    agentRole.toLowerCase().includes('cod') ? 'Coder' :
-    agentRole.toLowerCase().includes('research') ? 'Researcher' :
-    agentRole.toLowerCase().includes('test') ? 'Tester' :
-    'Default';
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold">{agent.name}</h1>
-          {agentConfig?.is_ephemeral && (
-            <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200">
-              Ephemeral
-            </Badge>
-          )}
+      <div className="flex justify-between items-start">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold">{agent?.name || mockAgent?.name}</h1>
+            {agent?.is_ephemeral && (
+              <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200">
+                Ephemeral
+              </Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground mt-1">
+            {agent?.role || mockAgent?.description || "AI Assistant"}
+          </p>
         </div>
+        
         <div className="flex items-center gap-2">
-          <span className={`h-3 w-3 rounded-full ${
-            agent.status === 'running' ? 'bg-green-500' : 
-            agent.status === 'error' ? 'bg-red-500' : 'bg-amber-500'
+          <span className={`w-2 h-2 rounded-full ${
+            mockAgent?.status === 'running' ? 'bg-green-500' :
+            mockAgent?.status === 'error' ? 'bg-red-500' : 'bg-amber-500'
           }`}></span>
-          <span className="text-sm">
-            {agent.status === 'running' ? 'Running' : 
-             agent.status === 'error' ? 'Error' : 'Idle'}
+          <span className="text-sm text-muted-foreground">
+            {mockAgent?.status === 'running' ? 'Running' :
+            mockAgent?.status === 'error' ? 'Error' : 'Idle'}
           </span>
         </div>
       </div>
       
-      <p className="text-muted-foreground">{agent.description}</p>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Task</CardTitle>
-            <CardDescription>What this agent is working on</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>{agent.currentTask || 'No active task'}</p>
-            <Button 
-              onClick={handleSimulateTask} 
-              className="mt-4"
-              variant="secondary"
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <>
-                  <span className="mr-2 h-4 w-4 rounded-full border-2 border-background border-t-transparent animate-spin"></span>
-                  Processing...
-                </>
-              ) : 'Simulate Task'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Send Command</CardTitle>
-            <CardDescription>Issue a direct command to the agent</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CommandSuggestions agentType={agentType} onSelectCommand={handleSelectCommand} />
-            
-            <form onSubmit={handleSendCommand} className="flex gap-2">
-              <Input
-                value={command}
-                onChange={(e) => setCommand(e.target.value)}
-                placeholder="Enter command..."
-                className="flex-1"
-                disabled={isProcessing}
-              />
-              <Button type="submit" disabled={isProcessing}>
-                {isProcessing ? (
-                  <>
-                    <span className="mr-2 h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin"></span>
-                    Send
-                  </>
-                ) : 'Send'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-
+      <form onSubmit={handleCommandSubmit} className="space-y-2">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Enter command for agent..."
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            disabled={isSubmitting}
+            className="flex-1"
+          />
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Sending..." : "Send Command"}
+          </Button>
+        </div>
+        <CommandSuggestions 
+          agentRole={agent?.role || 'Default'} 
+          onSelect={handleCommandSelect}
+        />
+      </form>
+      
       <Tabs defaultValue="tasks">
         <TabsList>
-          <TabsTrigger value="tasks">Task History</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="feedback">Feedback</TabsTrigger>
-          <TabsTrigger value="config">Agent Config</TabsTrigger>
+          <TabsTrigger value="memory">Memory</TabsTrigger>
         </TabsList>
         
         <TabsContent value="tasks">
           <Card>
             <CardHeader>
-              <CardTitle>Agent Tasks</CardTitle>
-              <CardDescription>Recent tasks and commands</CardDescription>
+              <CardTitle>Task History</CardTitle>
+              <CardDescription>
+                Commands and results from this agent
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="max-h-[400px] overflow-y-auto space-y-4">
-                {tasks.length > 0 ? (
-                  tasks.map((task) => (
-                    <div key={task.id} className="pb-4 border-b last:border-0">
-                      <div className="flex items-start space-x-4">
-                        <div className={`mt-2 w-2 h-2 rounded-full ${
-                          task.status === 'success' ? 'bg-green-500' : 
-                          task.status === 'failure' ? 'bg-red-500' : 'bg-amber-500'
-                        }`}></div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Command: {task.command}</p>
-                          <p className="text-sm mt-1">{task.result}</p>
-                          <div className="flex justify-between mt-1">
-                            <p className="text-xs text-muted-foreground">
-                              Confidence: {task.confidence}%
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(task.timestamp).toLocaleString()}
-                            </p>
-                          </div>
+              {tasks.length > 0 ? (
+                <div className="space-y-4">
+                  {tasks.map(task => (
+                    <div key={task.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-medium truncate">
+                          {task.command}
+                        </h3>
+                        <div className="flex items-center">
+                          {task.status === 'success' && (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <CheckCircle2 className="w-3 h-3 mr-1" /> Success
+                            </Badge>
+                          )}
+                          {task.status === 'failure' && (
+                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                              <XCircle className="w-3 h-3 mr-1" /> Failed
+                            </Badge>
+                          )}
+                          {task.status === 'processing' && (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                              <AlertTriangle className="w-3 h-3 mr-1" /> Processing
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       
-                      {task.id === activeTaskId && (
-                        <AgentFeedback 
-                          agentId={id!} 
-                          taskId={task.id} 
-                          onFeedbackSubmitted={() => setActiveTaskId(null)}
-                        />
+                      <div className="text-sm text-muted-foreground mb-2">
+                        {new Date(task.timestamp).toLocaleString()}
+                      </div>
+                      
+                      <div className="bg-muted p-3 rounded text-sm whitespace-pre-wrap">
+                        {task.result}
+                      </div>
+                      
+                      {task.mission_score !== undefined && (
+                        <div className="mt-2 text-sm">
+                          <Badge variant="outline" className={
+                            task.mission_score > 80 
+                              ? 'bg-green-50 text-green-800 border-green-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }>
+                            {task.mission_score}% Mission Aligned
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      {task.cost !== undefined && (
+                        <div className="mt-2 text-sm">
+                          <span className="text-muted-foreground">
+                            Cost: ${task.cost.toFixed(4)}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {task.status === 'success' && (
+                        <div className="mt-4">
+                          <AgentFeedback 
+                            agentId={id || ''}
+                            taskId={task.id}
+                            onFeedbackSubmitted={fetchData}
+                          />
+                        </div>
                       )}
                     </div>
-                  ))
-                ) : (
-                  <p className="text-center text-muted-foreground py-8">
-                    No tasks recorded yet. Send a command or simulate a task.
-                  </p>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  No tasks found for this agent.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
         
         <TabsContent value="feedback">
-          <FeedbackSummary agentId={id!} />
+          <FeedbackSummary 
+            feedback={feedback}
+            loading={isLoading}
+          />
         </TabsContent>
         
-        <TabsContent value="config">
+        <TabsContent value="memory">
           <Card>
             <CardHeader>
-              <CardTitle>Agent Configuration</CardTitle>
-              <CardDescription>Technical details and settings</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Brain size={18} /> Memory
+              </CardTitle>
+              <CardDescription>
+                Stored knowledge from previous tasks
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {agentConfig ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium">ID</p>
-                      <p className="text-sm text-muted-foreground">{agentConfig.id}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Name</p>
-                      <p className="text-sm text-muted-foreground">{agentConfig.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Role</p>
-                      <p className="text-sm text-muted-foreground">{agentConfig.role}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Phase</p>
-                      <p className="text-sm text-muted-foreground">{agentConfig.phase}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Status</p>
-                      <p className="text-sm text-muted-foreground">
-                        {agentConfig.is_ephemeral ? 'Ephemeral (Temporary)' : 'Persistent'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Last Updated</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(agentConfig.last_updated).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
+              {Object.entries(taskMemory).length > 0 ? (
+                <div className="space-y-6">
+                  {Object.entries(taskMemory).map(([taskId, memories]) => {
+                    const task = tasks.find(t => t.id === taskId);
+                    return (
+                      <div key={taskId} className="border rounded-lg p-4">
+                        <h3 className="font-medium mb-2">
+                          Task: {task?.command?.substring(0, 50)}...
+                        </h3>
+                        <div className="space-y-3">
+                          {memories.map(memory => (
+                            <div key={memory.id} className="space-y-2">
+                              <div className="bg-muted p-3 rounded text-sm">
+                                <div className="font-medium mb-1">Prompt</div>
+                                <div className="text-muted-foreground whitespace-pre-wrap">
+                                  {memory.prompt}
+                                </div>
+                              </div>
+                              <div className="bg-muted p-3 rounded text-sm">
+                                <div className="font-medium mb-1">Result</div>
+                                <div className="text-muted-foreground whitespace-pre-wrap">
+                                  {memory.result}
+                                </div>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Timestamp: {new Date(memory.timestamp).toLocaleString()}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  Agent configuration not available
-                </p>
+                <div className="text-center py-12 text-muted-foreground">
+                  No memory data stored for this agent.
+                </div>
               )}
             </CardContent>
           </Card>

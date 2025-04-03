@@ -9,7 +9,8 @@ import {
   Database, 
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  LayoutGrid
 } from 'lucide-react';
 
 interface SidebarItemProps {
@@ -66,6 +67,12 @@ const Sidebar = () => {
           icon={<Users size={20} />} 
           label="Agents" 
           to="/dashboard/agents" 
+          isCollapsed={isCollapsed} 
+        />
+        <SidebarItem 
+          icon={<LayoutGrid size={20} />} 
+          label="Apps" 
+          to="/dashboard/apps" 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 

@@ -8,7 +8,9 @@ export interface AgentTaskDB {
   result: string;
   confidence: number;
   status: 'success' | 'failure' | 'processing';
-  cost?: number; // New field for cost tracking
+  cost?: number; // Field for cost tracking
+  parent_task_id?: string; // New field for agent-to-agent linking
+  mission_score?: number; // New field for mission compliance
   timestamp: string;
 }
 
@@ -59,6 +61,24 @@ export interface CostLogDB {
 export interface BudgetSettingsDB {
   monthly_limit: number;
   kill_threshold: number;
+}
+
+export interface AppSpecDB {
+  id: string;
+  name: string;
+  description: string;
+  status: 'draft' | 'in_progress' | 'completed' | 'deployed';
+  content: string;
+  author_id: string;
+  created_at: string;
+}
+
+export interface TaskMemoryDB {
+  id: string;
+  task_id: string;
+  prompt: string;
+  result: string;
+  timestamp: string;
 }
 
 // Command templates based on agent type
@@ -128,3 +148,18 @@ export const COST_CONSTANTS = {
   TOKEN_RATE: 0.000002,
   AVERAGE_TOKENS_PER_CHAR: 0.25
 };
+
+// App mission compliance criteria
+export const MISSION_COMPLIANCE_KEYWORDS = {
+  peace: ['peaceful', 'ethical', 'beneficial', 'sustainable', 'cooperative'],
+  autonomy: ['autonomous', 'self-reliant', 'independent', 'automated', 'self-managing'],
+  improvement: ['improve', 'enhance', 'optimize', 'learn', 'adapt', 'evolve']
+};
+
+// Agent chain definition
+export const AGENT_CHAIN = [
+  { role: 'Writer', description: 'Creates specifications and plans' },
+  { role: 'Coder', description: 'Implements code based on specifications' },
+  { role: 'Tester', description: 'Validates functionality and quality' },
+  { role: 'Admin', description: 'Deploys and manages applications' }
+];

@@ -13,6 +13,8 @@ import DashboardLayout from "./components/DashboardLayout";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import FinanceAI from "./pages/FinanceAI";
 import BudgetSettings from "./pages/BudgetSettings";
+import Apps from "./pages/Apps";
+import AppDetail from "./pages/AppDetail";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { seedInitialAgents } from "./lib/supabaseService";
 
@@ -72,6 +74,8 @@ const App = () => (
                 <Route path="agents/:id" element={<AgentDetail />} />
                 <Route path="agents/finance-ai" element={<FinanceAI />} />
                 <Route path="agents" element={<PlaceholderPage title="Agents" />} />
+                <Route path="apps" element={<Apps />} />
+                <Route path="apps/:id" element={<AppDetail />} />
                 <Route path="logs" element={<PlaceholderPage title="Logs" />} />
                 <Route path="memory" element={<PlaceholderPage title="Memory" />} />
                 <Route path="settings" element={<PlaceholderPage title="Settings" />} />
