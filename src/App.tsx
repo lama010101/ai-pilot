@@ -22,6 +22,7 @@ import AppDetail from "./pages/AppDetail";
 import DeveloperSettings from "./pages/DeveloperSettings";
 import Chat from "./pages/Chat";
 import Greeting from "./pages/Greeting";
+import Builder from "./pages/Builder";
 
 const queryClient = new QueryClient();
 
@@ -54,7 +55,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <Routes>
-              <Route path="/" element={<Navigate to="/greeting" replace />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/greeting" element={<Greeting />} />
               <Route path="/login" element={<Login />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
@@ -68,6 +69,7 @@ const App = () => (
                 <Route path="logs" element={<PlaceholderPage title="Logs" />} />
                 <Route path="memory" element={<PlaceholderPage title="Memory" />} />
                 <Route path="chat" element={<Chat />} />
+                <Route path="builder" element={<Builder />} />
                 <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                 <Route path="settings/budget" element={<BudgetSettings />} />
                 <Route path="settings/developer" element={<DeveloperSettings />} />

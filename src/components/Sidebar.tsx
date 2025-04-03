@@ -77,6 +77,12 @@ const Sidebar = () => {
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 
+          icon={<FileText size={20} />} 
+          label="Builder" 
+          to="/dashboard/builder" 
+          isCollapsed={isCollapsed} 
+        />
+        <SidebarItem 
           icon={<ClipboardList size={20} />} 
           label="Logs" 
           to="/dashboard/logs" 
