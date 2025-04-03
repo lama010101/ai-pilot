@@ -1,11 +1,10 @@
-
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Timeline, TimelineItem } from "@/components/Timeline";
+import { Timeline, TimelineItemWithSubcomponents as TimelineItem } from "@/components/Timeline";
 import { 
   getAppSpecById, 
   updateAppSpec, 

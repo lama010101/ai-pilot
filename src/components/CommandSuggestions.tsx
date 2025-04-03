@@ -10,15 +10,15 @@ import { calculateTaskCost } from "@/lib/supabaseService";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CommandSuggestionsProps {
-  agentType: string;
-  onSelectCommand: (command: string) => void;
+  agentRole: string;  // Changed from agentType to agentRole to match AgentDetail usage
+  onSelect: (command: string) => void;  // Changed to match the onSelect from AgentDetail
 }
 
-const CommandSuggestions = ({ agentType, onSelectCommand }: CommandSuggestionsProps) => {
+const CommandSuggestions = ({ agentRole, onSelect }: CommandSuggestionsProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
-  // Get the appropriate command list for this agent type
-  const commands = AGENT_COMMAND_TEMPLATES[agentType] || AGENT_COMMAND_TEMPLATES.Default;
+  // Get the appropriate command list for this agent type/role
+  const commands = AGENT_COMMAND_TEMPLATES[agentRole] || AGENT_COMMAND_TEMPLATES.Default;
   
   return (
     <div className="relative">
@@ -50,7 +50,7 @@ const CommandSuggestions = ({ agentType, onSelectCommand }: CommandSuggestionsPr
                         variant="ghost"
                         className="w-full justify-start h-auto py-2 px-3 text-left font-normal"
                         onClick={() => {
-                          onSelectCommand(command);
+                          onSelect(command);
                           setIsOpen(false);
                         }}
                       >

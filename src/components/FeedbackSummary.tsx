@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAgentFeedback } from '@/lib/supabaseService';
@@ -6,29 +5,39 @@ import { AgentFeedbackDB } from '@/lib/supabaseTypes';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 
 interface FeedbackSummaryProps {
-  agentId: string;
+  agentId?: string;
+  feedback?: AgentFeedbackDB[];
+  loading?: boolean;
 }
 
-const FeedbackSummary = ({ agentId }: FeedbackSummaryProps) => {
-  const [feedback, setFeedback] = useState<AgentFeedbackDB[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+const FeedbackSummary = ({ agentId, feedback: propsFeedback, loading: propsLoading }: FeedbackSummaryProps) => {
+  const [feedback, setFeedback] = useState<AgentFeedbackDB[]>(propsFeedback || []);
+  const [isLoading, setIsLoading] = useState(propsLoading !== undefined ? propsLoading : true);
 
   useEffect(() => {
-    const fetchFeedback = async () => {
-      try {
-        const { data, error } = await getAgentFeedback(agentId);
-        if (!error && data) {
-          setFeedback(data);
+    if (propsFeedback) {
+      setFeedback(propsFeedback);
+      setIsLoading(false);
+      return;
+    }
+    
+    if (agentId) {
+      const fetchFeedback = async () => {
+        try {
+          const { data, error } = await getAgentFeedback(agentId);
+          if (!error && data) {
+            setFeedback(data);
+          }
+        } catch (error) {
+          console.error("Error fetching feedback:", error);
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Error fetching feedback:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      };
 
-    fetchFeedback();
-  }, [agentId]);
+      fetchFeedback();
+    }
+  }, [agentId, propsFeedback]);
 
   if (isLoading) {
     return (
@@ -38,19 +47,16 @@ const FeedbackSummary = ({ agentId }: FeedbackSummaryProps) => {
     );
   }
 
-  // Calculate summary statistics
   const totalFeedback = feedback.length;
   const positiveFeedback = feedback.filter(f => f.rating > 0).length;
   const negativeFeedback = feedback.filter(f => f.rating === 0).length;
   const averageScore = totalFeedback > 0 ? (positiveFeedback / totalFeedback) * 100 : 0;
   
-  // Determine color based on average score
   const scoreColor = 
     averageScore >= 70 ? 'text-green-600' :
     averageScore >= 40 ? 'text-amber-600' :
     'text-red-600';
 
-  // Get the latest comments (up to 5)
   const latestComments = feedback
     .filter(f => f.comment && f.comment.trim() !== '')
     .slice(0, 5);
