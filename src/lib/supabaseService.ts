@@ -635,7 +635,8 @@ export async function generateAgentFromSpec(spec: string) {
         is_ephemeral: false,
         phase: 1,
         initialTask: "Write full spec for Zap based on mission"
-      }
+      },
+      error: null
     };
   }
   
@@ -651,7 +652,8 @@ export async function generateAgentFromSpec(spec: string) {
       is_ephemeral: Math.random() > 0.5, // 50% chance of being ephemeral
       phase: 1,
       initialTask: `Process the following specification: ${spec.substring(0, 30)}...`
-    }
+    },
+    error: null
   };
 }
 

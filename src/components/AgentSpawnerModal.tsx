@@ -88,14 +88,14 @@ const AgentSpawnerModal = ({ open, onOpenChange, onSuccess }: AgentSpawnerModalP
     
     setIsLoading(true);
     try {
-      const { data, error } = await generateAgentFromSpec(spec);
-      if (error) throw error;
+      const response = await generateAgentFromSpec(spec);
+      // Handle the response without assuming error property exists
       
-      if (data) {
-        form.setValue("name", data.name);
-        form.setValue("role", data.role);
-        form.setValue("is_ephemeral", data.is_ephemeral);
-        form.setValue("phase", data.phase);
+      if (response.data) {
+        form.setValue("name", response.data.name);
+        form.setValue("role", response.data.role);
+        form.setValue("is_ephemeral", response.data.is_ephemeral);
+        form.setValue("phase", response.data.phase);
         toast.success("Agent configuration generated from spec");
       }
     } catch (error) {
