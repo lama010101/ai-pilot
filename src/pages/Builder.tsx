@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { 
   Card, 
@@ -28,7 +28,8 @@ import { getAgentById } from '@/lib/supabase/agentService';
 import { createAppSpec } from '@/lib/supabase/appSpecService';
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { getUserAppBuilds, createAppBuild, updateAppBuild } from '@/lib/buildService';
+import { AppBuildDB } from '@/types/supabase';
 
 // Type for app builds history
 interface AppBuild {
@@ -65,16 +66,23 @@ const Builder = () => {
   
   // Function to fetch build history from Supabase
   const fetchBuildHistory = async () => {
+    if (!user) return;
+    
     try {
-      const { data, error } = await supabase
-        .from('app_builds')
-        .select('*')
-        .order('timestamp', { ascending: false });
-        
-      if (error) throw error;
+      const { data } = await getUserAppBuilds(user.id);
       
       if (data) {
-        setAppBuilds(data as AppBuild[]);
+        // Map DB objects to AppBuild interface
+        const builds: AppBuild[] = data.map(build => ({
+          id: build.id,
+          prompt: build.prompt,
+          status: build.status as 'processing' | 'complete' | 'failed',
+          timestamp: build.timestamp,
+          previewUrl: build.preview_url,
+          appName: build.app_name
+        }));
+        
+        setAppBuilds(builds);
       }
     } catch (error) {
       console.error('Error fetching build history:', error);
@@ -82,13 +90,20 @@ const Builder = () => {
   };
   
   // Load build history on component mount
-  React.useEffect(() => {
-    fetchBuildHistory();
-  }, []);
+  useEffect(() => {
+    if (user) {
+      fetchBuildHistory();
+    }
+  }, [user]);
   
   const handleSubmit = async () => {
     if (!prompt.trim()) {
       toast.error('Please enter a prompt to build an app');
+      return;
+    }
+    
+    if (!user) {
+      toast.error('You need to be logged in to build an app');
       return;
     }
     
@@ -102,36 +117,30 @@ const Builder = () => {
       // Step 1: Get the writer agent
       const { data: writer } = await getAgentById('zapwriter');
       
-      if (!writer) {
-        throw new Error('Writer agent not found');
-      }
-      
-      // Step 2: Create spec writing task
-      toast.info('Starting app specification generation');
+      // Generate app name based on prompt
+      const appName = generateAppName(prompt);
       
       // Create a new app build record
-      const newBuild: Omit<AppBuild, 'id'> = {
-        prompt: prompt,
-        status: 'processing',
-        timestamp: new Date().toISOString(),
-        appName: generateAppName(prompt)
-      };
+      const { data: buildData } = await createAppBuild(prompt, appName, user.id);
       
-      // Save to Supabase (this would be implemented in a real app)
-      const buildId = `build-${Date.now()}`;
+      if (!buildData) {
+        throw new Error('Failed to create build record');
+      }
       
       // Simulate delay for analysis
       await new Promise(resolve => setTimeout(resolve, 2000));
       setCurrentStep(1);
       
       // Create a task for the writer
-      const specTask = await createAgentTask({
-        agent_id: writer.id,
-        command: `Generate app specification for: ${prompt}`,
-        result: '',
-        confidence: 0.9,
-        status: 'processing'
-      });
+      if (writer) {
+        const specTask = await createAgentTask({
+          agent_id: writer.id,
+          command: `Generate app specification for: ${prompt}`,
+          result: '',
+          confidence: 0.9,
+          status: 'processing'
+        });
+      }
       
       // Simulate spec generation with a delay
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -141,13 +150,19 @@ const Builder = () => {
       setSpec(generatedSpec);
       setCurrentStep(2);
       
+      // Update the build with the spec
+      await updateAppBuild(buildData.id, { 
+        spec: generatedSpec,
+        status: 'processing',
+      });
+      
       // Create app spec in the database
       await createAppSpec({
-        name: newBuild.appName,
+        name: appName,
         description: prompt,
         status: 'draft',
         content: generatedSpec,
-        author_id: user?.id || 'anonymous'
+        author_id: user.id
       });
       
       // Step 3: Generate code
@@ -161,6 +176,11 @@ const Builder = () => {
       setCode(generatedCode);
       setCurrentStep(3);
       
+      // Update the build with the code
+      await updateAppBuild(buildData.id, { 
+        code: generatedCode,
+      });
+      
       // Step 4: Package the application
       await new Promise(resolve => setTimeout(resolve, 2000));
       setCurrentStep(4);
@@ -170,16 +190,27 @@ const Builder = () => {
       setCurrentStep(5);
       
       // Update the build record with complete status and preview URL
-      const previewUrl = `https://zap-demo-${buildId}.vercel.app`;
+      const previewUrl = `https://zap-demo-${buildData.id}.vercel.app`;
+      await updateAppBuild(buildData.id, {
+        status: 'complete',
+        preview_url: previewUrl,
+        updated_at: new Date().toISOString(),
+        build_log: [
+          { step: "analyze", status: "success", timestamp: new Date().toISOString() },
+          { step: "generate_spec", status: "success", timestamp: new Date().toISOString() },
+          { step: "generate_code", status: "success", timestamp: new Date().toISOString() },
+          { step: "deploy_preview", status: "success", timestamp: new Date().toISOString() }
+        ]
+      });
       
       // Add to local state
       const completedBuild: AppBuild = {
-        id: buildId,
+        id: buildData.id,
         prompt: prompt,
         status: 'complete',
-        timestamp: new Date().toISOString(),
+        timestamp: buildData.timestamp,
         previewUrl: previewUrl,
-        appName: newBuild.appName
+        appName: appName
       };
       
       setAppBuilds(prev => [completedBuild, ...prev]);
@@ -187,6 +218,9 @@ const Builder = () => {
       setIsComplete(true);
       
       toast.success('App successfully built!');
+      
+      // Refresh build history
+      fetchBuildHistory();
     } catch (error) {
       console.error('Error building app:', error);
       uiToast({
