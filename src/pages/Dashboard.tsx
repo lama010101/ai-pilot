@@ -1,10 +1,49 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { agents, activityLogs } from "@/data/agents";
-import { useState } from "react";
+import { agents } from "@/data/agents";
+import { useEffect, useState } from "react";
+import { getActivityLogs, getAgents } from "@/lib/supabaseService";
+import { ActivityLogDB, AgentDB } from "@/lib/supabaseTypes";
+import { Link } from "react-router-dom";
 
 const Dashboard = () => {
+  const [activityLogs, setActivityLogs] = useState<ActivityLogDB[]>([]);
+  const [dbAgents, setDbAgents] = useState<AgentDB[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch activity logs
+        const { data: logData, error: logError } = await getActivityLogs(10);
+        if (!logError && logData) {
+          setActivityLogs(logData);
+        }
+
+        // Fetch agents
+        const { data: agentData, error: agentError } = await getAgents();
+        if (!agentError && agentData) {
+          setDbAgents(agentData);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 rounded-full border-primary border-t-transparent animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -57,7 +96,9 @@ const Dashboard = () => {
               <CardContent>
                 <div className="text-2xl font-bold">{activityLogs.length}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Last activity: {activityLogs[0]?.timestamp || 'None'}
+                  Last activity: {activityLogs[0]?.timestamp 
+                    ? new Date(activityLogs[0].timestamp).toLocaleString() 
+                    : 'None'}
                 </p>
               </CardContent>
             </Card>
@@ -87,9 +128,9 @@ const Dashboard = () => {
                     {agents.map((agent) => (
                       <tr key={agent.id} className="border-t">
                         <td className="p-3">
-                          <a href={`/dashboard/agents/${agent.id}`} className="hover:underline font-medium">
+                          <Link to={`/dashboard/agents/${agent.id}`} className="hover:underline font-medium">
                             {agent.name}
-                          </a>
+                          </Link>
                         </td>
                         <td className="p-3">
                           <span className="flex items-center gap-2">
@@ -120,15 +161,26 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {activityLogs.map((log) => (
-                  <div key={log.id} className="flex items-start space-x-4 pb-4 border-b">
-                    <div className="w-2 h-2 mt-2 rounded-full bg-primary"></div>
-                    <div className="flex-1">
-                      <p className="text-sm">{log.message}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{log.timestamp}</p>
+                {activityLogs.length > 0 ? (
+                  activityLogs.map((log) => (
+                    <div key={log.id} className="flex items-start space-x-4 pb-4 border-b">
+                      <div className={`w-2 h-2 mt-2 rounded-full ${
+                        log.status === 'success' ? 'bg-green-500' :
+                        log.status === 'failure' ? 'bg-red-500' : 'bg-amber-500'
+                      }`}></div>
+                      <div className="flex-1">
+                        <p className="text-sm">{log.summary}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-center text-muted-foreground py-8">
+                    No activity logs recorded yet
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>

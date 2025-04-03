@@ -2,9 +2,22 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { LogOut } from 'lucide-react';
 import { USE_FAKE_AUTH } from '@/lib/supabaseClient';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const Header = () => {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+  
+  // Extract first letter of email for avatar fallback
+  const getInitial = () => {
+    if (!user?.email) return 'L';
+    return user.email.charAt(0).toUpperCase();
+  };
   
   return (
     <header className="flex items-center justify-between h-16 px-6 border-b border-border bg-card">
@@ -16,18 +29,36 @@ const Header = () => {
         </div>
         
         {USE_FAKE_AUTH && (
-          <div className="ml-4 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs">
+          <div className="ml-4 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
             Dev Mode
           </div>
         )}
       </div>
       
       <div className="flex items-center space-x-4">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center space-x-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.user_metadata?.avatar_url} />
+                  <AvatarFallback>{getInitial()}</AvatarFallback>
+                </Avatar>
+                {!USE_FAKE_AUTH && user?.email && (
+                  <span className="text-sm hidden md:inline">{user.email}</span>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>You are logged in as the Leader</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
         <button 
           onClick={signOut}
           className={`p-2 rounded-md transition-colors ${USE_FAKE_AUTH ? 'text-muted-foreground hover:bg-muted/50' : 'hover:bg-muted'}`}
           aria-label="Log out"
-          disabled={USE_FAKE_AUTH}
         >
           <LogOut size={18} className={USE_FAKE_AUTH ? 'opacity-50' : ''} />
         </button>
