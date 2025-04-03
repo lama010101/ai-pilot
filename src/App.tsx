@@ -1,10 +1,12 @@
-
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import React from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect } from "react";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { seedInitialAgents } from "./lib/supabaseService";
+import { peacefulHello } from "./utils/peacefulHello";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AgentDetail from "./pages/AgentDetail";
@@ -15,11 +17,11 @@ import FinanceAI from "./pages/FinanceAI";
 import BudgetSettings from "./pages/BudgetSettings";
 import Apps from "./pages/Apps";
 import AppDetail from "./pages/AppDetail";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { seedInitialAgents } from "./lib/supabaseService";
 import DeveloperSettings from "./pages/DeveloperSettings";
 import AuthGuard from "./components/AuthGuard";
-import { peacefulHello } from "./utils/peacefulHello";
+
+// Import the new Greeting page
+import Greeting from "./pages/Greeting";
 
 const queryClient = new QueryClient();
 
@@ -70,7 +72,8 @@ const App = () => (
             <Toaster />
             <Sonner />
             <Routes>
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<Navigate to="/greeting" replace />} />
+              <Route path="/greeting" element={<Greeting />} />
               <Route path="/login" element={<Login />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="/dashboard" element={<DashboardLayout />}>
