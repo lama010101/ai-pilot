@@ -11,6 +11,8 @@ import AgentDetail from "./pages/AgentDetail";
 import Unauthorized from "./pages/Unauthorized";
 import DashboardLayout from "./components/DashboardLayout";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import FinanceAI from "./pages/FinanceAI";
+import BudgetSettings from "./pages/BudgetSettings";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { seedInitialAgents } from "./lib/supabaseService";
 
@@ -68,10 +70,12 @@ const App = () => (
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="agents/:id" element={<AgentDetail />} />
+                <Route path="agents/finance-ai" element={<FinanceAI />} />
                 <Route path="agents" element={<PlaceholderPage title="Agents" />} />
                 <Route path="logs" element={<PlaceholderPage title="Logs" />} />
                 <Route path="memory" element={<PlaceholderPage title="Memory" />} />
                 <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+                <Route path="settings/budget" element={<BudgetSettings />} />
               </Route>
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>

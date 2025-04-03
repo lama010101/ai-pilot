@@ -14,6 +14,8 @@ import { Link } from "react-router-dom";
 import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import SystemStatusBanner from "@/components/SystemStatusBanner";
+import BudgetBanner from "@/components/BudgetBanner";
+import AgentSpawnerModal from "@/components/AgentSpawnerModal";
 import { USE_FAKE_AUTH } from "@/lib/supabaseClient";
 
 const Dashboard = () => {
@@ -23,6 +25,7 @@ const Dashboard = () => {
   const [liveMode, setLiveMode] = useState(false);
   const [filterAgentType, setFilterAgentType] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
+  const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -125,7 +128,10 @@ const Dashboard = () => {
         </p>
       </div>
       
-      <SystemStatusBanner />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SystemStatusBanner />
+        <BudgetBanner />
+      </div>
       
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex flex-wrap gap-4">
@@ -160,6 +166,7 @@ const Dashboard = () => {
               <SelectItem value="Coder">Coder</SelectItem>
               <SelectItem value="Researcher">Researcher</SelectItem>
               <SelectItem value="Tester">Tester</SelectItem>
+              <SelectItem value="Finance">Finance</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -174,9 +181,18 @@ const Dashboard = () => {
             <RefreshCw size={14} /> Refresh
           </Button>
           
+          <Button 
+            size="sm" 
+            onClick={() => setIsAgentModalOpen(true)}
+            className="flex items-center gap-1"
+          >
+            <Plus size={14} /> Add Agent
+          </Button>
+          
           {USE_FAKE_AUTH && (
             <Button 
-              size="sm" 
+              size="sm"
+              variant="outline"
               onClick={handleCreateTestAgent}
               className="flex items-center gap-1"
             >
@@ -326,6 +342,12 @@ const Dashboard = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      <AgentSpawnerModal 
+        open={isAgentModalOpen} 
+        onOpenChange={setIsAgentModalOpen} 
+        onSuccess={fetchData}
+      />
     </div>
   );
 };
