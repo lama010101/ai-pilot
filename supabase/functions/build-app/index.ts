@@ -1,176 +1,120 @@
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+interface BuildAppRequest {
+  buildId: string;
+  prompt: string;
+  userId: string;
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
   }
-
-  // Create a Supabase client with the Auth context of the logged in user
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-
-  // Create clients with Auth context of the logged in user & the service role
-  const authHeader = req.headers.get("Authorization");
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader || "" } },
-  });
-  
-  // Service role client for administrative tasks
-  const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Get the user from the auth context
-    const {
-      data: { user },
-      error: userError,
-    } = await userClient.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized", message: "You must be logged in to use this endpoint" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Get the request body
-    const { prompt, appName } = await req.json();
-
-    if (!prompt) {
-      return new Response(
-        JSON.stringify({ error: "Bad Request", message: "Prompt is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Calculate estimated budget usage - in a real app this would be based on model and complexity
-    const estimatedBudgetUsage = 0.25; // Using a fixed value for this example
-
-    // Create a new build record
-    const { data: buildData, error: buildError } = await userClient
-      .from("app_builds")
-      .insert({
-        user_id: user.id,
-        prompt,
-        app_name: appName || generateAppName(prompt),
-        status: "processing",
-        budget_usage: estimatedBudgetUsage,
-      })
-      .select()
-      .single();
-
-    if (buildError) {
-      console.error("Error creating build record:", buildError);
-      return new Response(
-        JSON.stringify({ error: "Database Error", message: "Failed to create build record" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // In a real implementation, we would:
-    // 1. Call an AI service to generate the specification
-    // 2. Call another AI service to generate the code
-    // 3. Deploy to a sandbox environment
-    // 4. Return the result
-
-    // For this MVP, we'll simulate the process
-    const spec = generateSpec(prompt);
-    const code = generateCode(spec);
-    const previewUrl = `https://zap-demo-${buildData.id}.vercel.app`;
-
-    // Update the build with the generated content
-    setTimeout(async () => {
-      try {
-        await serviceClient
-          .from("app_builds")
-          .update({
-            status: "complete",
-            spec,
-            code,
-            preview_url: previewUrl,
-            build_log: JSON.stringify([
-              { step: "analyze", status: "success", timestamp: new Date().toISOString() },
-              { step: "generate_spec", status: "success", timestamp: new Date().toISOString() },
-              { step: "generate_code", status: "success", timestamp: new Date().toISOString() },
-              { step: "deploy_preview", status: "success", timestamp: new Date().toISOString() },
-            ]),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", buildData.id);
-
-        // Create a generated app record
-        await serviceClient
-          .from("generated_apps")
-          .insert({
-            build_id: buildData.id,
-            name: buildData.app_name,
-            description: prompt,
-            status: "deployed",
-            deployment_url: previewUrl,
-          });
-      } catch (updateError) {
-        console.error("Error updating build:", updateError);
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
       }
-    }, 10000); // Simulate a 10-second build process
-
-    return new Response(
-      JSON.stringify({
-        message: "Build started successfully",
-        buildId: buildData.id,
-        estimatedCompletionTime: "10 seconds",
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Error in build-app function:", error);
-    return new Response(
-      JSON.stringify({ error: "Server Error", message: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-});
-
-// Helper function to generate an app name from the prompt
-function generateAppName(prompt: string): string {
-  const words = prompt.split(" ");
-  const nameWords = words
-    .filter(
-      (word) =>
-        word.length > 3 &&
-        ![
-          "build",
-          "create",
-          "make",
-          "with",
-          "that",
-          "app",
-          "application",
-        ].includes(word.toLowerCase())
     )
-    .slice(0, 2);
 
-  if (nameWords.length === 0) {
-    return "ZapApp-" + Math.floor(Math.random() * 1000);
+    // Extract the request body
+    const requestData: BuildAppRequest = await req.json()
+    const { buildId, prompt, userId } = requestData
+    
+    console.log(`Processing build request for build ${buildId}`)
+    
+    // Step 1: Generate a spec
+    console.log('Generating app specification...')
+    const spec = generateMockSpec(prompt)
+    
+    // Update the build with the spec
+    await supabaseClient
+      .from('app_builds')
+      .update({ 
+        spec,
+        status: 'processing',
+        updated_at: new Date().toISOString(),
+        build_log: [
+          { step: "generate_spec", status: "success", timestamp: new Date().toISOString() }
+        ]
+      })
+      .eq('id', buildId)
+    
+    // Step 2: Generate app code
+    console.log('Generating app code...')
+    const code = generateMockCode(spec)
+    
+    // Update the build with the code
+    await supabaseClient
+      .from('app_builds')
+      .update({ 
+        code,
+        updated_at: new Date().toISOString(),
+        build_log: [
+          { step: "generate_spec", status: "success", timestamp: new Date().toISOString() },
+          { step: "generate_code", status: "success", timestamp: new Date().toISOString() }
+        ]
+      })
+      .eq('id', buildId)
+    
+    // Step 3: Generate a preview URL
+    console.log('Generating app preview...')
+    const previewUrl = `https://zap-demo-${buildId}.vercel.app`
+    
+    // Complete the build
+    await supabaseClient
+      .from('app_builds')
+      .update({ 
+        status: 'complete',
+        preview_url: previewUrl,
+        updated_at: new Date().toISOString(),
+        build_log: [
+          { step: "generate_spec", status: "success", timestamp: new Date().toISOString() },
+          { step: "generate_code", status: "success", timestamp: new Date().toISOString() },
+          { step: "deploy_preview", status: "success", timestamp: new Date().toISOString() }
+        ],
+        budget_usage: 0.05 // Mock budget usage
+      })
+      .eq('id', buildId)
+    
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        buildId,
+        previewUrl
+      }),
+      { 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      }
+    )
+  } catch (error) {
+    console.error('Error processing build:', error)
+    
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      }
+    )
   }
+})
 
-  return (
-    nameWords
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join("") + "App"
-  );
-}
-
-// Helper function to generate a spec from the prompt
-function generateSpec(prompt: string): string {
-  // In a real implementation, this would use an LLM
+// Mock function to generate app specification
+function generateMockSpec(prompt: string): string {
   return `# App Specification for: ${prompt}\n
 ## Overview
 This application will provide users with the following features:
@@ -212,12 +156,11 @@ item_tags {
   item_id: uuid
   tag_id: uuid
 }
-\`\`\``;
+\`\`\``
 }
 
-// Helper function to generate code from the spec
-function generateCode(spec: string): string {
-  // In a real implementation, this would use an LLM
+// Mock function to generate app code
+function generateMockCode(spec: string): string {
   return `// App.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -250,5 +193,5 @@ function App() {
   );
 }
 
-export default App;`;
+export default App;`
 }
