@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -170,7 +169,7 @@ const FinanceAI = () => {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#888888'];
   
   // Recharts responsive container wrapper
-  const ChartWrapper = ({ children }: { children: React.ReactNode }) => (
+  const ChartWrapper = ({ children }: { children: React.ReactElement }) => (
     <div className="w-full h-64 mt-4">
       <ResponsiveContainer width="100%" height="100%">
         {children}
