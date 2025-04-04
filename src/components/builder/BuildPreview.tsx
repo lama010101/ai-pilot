@@ -1,5 +1,5 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -10,9 +10,12 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, Code2, Eye, Table, Rocket } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { FileText, Code2, Eye, Table, Rocket, Download, ExternalLink } from 'lucide-react';
 import { AppBuild } from '@/types/supabase';
 import { toast } from "sonner";
+import { useAuth } from '@/contexts/AuthContext';
+import { exportBuild, triggerHostingPreview } from '@/lib/buildService';
 
 interface BuildPreviewProps {
   spec: string;
@@ -28,13 +31,81 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
   selectedBuild 
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { user } = useAuth();
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
 
+  // Handler for deploying the app
   const handleDeploy = () => {
     toast.info('Deployment in progress! Your app will be available shortly.');
     
     setTimeout(() => {
       toast.success('App deployed successfully! You can access it at the production URL.');
     }, 3000);
+  };
+
+  // Handler for exporting the build as a ZIP file
+  const handleExport = async () => {
+    if (!selectedBuild || !user) return;
+    
+    setIsExporting(true);
+    
+    try {
+      const { downloadUrl, fileName, error } = await exportBuild(selectedBuild.id, user.id);
+      
+      if (error) throw error;
+      
+      // Create a link element and trigger the download
+      if (downloadUrl && fileName) {
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success('Build exported successfully!');
+      } else {
+        throw new Error('Download URL or filename not provided');
+      }
+    } catch (error) {
+      console.error('Error exporting build:', error);
+      toast.error(`Export failed: ${error.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Handler for previewing the build
+  const handlePreview = async () => {
+    if (!selectedBuild || !user) return;
+    
+    setIsDeploying(true);
+    
+    try {
+      const { previewUrl, error } = await triggerHostingPreview(selectedBuild.id, user.id);
+      
+      if (error) throw error;
+      
+      if (previewUrl) {
+        // Update iframe source if available
+        if (iframeRef.current) {
+          iframeRef.current.src = previewUrl;
+        }
+        
+        // Open in new tab
+        window.open(previewUrl, '_blank');
+        
+        toast.success('Preview deployed successfully!');
+      } else {
+        throw new Error('Preview URL not provided');
+      }
+    } catch (error) {
+      console.error('Error deploying preview:', error);
+      toast.error(`Preview deployment failed: ${error.message}`);
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   if (!spec && !code && !isComplete && !selectedBuild) {
@@ -44,15 +115,24 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {selectedBuild ? selectedBuild.appName : 'Build Results'}
-        </CardTitle>
-        <CardDescription>
-          {selectedBuild 
-            ? `App generated from prompt: ${selectedBuild.prompt.substring(0, 100)}${selectedBuild.prompt.length > 100 ? '...' : ''}`
-            : 'App generated from your prompt'
-          }
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>
+              {selectedBuild ? selectedBuild.appName : 'Build Results'}
+            </CardTitle>
+            <CardDescription>
+              {selectedBuild 
+                ? `App generated from prompt: ${selectedBuild.prompt.substring(0, 100)}${selectedBuild.prompt.length > 100 ? '...' : ''}`
+                : 'App generated from your prompt'
+              }
+            </CardDescription>
+          </div>
+          {selectedBuild && selectedBuild.status === 'complete' && (
+            <div className="flex space-x-2">
+              <Badge variant="success">Build Complete</Badge>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="spec" className="w-full">
@@ -88,7 +168,7 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
                     ref={iframeRef}
                     className="w-full h-full"
                     title="App Preview"
-                    src="about:blank"
+                    src={selectedBuild.previewUrl}
                   />
                 </div>
               ) : (
@@ -103,10 +183,44 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
       </CardContent>
       
       {(isComplete || selectedBuild?.status === 'complete') && (
-        <CardFooter>
+        <CardFooter className="flex justify-between">
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleExport}
+              className="flex items-center gap-2"
+              variant="outline"
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <>Exporting...</>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Export Code
+                </>
+              )}
+            </Button>
+            
+            <Button 
+              onClick={handlePreview}
+              className="flex items-center gap-2"
+              variant="outline"
+              disabled={isDeploying}
+            >
+              {isDeploying ? (
+                <>Deploying Preview...</>
+              ) : (
+                <>
+                  <ExternalLink className="h-4 w-4" />
+                  Live Preview
+                </>
+              )}
+            </Button>
+          </div>
+          
           <Button 
             onClick={handleDeploy}
-            className="flex items-center gap-2 ml-auto"
+            className="flex items-center gap-2"
             variant="default"
           >
             <Rocket className="h-4 w-4" />

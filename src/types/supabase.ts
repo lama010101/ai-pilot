@@ -11,6 +11,7 @@ export interface AppBuildDB {
   code?: string;
   preview_url?: string;
   production_url?: string;
+  export_url?: string;
   timestamp: string;
   updated_at: string;
   build_log?: any[];
@@ -23,6 +24,7 @@ export interface AppBuild {
   status: 'processing' | 'complete' | 'failed';
   timestamp: string;
   previewUrl?: string;
+  exportUrl?: string;
   appName: string;
 }
 

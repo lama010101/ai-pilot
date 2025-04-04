@@ -110,6 +110,7 @@ export function useAppBuilder() {
             status: 'complete',
             timestamp: updatedBuild.timestamp,
             previewUrl: updatedBuild.preview_url,
+            exportUrl: updatedBuild.export_url,
             appName: updatedBuild.app_name
           };
           
@@ -173,6 +174,7 @@ export function useAppBuilder() {
           status: buildData.status as 'processing' | 'complete' | 'failed',
           timestamp: buildData.timestamp,
           previewUrl: buildData.preview_url,
+          exportUrl: buildData.export_url,
           appName: buildData.app_name
         };
         

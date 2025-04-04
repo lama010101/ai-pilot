@@ -108,3 +108,45 @@ export const triggerAppBuild = async (buildId: string, prompt: string, userId: s
 export const getShareableUrl = (buildId: string) => {
   return `${window.location.origin}/builder?id=${buildId}`;
 };
+
+/**
+ * Export the build as a ZIP file
+ */
+export const exportBuild = async (buildId: string, userId: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('export-build', {
+      body: { buildId, userId }
+    });
+    
+    if (error) throw error;
+    if (!data.success) throw new Error(data.error);
+    
+    return { 
+      downloadUrl: data.downloadUrl, 
+      fileName: data.fileName,
+      error: null 
+    };
+  } catch (error) {
+    console.error('Error exporting build:', error);
+    return { downloadUrl: null, fileName: null, error };
+  }
+};
+
+/**
+ * Trigger a hosting preview for the build
+ */
+export const triggerHostingPreview = async (buildId: string, userId: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('preview-build', {
+      body: { buildId, userId }
+    });
+    
+    if (error) throw error;
+    if (!data.success) throw new Error(data.error);
+    
+    return { previewUrl: data.previewUrl, error: null };
+  } catch (error) {
+    console.error('Error triggering hosting preview:', error);
+    return { previewUrl: null, error };
+  }
+};
