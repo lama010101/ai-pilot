@@ -70,6 +70,8 @@ export function useAppBuilder() {
       navigate('/login');
       return;
     }
+
+    console.log('User authenticated:', user);
     
     // Set initial states
     setIsProcessing(true);
@@ -83,6 +85,8 @@ export function useAppBuilder() {
     try {
       const appName = generateAppName(prompt);
       
+      console.log('Creating build with:', { prompt, appName, userId: user.id });
+      
       // Create app build record in database - ENSURE user_id is included to satisfy RLS
       const { data: buildData, error: createError } = await createAppBuild(prompt, appName, user.id);
       
@@ -91,8 +95,11 @@ export function useAppBuilder() {
         const errorMessage = createError?.message || 'Failed to create build record';
         setBuildError(`Build failed: ${errorMessage}`);
         setIsProcessing(false);
+        toast.error(`Build failed: ${errorMessage}`);
         throw new Error(errorMessage);
       }
+      
+      console.log('Build record created:', buildData);
       
       // Trigger the build process
       const { data: buildResult, error: buildError } = await triggerAppBuild(buildData.id, prompt, user.id);
@@ -101,8 +108,11 @@ export function useAppBuilder() {
         console.error('Failed to trigger build process:', buildError);
         setBuildError(`Build failed: ${buildError.message}`);
         setIsProcessing(false);
+        toast.error(`Build failed: ${buildError.message}`);
         throw buildError;
       }
+      
+      console.log('Build process triggered:', buildResult);
       
       // Update URL to include the new build ID
       navigate(`/builder?id=${buildData.id}`, { replace: true });
@@ -207,11 +217,7 @@ export function useAppBuilder() {
       
       setBuildError(errorMessage);
       
-      uiToast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      toast.error(errorMessage);
       
       // Clear any interval if it exists
       if (statusInterval) {

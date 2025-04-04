@@ -17,6 +17,8 @@ export const createAppBuild = async (prompt: string, appName: string, userId: st
       };
     }
 
+    console.log('Creating app build with:', { prompt, appName, userId });
+
     const { data, error } = await supabase
       .from('app_builds')
       .insert({
@@ -34,6 +36,7 @@ export const createAppBuild = async (prompt: string, appName: string, userId: st
       return { data: null, error };
     }
     
+    console.log('App build created successfully:', data);
     return { data: data as AppBuildDB };
   } catch (error) {
     console.error('Error creating app build:', error);
