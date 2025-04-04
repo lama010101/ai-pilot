@@ -57,13 +57,17 @@ export function useAppBuilder() {
     
     // Validate prompt
     if (!prompt || prompt.trim() === '') {
+      setBuildError('Please enter a description of the app you want to build');
       toast.error('Please enter a description of the app you want to build');
       return;
     }
     
     // Check user authentication
     if (!user) {
-      toast.error('You need to be logged in to build an app');
+      const errorMessage = 'You need to be logged in to build an app';
+      setBuildError(errorMessage);
+      toast.error(errorMessage);
+      navigate('/login');
       return;
     }
     
@@ -79,12 +83,15 @@ export function useAppBuilder() {
     try {
       const appName = generateAppName(prompt);
       
-      // Create app build record in database
+      // Create app build record in database - ENSURE user_id is included to satisfy RLS
       const { data: buildData, error: createError } = await createAppBuild(prompt, appName, user.id);
       
       if (createError || !buildData) {
         console.error('Failed to create build record:', createError);
-        throw new Error(createError?.message || 'Failed to create build record');
+        const errorMessage = createError?.message || 'Failed to create build record';
+        setBuildError(`Build failed: ${errorMessage}`);
+        setIsProcessing(false);
+        throw new Error(errorMessage);
       }
       
       // Trigger the build process
@@ -92,6 +99,8 @@ export function useAppBuilder() {
       
       if (buildError) {
         console.error('Failed to trigger build process:', buildError);
+        setBuildError(`Build failed: ${buildError.message}`);
+        setIsProcessing(false);
         throw buildError;
       }
       
@@ -144,14 +153,21 @@ export function useAppBuilder() {
             setSelectedBuild(completedBuild);
             
             toast.success('App successfully built!');
-            if (statusInterval) clearInterval(statusInterval);
+            if (statusInterval) {
+              clearInterval(statusInterval);
+              statusInterval = null;
+            }
             
             return completedBuild;
           } else if (updatedBuild.status === 'failed') {
             setIsProcessing(false);
-            setBuildError('App build failed. Please try a different prompt.');
-            toast.error('App build failed. Please try again.');
-            if (statusInterval) clearInterval(statusInterval);
+            const failMessage = 'App build failed. Please try a different prompt.';
+            setBuildError(failMessage);
+            toast.error(failMessage);
+            if (statusInterval) {
+              clearInterval(statusInterval);
+              statusInterval = null;
+            }
           }
           
           return null;
@@ -169,9 +185,13 @@ export function useAppBuilder() {
       setTimeout(() => {
         if (isProcessing) {
           setIsProcessing(false);
-          setBuildError('Build process timed out. Please try again later.');
+          const timeoutMessage = 'Build process timed out. Please try again later.';
+          setBuildError(timeoutMessage);
           toast.error('Build process is taking longer than expected. Please check the build status later.');
-          if (statusInterval) clearInterval(statusInterval);
+          if (statusInterval) {
+            clearInterval(statusInterval);
+            statusInterval = null;
+          }
         }
       }, 5 * 60 * 1000);
       
@@ -194,7 +214,10 @@ export function useAppBuilder() {
       });
       
       // Clear any interval if it exists
-      if (statusInterval) clearInterval(statusInterval);
+      if (statusInterval) {
+        clearInterval(statusInterval);
+        statusInterval = null;
+      }
     }
   };
 
