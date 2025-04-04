@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { PlayCircle, Loader2 } from 'lucide-react';
+import { PlayCircle, Loader2, AlertCircle } from 'lucide-react';
 
 interface PromptInputProps {
   isProcessing: boolean;
@@ -11,6 +11,7 @@ interface PromptInputProps {
   steps: string[];
   onSubmit: (prompt: string) => void;
   initialValue?: string;
+  buildError?: string | null;
 }
 
 const PromptInput: React.FC<PromptInputProps> = ({ 
@@ -18,7 +19,8 @@ const PromptInput: React.FC<PromptInputProps> = ({
   currentStep, 
   steps, 
   onSubmit,
-  initialValue = ''
+  initialValue = '',
+  buildError = null
 }) => {
   const [prompt, setPrompt] = useState<string>(initialValue);
   
@@ -51,6 +53,13 @@ const PromptInput: React.FC<PromptInputProps> = ({
           onChange={(e) => setPrompt(e.target.value)}
           disabled={isProcessing}
         />
+        
+        {buildError && (
+          <div className="mt-2 flex items-start gap-2 text-destructive text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <span>{buildError}</span>
+          </div>
+        )}
       </CardContent>
       <CardFooter className="flex justify-between">
         <div className="text-sm text-muted-foreground">
@@ -66,8 +75,17 @@ const PromptInput: React.FC<PromptInputProps> = ({
           disabled={isProcessing || !prompt.trim()}
           className="flex items-center gap-2"
         >
-          <PlayCircle className="h-4 w-4" />
-          {isProcessing ? 'Building...' : 'Build App'}
+          {isProcessing ? (
+            <>
+              <Loader2 className="animate-spin h-4 w-4" />
+              Building...
+            </>
+          ) : (
+            <>
+              <PlayCircle className="h-4 w-4" />
+              Build App
+            </>
+          )}
         </Button>
       </CardFooter>
     </Card>

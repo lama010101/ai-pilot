@@ -27,6 +27,7 @@ const Builder = () => {
     isComplete,
     selectedBuild,
     promptInputValue,
+    buildError,
     handleSubmit,
     handleViewBuild,
     handleRemixBuild,
@@ -105,6 +106,7 @@ const Builder = () => {
           steps={steps}
           onSubmit={handleSubmit}
           initialValue={promptInputValue}
+          buildError={buildError}
         />
         
         {isProcessing && (
