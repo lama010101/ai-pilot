@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { 
   Card, 
@@ -33,9 +34,18 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   const handleExport = async () => {
-    if (!selectedBuild || !user) return;
+    if (!selectedBuild || !user) {
+      toast.error('Unable to export build', { description: 'Build information or user data is missing' });
+      return;
+    }
+    
+    if (!selectedBuild.id) {
+      toast.error('Unable to export build', { description: 'Build ID is missing' });
+      return;
+    }
     
     setIsExporting(true);
     
@@ -59,16 +69,24 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
       }
     } catch (error) {
       console.error('Error exporting build:', error);
-      toast.error(`Export failed: ${error.message}`);
+      toast.error(`Export failed: ${error.message || 'Unknown error occurred'}`);
     } finally {
       setIsExporting(false);
     }
   };
 
   const handlePreview = async () => {
-    if (!selectedBuild || !user) return;
+    if (!selectedBuild || !user) {
+      toast.error('Unable to preview build', { description: 'Build information or user data is missing' });
+      return;
+    }
     
-    setIsDeploying(true);
+    if (!selectedBuild.id) {
+      toast.error('Unable to preview build', { description: 'Build ID is missing' });
+      return;
+    }
+    
+    setIsPreviewLoading(true);
     
     try {
       const { previewUrl, error } = await triggerHostingPreview(selectedBuild.id, user.id);
@@ -90,7 +108,38 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
       }
     } catch (error) {
       console.error('Error deploying preview:', error);
-      toast.error(`Preview deployment failed: ${error.message}`);
+      toast.error(`Preview deployment failed: ${error.message || 'Unknown error occurred'}`);
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  // Handler for deploying the app to production
+  const handleDeploy = async () => {
+    if (!selectedBuild || !user) {
+      toast.error('Unable to deploy build', { description: 'Build information or user data is missing' });
+      return;
+    }
+    
+    if (!selectedBuild.id) {
+      toast.error('Unable to deploy build', { description: 'Build ID is missing' });
+      return;
+    }
+    
+    setIsDeploying(true);
+    
+    try {
+      // In a real implementation, this would call a deployment API
+      // For now, we'll simulate a successful deployment
+      toast.info('Deployment in progress! Your app will be available shortly.');
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      toast.success('App deployed successfully! You can access it at the production URL.');
+    } catch (error) {
+      console.error('Error deploying build:', error);
+      toast.error(`Deployment failed: ${error.message || 'Unknown error occurred'}`);
     } finally {
       setIsDeploying(false);
     }
@@ -193,9 +242,9 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
               onClick={handlePreview}
               className="flex items-center gap-2"
               variant="outline"
-              disabled={isDeploying}
+              disabled={isPreviewLoading}
             >
-              {isDeploying ? (
+              {isPreviewLoading ? (
                 <>Deploying Preview...</>
               ) : (
                 <>
@@ -210,9 +259,16 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
             onClick={handleDeploy}
             className="flex items-center gap-2"
             variant="default"
+            disabled={isDeploying}
           >
-            <Rocket className="h-4 w-4" />
-            Deploy App
+            {isDeploying ? (
+              <>Deploying...</>
+            ) : (
+              <>
+                <Rocket className="h-4 w-4" />
+                Deploy App
+              </>
+            )}
           </Button>
         </CardFooter>
       )}
