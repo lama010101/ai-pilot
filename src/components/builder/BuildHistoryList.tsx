@@ -1,58 +1,33 @@
 
 import React from 'react';
-import { 
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
-import { formatDistance } from 'date-fns';
-import { Badge } from "@/components/ui/badge";
-import { Eye, Share2, Copy } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+import { Spinner } from '@/components/ui/spinner';
 import { AppBuild } from '@/types/supabase';
-import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
+import BuildHistoryEntry from './BuildHistoryEntry';
 
 interface BuildHistoryListProps {
   builds: AppBuild[];
   onViewBuild: (build: AppBuild) => void;
-  onRemixBuild?: (build: AppBuild) => void;
-  isLoading?: boolean;
-  currentBuildId?: string;
+  onRemixBuild: (build: AppBuild) => void;
+  isLoading: boolean;
+  currentBuildId?: string | null;
+  expandedBuildIds?: string[];
+  onToggleBuildExpansion?: (buildId: string) => void;
 }
 
 const BuildHistoryList: React.FC<BuildHistoryListProps> = ({ 
   builds, 
   onViewBuild, 
-  onRemixBuild,
-  isLoading = false,
-  currentBuildId
+  onRemixBuild, 
+  isLoading,
+  currentBuildId,
+  expandedBuildIds = [],
+  onToggleBuildExpansion = () => {}
 }) => {
-  // Function to copy share link to clipboard
-  const handleShareBuild = (buildId: string) => {
-    const shareUrl = `${window.location.origin}/builder?id=${buildId}`;
-    navigator.clipboard.writeText(shareUrl)
-      .then(() => {
-        toast.success("Share link copied to clipboard!");
-      })
-      .catch((error) => {
-        console.error("Failed to copy link:", error);
-        toast.error("Failed to copy link");
-      });
-  };
-
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="flex items-center space-x-4">
-            <Skeleton className="h-12 w-full" />
-          </div>
-        ))}
+      <div className="flex justify-center py-8">
+        <Spinner />
+        <span className="ml-2">Loading build history...</span>
       </div>
     );
   }
@@ -66,75 +41,19 @@ const BuildHistoryList: React.FC<BuildHistoryListProps> = ({
   }
 
   return (
-    <Table>
-      <TableCaption>Your recent app builds</TableCaption>
-      <TableHeader>
-        <TableRow>
-          <TableHead>App Name</TableHead>
-          <TableHead>Prompt</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Date</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {builds.map((build) => (
-          <TableRow 
-            key={build.id}
-            className={currentBuildId === build.id ? "bg-muted/30" : ""}
-          >
-            <TableCell className="font-medium">{build.appName}</TableCell>
-            <TableCell className="max-w-xs truncate">
-              {build.prompt}
-            </TableCell>
-            <TableCell>
-              <Badge
-                variant={
-                  build.status === 'complete' ? 'success' :
-                  build.status === 'processing' ? 'default' :
-                  'destructive'
-                }
-              >
-                {build.status.charAt(0).toUpperCase() + build.status.slice(1)}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              {formatDistance(new Date(build.timestamp), new Date(), { addSuffix: true })}
-            </TableCell>
-            <TableCell className="text-right space-x-1">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => onViewBuild(build)}
-                title="View build"
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleShareBuild(build.id)}
-                title="Share build"
-              >
-                <Share2 className="h-4 w-4" />
-              </Button>
-              
-              {onRemixBuild && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemixBuild(build)}
-                  title="Remix this app"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              )}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className="space-y-2">
+      {builds.map((build) => (
+        <BuildHistoryEntry
+          key={build.id}
+          build={build}
+          onViewBuild={onViewBuild}
+          onRemixBuild={onRemixBuild}
+          isSelected={build.id === currentBuildId}
+          isExpanded={expandedBuildIds.includes(build.id)}
+          onToggleExpand={() => onToggleBuildExpansion(build.id)}
+        />
+      ))}
+    </div>
   );
 };
 

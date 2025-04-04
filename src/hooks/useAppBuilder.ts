@@ -1,7 +1,5 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import { useToast } from "@/hooks/use-toast";
-import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { AppBuild } from '@/types/supabase';
@@ -23,7 +21,8 @@ export function useAppBuilder() {
     isLoadingSpec, setIsLoadingSpec,
     isLoadingCode, setIsLoadingCode,
     isLoadingPreview, setIsLoadingPreview,
-    autoBuild, setAutoBuild
+    autoBuild, setAutoBuild,
+    expandedBuildIds, toggleBuildExpansion, isBuildExpanded
   } = useAppBuilderState();
   
   const {
@@ -33,7 +32,6 @@ export function useAppBuilder() {
     navigateToBuild
   } = useAppBuilderService();
   
-  const { toast: uiToast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -102,11 +100,9 @@ export function useAppBuilder() {
       // Add error to logs
       setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`]);
       
-      toast.error('Build process failed', {
-        description: errorMessage
-      });
+      console.error('Build process failed:', errorMessage);
     }
-  }, [setCode, setCurrentStep, setIsComplete, setIsProcessing, setSelectedBuild, setSpec, setLogs, toast, setBuildError, setIsLoadingSpec, setIsLoadingCode, setIsLoadingPreview]);
+  }, [setCode, setCurrentStep, setIsComplete, setIsProcessing, setSelectedBuild, setSpec, setLogs, setBuildError, setIsLoadingSpec, setIsLoadingCode, setIsLoadingPreview]);
   
   // Start polling for build status
   const { startPolling } = useAppBuilderEffects(
@@ -141,7 +137,7 @@ export function useAppBuilder() {
   // Continue to build after spec is generated (for manual mode)
   const continueToBuild = async () => {
     if (!selectedBuild) {
-      toast.error('No build selected to continue');
+      console.error('No build selected to continue');
       return;
     }
 
@@ -158,7 +154,7 @@ export function useAppBuilder() {
       // Start polling for status updates
       startPolling(selectedBuild.id);
       
-      toast.info('Continuing build process with code generation');
+      console.log('Continuing build process with code generation');
     } catch (error) {
       console.error('Error continuing build:', error);
       setIsLoadingCode(false);
@@ -171,7 +167,6 @@ export function useAppBuilder() {
       
       setBuildError(errorMessage);
       setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`]);
-      toast.error(errorMessage);
     }
   };
 
@@ -182,14 +177,14 @@ export function useAppBuilder() {
     
     if (!prompt || prompt.trim() === '') {
       setBuildError('Please enter a description of the app you want to build');
-      toast.error('Please enter a description of the app you want to build');
+      console.error('Empty prompt submitted');
       return;
     }
     
     if (!user) {
       const errorMessage = 'You need to be logged in to build an app';
       setBuildError(errorMessage);
-      toast.error(errorMessage);
+      console.error(errorMessage);
       navigate('/login');
       return;
     }
@@ -219,6 +214,9 @@ export function useAppBuilder() {
       
       setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Build record created with ID: ${buildData.id}`]);
       
+      // Auto-expand the new build in the history
+      toggleBuildExpansion(buildData.id);
+      
       // Step 2: Trigger the build process
       await startBuildProcess(buildData.id, prompt, user.id);
       
@@ -230,7 +228,7 @@ export function useAppBuilder() {
         ? 'Build process started. This may take a few minutes.' 
         : 'Generating app specification. You will be able to review before continuing.';
       
-      toast.info(message);
+      console.log(message);
       
       // Step 4: Start polling for build status
       startPolling(buildData.id);
@@ -249,7 +247,6 @@ export function useAppBuilder() {
       
       setBuildError(errorMessage);
       setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`]);
-      toast.error(errorMessage);
     }
   };
 
@@ -279,7 +276,6 @@ export function useAppBuilder() {
       }
     } catch (error) {
       console.error('Error loading build data:', error);
-      toast.error('Failed to load app build data');
       setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to load build data: ${error instanceof Error ? error.message : 'Unknown error'}`]);
       return null;
     }
@@ -291,6 +287,9 @@ export function useAppBuilder() {
     setSelectedBuild(build);
     navigate(`/dashboard/builder?id=${build.id}`, { replace: true });
     loadBuildDataWrapper(build.id);
+    
+    // Auto-expand the viewed build in history
+    toggleBuildExpansion(build.id);
   };
 
   // Remix an existing build
@@ -300,7 +299,7 @@ export function useAppBuilder() {
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    toast.info(`App prompt loaded for remixing: ${build.appName}`);
+    console.log('App prompt loaded for remixing:', build.appName);
     
     navigate('/dashboard/builder', { replace: true });
   };
@@ -326,6 +325,9 @@ export function useAppBuilder() {
     setPromptInputValue,
     continueToBuild,
     autoBuild,
-    setAutoBuild
+    setAutoBuild,
+    expandedBuildIds,
+    toggleBuildExpansion,
+    isBuildExpanded
   };
 }

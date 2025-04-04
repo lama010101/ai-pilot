@@ -1,11 +1,10 @@
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, Code2, Eye, Table, ListFilter } from 'lucide-react';
+import { FileText, Code2, Eye, Table, ListFilter, Copy, CheckCircle2 } from 'lucide-react';
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
-import { Copy } from "lucide-react";
-import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface BuildResultTabsProps {
   spec: string;
@@ -35,19 +34,30 @@ const BuildResultTabs: React.FC<BuildResultTabsProps> = ({
   onContinueToBuild,
   autoBuild
 }) => {
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = React.useState("spec");
+  const [copied, setCopied] = React.useState<string | null>(null);
+
+  // Auto-scroll logs to bottom
+  useEffect(() => {
+    if (activeTab === "logs" && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [logs, activeTab]);
+
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text)
       .then(() => {
-        toast.success(`${type} copied to clipboard`);
+        setCopied(type);
+        setTimeout(() => setCopied(null), 2000);
       })
       .catch((err) => {
         console.error("Failed to copy:", err);
-        toast.error(`Failed to copy ${type.toLowerCase()}`);
       });
   };
 
   return (
-    <Tabs defaultValue="spec" className="w-full">
+    <Tabs defaultValue="spec" className="w-full" onValueChange={setActiveTab}>
       <TabsList className="grid w-full grid-cols-4">
         <TabsTrigger value="spec" className="flex items-center gap-2">
           <FileText className="h-4 w-4" /> Specification
@@ -76,9 +86,18 @@ const BuildResultTabs: React.FC<BuildResultTabsProps> = ({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => copyToClipboard(spec, "Specification")}
+                  onClick={() => copyToClipboard(spec, "spec")}
+                  className="flex items-center gap-2"
                 >
-                  <Copy className="h-4 w-4 mr-2" /> Copy
+                  {copied === "spec" ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" /> Copy
+                    </>
+                  )}
                 </Button>
               </div>
               <pre className="whitespace-pre-wrap text-sm pt-8">{spec}</pre>
@@ -112,9 +131,18 @@ const BuildResultTabs: React.FC<BuildResultTabsProps> = ({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => copyToClipboard(code, "Code")}
+                  onClick={() => copyToClipboard(code, "code")}
+                  className="flex items-center gap-2"
                 >
-                  <Copy className="h-4 w-4 mr-2" /> Copy
+                  {copied === "code" ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" /> Copy
+                    </>
+                  )}
                 </Button>
               </div>
               <pre className="whitespace-pre-wrap text-sm pt-8">{code}</pre>
@@ -161,13 +189,22 @@ const BuildResultTabs: React.FC<BuildResultTabsProps> = ({
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => copyToClipboard(logs.join('\n'), "Logs")}
+              onClick={() => copyToClipboard(logs.join('\n'), "logs")}
               disabled={logs.length === 0}
+              className="flex items-center gap-2"
             >
-              <Copy className="h-4 w-4 mr-2" /> Copy
+              {copied === "logs" ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" /> Copy
+                </>
+              )}
             </Button>
           </div>
-          <pre className="whitespace-pre-wrap text-sm pt-8">
+          <div className="whitespace-pre-wrap text-sm pt-8">
             {logs.length > 0 ? logs.map((log, index) => (
               <div key={index} className="mb-1">
                 {log}
@@ -177,7 +214,8 @@ const BuildResultTabs: React.FC<BuildResultTabsProps> = ({
                 <p>Build logs will appear here during the build process.</p>
               </div>
             )}
-          </pre>
+            <div ref={logsEndRef} /> {/* Scroll anchor */}
+          </div>
         </div>
       </TabsContent>
     </Tabs>

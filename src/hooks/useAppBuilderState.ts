@@ -16,6 +16,19 @@ export function useAppBuilderState() {
   const [isLoadingCode, setIsLoadingCode] = useState<boolean>(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState<boolean>(false);
   const [autoBuild, setAutoBuild] = useState<boolean>(true);
+  const [expandedBuildIds, setExpandedBuildIds] = useState<string[]>([]);
+
+  const toggleBuildExpansion = (buildId: string) => {
+    setExpandedBuildIds(prev => 
+      prev.includes(buildId) 
+        ? prev.filter(id => id !== buildId) 
+        : [...prev, buildId]
+    );
+  };
+
+  const isBuildExpanded = (buildId: string) => {
+    return expandedBuildIds.includes(buildId);
+  };
 
   return {
     // Build process state
@@ -54,6 +67,11 @@ export function useAppBuilderState() {
     promptInputValue,
     setPromptInputValue,
     buildError,
-    setBuildError
+    setBuildError,
+
+    // Build expansion state
+    expandedBuildIds,
+    toggleBuildExpansion,
+    isBuildExpanded
   };
 }

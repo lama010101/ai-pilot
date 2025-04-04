@@ -32,6 +32,14 @@ serve(async (req) => {
     // Create a Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error: Missing Supabase credentials' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     // Initialize the build log
@@ -63,7 +71,31 @@ serve(async (req) => {
         ]);
 
         // 2. Generate app spec using OpenAI
-        const appSpec = await generateAppSpec(prompt);
+        let appSpec = '';
+        try {
+          appSpec = await generateAppSpec(prompt);
+        } catch (specError) {
+          console.error('Error generating app specification:', specError);
+          
+          const errorMessage = specError.message || 'Unknown error generating specification';
+          
+          await updateBuildLog(supabase, buildId, [
+            { step: 'analyze_prompt', status: 'success', message: 'Prompt analyzed successfully', timestamp: new Date().toISOString() },
+            { step: 'generate_spec', status: 'failed', message: `Failed to generate spec: ${errorMessage}`, timestamp: new Date().toISOString() }
+          ]);
+          
+          // Save what we have so far and mark as failed
+          await supabase
+            .from('app_builds')
+            .update({
+              status: 'failed',
+              error_message: `Failed to generate app specification: ${errorMessage}`,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', buildId);
+          
+          return;
+        }
         
         // If not autoBuild, stop here and wait for user to continue
         if (!autoBuild) {
@@ -276,28 +308,33 @@ async function generateAppSpec(prompt) {
     const configuration = new Configuration({ apiKey: openaiApiKey });
     const openai = new OpenAIApi(configuration);
     
-    const response = await openai.createChatCompletion({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert app specification generator. Create a detailed specification for a web application based on the user's prompt.
-          Format the specification in markdown, including sections for:
-          - Overview (brief description of the app)
-          - Technical Requirements (technologies to use)
-          - Features (list of key features)
-          - Data Models (structure of main data entities)
-          - UI Components (main UI elements)
-          
-          Keep the specification focused and implementable as a single-page React application.`
-        },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
-    });
-    
-    return response.data.choices[0].message.content;
+    try {
+      const response = await openai.createChatCompletion({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert app specification generator. Create a detailed specification for a web application based on the user's prompt.
+            Format the specification in markdown, including sections for:
+            - Overview (brief description of the app)
+            - Technical Requirements (technologies to use)
+            - Features (list of key features)
+            - Data Models (structure of main data entities)
+            - UI Components (main UI elements)
+            
+            Keep the specification focused and implementable as a single-page React application.`
+          },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000
+      });
+      
+      return response.data.choices[0].message.content;
+    } catch (apiError) {
+      console.error('OpenAI API error:', apiError);
+      throw new Error(`OpenAI API error: ${apiError.message || 'Unknown error'}`);
+    }
   } catch (error) {
     console.error('Error generating app specification:', error);
     throw new Error(`Failed to generate app specification: ${error.message}`);
@@ -316,32 +353,37 @@ async function generateAppCode(prompt, spec) {
     const configuration = new Configuration({ apiKey: openaiApiKey });
     const openai = new OpenAIApi(configuration);
     
-    const response = await openai.createChatCompletion({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert React developer. Generate the code for a web application based on the given specification. 
-          The code should be a complete solution that would work in a Vite+React project with Tailwind CSS.
-          Include all necessary components, hooks, and utilities.
-          Format your response as a single code block containing all the necessary files and their content.
-          Make sure to include App.jsx/tsx as the main entry point.`
-        },
-        { 
-          role: "user", 
-          content: `Create a React application based on this specification and prompt:
-          
-          Prompt: ${prompt}
-          
-          Specification:
-          ${spec}` 
-        }
-      ],
-      temperature: 0.5,
-      max_tokens: 4000
-    });
-    
-    return response.data.choices[0].message.content;
+    try {
+      const response = await openai.createChatCompletion({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert React developer. Generate the code for a web application based on the given specification. 
+            The code should be a complete solution that would work in a Vite+React project with Tailwind CSS.
+            Include all necessary components, hooks, and utilities.
+            Format your response as a single code block containing all the necessary files and their content.
+            Make sure to include App.jsx/tsx as the main entry point.`
+          },
+          { 
+            role: "user", 
+            content: `Create a React application based on this specification and prompt:
+            
+            Prompt: ${prompt}
+            
+            Specification:
+            ${spec}` 
+          }
+        ],
+        temperature: 0.5,
+        max_tokens: 4000
+      });
+      
+      return response.data.choices[0].message.content;
+    } catch (apiError) {
+      console.error('OpenAI API error:', apiError);
+      throw new Error(`OpenAI API error: ${apiError.message || 'Unknown error'}`);
+    }
   } catch (error) {
     console.error('Error generating app code:', error);
     throw new Error(`Failed to generate app code: ${error.message}`);

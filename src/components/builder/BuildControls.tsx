@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AppBuild } from '@/types/supabase';
 import { getShareableUrl } from '@/lib/buildService';
-import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface BuildControlsProps {
   selectedBuild: AppBuild | null;
@@ -45,11 +45,10 @@ const BuildControls: React.FC<BuildControlsProps> = ({
   const handleCopyShareableLink = () => {
     navigator.clipboard.writeText(shareableUrl)
       .then(() => {
-        toast.success("Shareable link copied to clipboard");
+        console.log("Shareable link copied to clipboard");
       })
       .catch((err) => {
         console.error("Failed to copy link:", err);
-        toast.error("Failed to copy link to clipboard");
       });
   };
 

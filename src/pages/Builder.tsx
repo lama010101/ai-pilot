@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,9 @@ const Builder = () => {
     setPromptInputValue,
     continueToBuild,
     autoBuild,
-    setAutoBuild
+    setAutoBuild,
+    expandedBuildIds,
+    toggleBuildExpansion
   } = useAppBuilder();
   
   const {
@@ -110,6 +112,8 @@ const Builder = () => {
                 onRemixBuild={handleRemixBuild}
                 isLoading={isLoadingHistory}
                 currentBuildId={selectedBuild?.id}
+                expandedBuildIds={expandedBuildIds}
+                onToggleBuildExpansion={toggleBuildExpansion}
               />
             </CardContent>
           </Card>
