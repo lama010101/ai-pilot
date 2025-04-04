@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -25,7 +24,6 @@ export function useAppBuilder() {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Steps for the build process
   const steps = [
     'Analyzing prompt...',
     'Generating app specification...',
@@ -35,7 +33,6 @@ export function useAppBuilder() {
     'Complete!'
   ];
 
-  // Generate an app name from the prompt
   const generateAppName = (prompt: string): string => {
     const words = prompt.split(' ');
     const nameWords = words.filter(word => 
@@ -50,19 +47,15 @@ export function useAppBuilder() {
     return nameWords.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('') + 'App';
   };
 
-  // Handle app build submission
   const handleSubmit = async (prompt: string) => {
-    // Reset error state
     setBuildError(null);
     
-    // Validate prompt
     if (!prompt || prompt.trim() === '') {
       setBuildError('Please enter a description of the app you want to build');
       toast.error('Please enter a description of the app you want to build');
       return;
     }
     
-    // Check user authentication
     if (!user) {
       const errorMessage = 'You need to be logged in to build an app';
       setBuildError(errorMessage);
@@ -73,7 +66,6 @@ export function useAppBuilder() {
 
     console.log('User authenticated:', user);
     
-    // Set initial states
     setIsProcessing(true);
     setCurrentStep(0);
     setSpec('');
@@ -87,7 +79,6 @@ export function useAppBuilder() {
       
       console.log('Creating build with:', { prompt, appName, userId: user.id });
       
-      // Create app build record in database - ENSURE user_id is included to satisfy RLS
       const { data: buildData, error: createError } = await createAppBuild(prompt, appName, user.id);
       
       if (createError || !buildData) {
@@ -101,7 +92,6 @@ export function useAppBuilder() {
       
       console.log('Build record created:', buildData);
       
-      // Trigger the build process
       const { data: buildResult, error: buildError } = await triggerAppBuild(buildData.id, prompt, user.id);
       
       if (buildError) {
@@ -114,8 +104,11 @@ export function useAppBuilder() {
       
       console.log('Build process triggered:', buildResult);
       
-      // Update URL to include the new build ID
-      navigate(`/builder?id=${buildData.id}`, { replace: true });
+      try {
+        navigate(`/builder?id=${buildData.id}`);
+      } catch (navError) {
+        console.error('Navigation error:', navError);
+      }
       
       toast.info('Build process started. This may take a few minutes.');
       
@@ -150,17 +143,29 @@ export function useAppBuilder() {
             setIsComplete(true);
             setIsProcessing(false);
             
-            const completedBuild: AppBuild = {
-              id: updatedBuild.id,
-              prompt: updatedBuild.prompt,
-              status: 'complete',
-              timestamp: updatedBuild.timestamp,
-              previewUrl: updatedBuild.preview_url,
-              exportUrl: updatedBuild.export_url,
-              appName: updatedBuild.app_name
-            };
-            
-            setSelectedBuild(completedBuild);
+            try {
+              const completedBuild: AppBuild = {
+                id: updatedBuild.id,
+                prompt: updatedBuild.prompt,
+                status: 'complete',
+                timestamp: updatedBuild.timestamp,
+                previewUrl: updatedBuild.preview_url,
+                exportUrl: updatedBuild.export_url,
+                appName: updatedBuild.app_name
+              };
+              
+              setSelectedBuild(completedBuild);
+              
+              try {
+                const testJson = JSON.stringify(completedBuild);
+                JSON.parse(testJson);
+                localStorage.setItem(`build_${completedBuild.id}`, testJson);
+              } catch (storageError) {
+                console.error('Failed to save build to localStorage:', storageError);
+              }
+            } catch (buildError) {
+              console.error('Error processing completed build:', buildError);
+            }
             
             toast.success('App successfully built!');
             if (statusInterval) {
@@ -191,7 +196,6 @@ export function useAppBuilder() {
       
       await checkBuildStatus();
       
-      // Safety timeout to prevent indefinite loading
       setTimeout(() => {
         if (isProcessing) {
           setIsProcessing(false);
@@ -209,7 +213,6 @@ export function useAppBuilder() {
       console.error('Error building app:', error);
       setIsProcessing(false);
       
-      // Determine a user-friendly error message
       let errorMessage = 'Failed to build app. Please try again.';
       if (error instanceof Error) {
         errorMessage = `Build failed: ${error.message}`;
@@ -219,7 +222,6 @@ export function useAppBuilder() {
       
       toast.error(errorMessage);
       
-      // Clear any interval if it exists
       if (statusInterval) {
         clearInterval(statusInterval);
         statusInterval = null;
@@ -227,7 +229,6 @@ export function useAppBuilder() {
     }
   };
 
-  // Load build data from API
   const loadBuildData = async (buildId: string) => {
     try {
       const { data: buildData, error } = await getAppBuildById(buildId);
@@ -270,18 +271,14 @@ export function useAppBuilder() {
     }
   };
 
-  // Handle viewing a build from history
   const handleViewBuild = (build: AppBuild) => {
     setSelectedBuild(build);
     
-    // Update URL when viewing a build
     navigate(`/builder?id=${build.id}`, { replace: true });
     
-    // Load the build data if it's not already loaded
     loadBuildData(build.id);
   };
-  
-  // Handle remixing a build
+
   const handleRemixBuild = (build: AppBuild) => {
     setPromptInputValue(build.prompt);
     setSelectedBuild(null);
@@ -290,12 +287,10 @@ export function useAppBuilder() {
     setCode('');
     setBuildError(null);
     
-    // Scroll to the prompt input
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
     toast.info(`App prompt loaded for remixing: ${build.appName}`);
     
-    // Clear the URL query parameter
     navigate('/builder', { replace: true });
   };
 

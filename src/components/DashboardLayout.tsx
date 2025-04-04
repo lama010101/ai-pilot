@@ -70,15 +70,26 @@ const DashboardLayout = () => {
   useEffect(() => {
     console.log("Dashboard layout mounted");
     
-    // Log any stored build data that might be causing issues
-    try {
-      const storedData = localStorage.getItem('app_builder_state');
-      if (storedData) {
-        console.log("Found stored app builder state");
+    // Safely check and clean up potentially corrupted localStorage items
+    const keysToCheck = ['app_builder_state', 'app_builds', 'builder_session', 'builder_state'];
+    
+    keysToCheck.forEach(key => {
+      try {
+        const storedData = localStorage.getItem(key);
+        if (storedData) {
+          // Try to parse JSON data to see if it's valid
+          try {
+            JSON.parse(storedData);
+            console.log(`Valid ${key} data found`);
+          } catch (parseError) {
+            console.error(`Found corrupted ${key} data, removing it:`, parseError);
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (error) {
+        console.error(`Error accessing localStorage for ${key}:`, error);
       }
-    } catch (error) {
-      console.error("Error checking localStorage:", error);
-    }
+    });
   }, []);
 
   return (
