@@ -1,12 +1,14 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase, USE_FAKE_AUTH } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client'; // Use the standardized client
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 // Get the leader email from environment variables
 const LEADER_EMAIL = import.meta.env.VITE_LEADER_EMAIL || 'emartin6867@gmail.com';
+// Use the development flag for fake authentication
+const USE_FAKE_AUTH = import.meta.env.VITE_USE_FAKE_AUTH === 'true';
 
 interface AuthContextType {
   user: User | null;
