@@ -1,8 +1,9 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Download, ExternalLink, Rocket } from 'lucide-react';
+import { Download, ExternalLink, Rocket } from "lucide-react";
 import { AppBuild } from '@/types/supabase';
+import { getShareableUrl } from '@/lib/buildService';
 
 interface BuildControlsProps {
   selectedBuild: AppBuild | null;
@@ -12,10 +13,11 @@ interface BuildControlsProps {
   onExport: () => void;
   onPreview: () => void;
   onDeploy: () => void;
+  hasPreview?: boolean;
 }
 
 /**
- * Component for build action buttons (export, preview, deploy)
+ * Component to display action buttons for a completed build
  */
 const BuildControls: React.FC<BuildControlsProps> = ({
   selectedBuild,
@@ -24,63 +26,59 @@ const BuildControls: React.FC<BuildControlsProps> = ({
   isDeploying,
   onExport,
   onPreview,
-  onDeploy
+  onDeploy,
+  hasPreview = false
 }) => {
-  // Determine if build actions should be disabled
-  const isBuildComplete = selectedBuild?.status === 'complete';
-  const hasValidBuild = !!selectedBuild?.id && isBuildComplete;
-
+  if (!selectedBuild) return null;
+  
+  // Generate a shareable link for the build
+  const shareableUrl = getShareableUrl(selectedBuild.id);
+  
   return (
-    <div className="flex justify-between">
-      <div className="flex gap-2">
-        <Button 
-          onClick={onExport}
-          className="flex items-center gap-2"
+    <div className="w-full flex flex-wrap gap-3 justify-between items-center">
+      <div>
+        <Button
           variant="outline"
-          disabled={isExporting || !hasValidBuild}
+          size="sm"
+          onClick={() => {
+            navigator.clipboard.writeText(shareableUrl);
+          }}
         >
-          {isExporting ? (
-            <>Exporting...</>
-          ) : (
-            <>
-              <Download className="h-4 w-4" />
-              Export Code
-            </>
-          )}
-        </Button>
-        
-        <Button 
-          onClick={onPreview}
-          className="flex items-center gap-2"
-          variant="outline"
-          disabled={isPreviewLoading || !hasValidBuild}
-        >
-          {isPreviewLoading ? (
-            <>Deploying Preview...</>
-          ) : (
-            <>
-              <ExternalLink className="h-4 w-4" />
-              Live Preview
-            </>
-          )}
+          Copy Shareable Link
         </Button>
       </div>
       
-      <Button 
-        onClick={onDeploy}
-        className="flex items-center gap-2"
-        variant="default"
-        disabled={isDeploying || !hasValidBuild}
-      >
-        {isDeploying ? (
-          <>Deploying...</>
-        ) : (
-          <>
-            <Rocket className="h-4 w-4" />
-            Deploy App
-          </>
-        )}
-      </Button>
+      <div className="flex space-x-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onExport}
+          disabled={isExporting}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          {isExporting ? 'Exporting...' : 'Export Code'}
+        </Button>
+        
+        <Button
+          variant={hasPreview ? "default" : "outline"}
+          size="sm"
+          onClick={onPreview}
+          disabled={isPreviewLoading || !hasPreview}
+        >
+          <ExternalLink className="mr-2 h-4 w-4" />
+          {isPreviewLoading ? 'Loading...' : 'View Preview'}
+        </Button>
+        
+        <Button
+          variant="default"
+          size="sm"
+          onClick={onDeploy}
+          disabled={isDeploying}
+        >
+          <Rocket className="mr-2 h-4 w-4" />
+          {isDeploying ? 'Deploying...' : 'Deploy App'}
+        </Button>
+      </div>
     </div>
   );
 };

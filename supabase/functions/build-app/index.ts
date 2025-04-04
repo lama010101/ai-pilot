@@ -57,18 +57,35 @@ serve(async (req) => {
     // In a real implementation, this would be a more complex process with multiple steps
     setTimeout(async () => {
       try {
-        const buildLogComplete = [
+        // Update build log to show progress
+        const buildLogUpdated = [
           { step: 'analyze_prompt', status: 'success', message: 'Prompt analyzed successfully', timestamp: new Date().toISOString() },
           { step: 'generate_spec', status: 'success', message: 'App specification generated', timestamp: new Date().toISOString() },
           { step: 'build_app', status: 'success', message: 'Application code built', timestamp: new Date().toISOString() },
           { step: 'package_app', status: 'success', message: 'Application packaged', timestamp: new Date().toISOString() },
-          { step: 'deploy_preview', status: 'success', message: 'Preview deployed', timestamp: new Date().toISOString() },
+          { step: 'deploy_preview', status: 'pending', message: 'Deploying preview...', timestamp: new Date().toISOString() },
         ];
+        
+        await supabase
+          .from('app_builds')
+          .update({
+            build_log: buildLogUpdated,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', buildId);
         
         // Generate sample app spec and code
         const spec = generateSampleSpec(prompt);
         const code = generateSampleCode(prompt);
-        const previewUrl = 'https://example.com/preview/' + buildId;
+        
+        // Deploy the preview
+        const previewUrl = await deployPreview(buildId, code, prompt);
+        
+        // Final build log with preview deployment
+        const buildLogComplete = [
+          ...buildLogUpdated.slice(0, -1),
+          { step: 'deploy_preview', status: 'success', message: 'Preview deployed', timestamp: new Date().toISOString() },
+        ];
 
         // Update the build with completion status
         await supabase
@@ -83,7 +100,7 @@ serve(async (req) => {
           })
           .eq('id', buildId);
           
-        console.log('Build completed successfully');
+        console.log('Build completed successfully with preview URL:', previewUrl);
       } catch (error) {
         console.error('Error in async build process:', error);
         // Update the build with error status
@@ -189,4 +206,35 @@ function App() {
     </QueryClientProvider>
   );
 }`;
+}
+
+// Deploy the app to a preview environment
+async function deployPreview(buildId, code, prompt) {
+  try {
+    console.log('Deploying preview for build:', buildId);
+    
+    // For this implementation, we'll create a preview using Supabase Functions
+    // In a production environment, you would use a service like Vercel API
+    
+    // Create a simple HTML file with the app preview
+    const appName = prompt.split(' ').slice(0, 3).join('-').toLowerCase();
+    const sanitizedBuildId = buildId.replace(/-/g, '').substring(0, 8);
+    
+    // In a real implementation, this would deploy to Vercel or similar
+    // But for demo purposes, we'll create a static preview URL
+    const previewDomain = "https://preview-apps.aipilot.io";
+    const previewUrl = `${previewDomain}/${sanitizedBuildId}-${appName}`;
+    
+    console.log('Generated preview URL:', previewUrl);
+    
+    // In a real implementation, you would:
+    // 1. Package the code as a deployable bundle
+    // 2. Push to Vercel or similar service
+    // 3. Return the actual deployment URL
+    
+    return previewUrl;
+  } catch (error) {
+    console.error('Error deploying preview:', error);
+    throw error;
+  }
 }

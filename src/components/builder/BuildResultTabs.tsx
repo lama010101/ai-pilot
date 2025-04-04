@@ -54,12 +54,15 @@ const BuildResultTabs: React.FC<BuildResultTabsProps> = ({
                 className="w-full h-full"
                 title="App Preview"
                 src={previewUrl}
+                sandbox="allow-scripts allow-forms allow-same-origin"
+                loading="lazy"
               />
             </div>
           ) : (
             <div className="text-center text-muted-foreground">
               <Table className="h-12 w-12 mb-2 mx-auto opacity-50" />
               <p>Preview will be available after build completes.</p>
+              <p className="text-sm mt-2">The app preview will be deployed automatically and shown here.</p>
             </div>
           )}
         </div>

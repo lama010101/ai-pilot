@@ -67,6 +67,9 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
     handleDeploy(selectedBuild, user);
   };
 
+  // Check if the preview URL exists
+  const hasPreviewUrl = Boolean(selectedBuild?.previewUrl);
+
   return (
     <Card>
       <CardHeader>
@@ -85,6 +88,7 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
           {selectedBuild && selectedBuild.status === 'complete' && (
             <div className="flex space-x-2">
               <Badge variant="success">Build Complete</Badge>
+              {hasPreviewUrl && <Badge variant="outline">Preview Available</Badge>}
             </div>
           )}
         </div>
@@ -108,6 +112,7 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
             onExport={onExportClick}
             onPreview={onPreviewClick}
             onDeploy={onDeployClick}
+            hasPreview={hasPreviewUrl}
           />
         </CardFooter>
       )}
