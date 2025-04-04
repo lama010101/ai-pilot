@@ -91,7 +91,8 @@ export function useAppBuilderService() {
         return {
           build,
           spec: buildData.spec || '',
-          code: buildData.code || ''
+          code: buildData.code || '',
+          buildLogs: buildData.build_log || []
         };
       }
       

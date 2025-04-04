@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,15 +24,22 @@ const Builder = () => {
     steps,
     spec,
     code,
+    logs,
     isComplete,
     selectedBuild,
     promptInputValue,
     buildError,
+    isLoadingSpec,
+    isLoadingCode,
+    isLoadingPreview,
     handleSubmit,
     handleViewBuild,
     handleRemixBuild,
     loadBuildData,
-    setPromptInputValue
+    setPromptInputValue,
+    continueToBuild,
+    autoBuild,
+    setAutoBuild
   } = useAppBuilder();
   
   const {
@@ -131,8 +138,15 @@ const Builder = () => {
         <BuildPreview 
           spec={spec}
           code={code}
+          logs={logs}
           isComplete={isComplete}
+          isLoadingSpec={isLoadingSpec}
+          isLoadingCode={isLoadingCode}
+          isLoadingPreview={isLoadingPreview}
           selectedBuild={selectedBuild}
+          onContinueToBuild={spec && !autoBuild ? continueToBuild : undefined}
+          autoBuild={autoBuild}
+          onAutoBuildChange={setAutoBuild}
         />
       </div>
     </>

@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,10 +15,15 @@ export function useAppBuilder() {
     currentStep, setCurrentStep,
     spec, setSpec,
     code, setCode,
+    logs, setLogs,
     isComplete, setIsComplete,
     selectedBuild, setSelectedBuild,
     promptInputValue, setPromptInputValue,
-    buildError, setBuildError
+    buildError, setBuildError,
+    isLoadingSpec, setIsLoadingSpec,
+    isLoadingCode, setIsLoadingCode,
+    isLoadingPreview, setIsLoadingPreview,
+    autoBuild, setAutoBuild
   } = useAppBuilderState();
   
   const {
@@ -39,19 +44,34 @@ export function useAppBuilder() {
         (step: any) => step.status === 'success'
       ).length;
       setCurrentStep(Math.min(completedSteps, 5));
+      
+      // Update logs
+      const buildLogs = updatedBuild.build_log.map((logEntry: any) => 
+        `[${new Date(logEntry.timestamp).toLocaleTimeString()}] ${logEntry.message}`
+      );
+      setLogs(buildLogs);
     }
     
     if (updatedBuild.spec) {
       setSpec(updatedBuild.spec);
+      setIsLoadingSpec(false);
     }
     
     if (updatedBuild.code) {
       setCode(updatedBuild.code);
+      setIsLoadingCode(false);
+    }
+    
+    if (updatedBuild.preview_url) {
+      setIsLoadingPreview(false);
     }
     
     if (isComplete) {
       setIsComplete(true);
       setIsProcessing(false);
+      setIsLoadingSpec(false);
+      setIsLoadingCode(false);
+      setIsLoadingPreview(false);
       
       const completedBuild: AppBuild = {
         id: updatedBuild.id,
@@ -64,8 +84,29 @@ export function useAppBuilder() {
       };
       
       setSelectedBuild(completedBuild);
+      
+      // Add final log
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Build completed successfully`]);
     }
-  }, [setCode, setCurrentStep, setIsComplete, setIsProcessing, setSelectedBuild, setSpec]);
+    
+    // Handle errors in the build process
+    if (updatedBuild.status === 'failed') {
+      setIsProcessing(false);
+      setIsLoadingSpec(false);
+      setIsLoadingCode(false);
+      setIsLoadingPreview(false);
+      
+      const errorMessage = updatedBuild.error_message || 'Build failed for unknown reasons';
+      setBuildError(errorMessage);
+      
+      // Add error to logs
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`]);
+      
+      toast.error('Build process failed', {
+        description: errorMessage
+      });
+    }
+  }, [setCode, setCurrentStep, setIsComplete, setIsProcessing, setSelectedBuild, setSpec, setLogs, toast, setBuildError, setIsLoadingSpec, setIsLoadingCode, setIsLoadingPreview]);
   
   // Start polling for build status
   const { startPolling } = useAppBuilderEffects(
@@ -84,8 +125,59 @@ export function useAppBuilder() {
     'Complete!'
   ];
 
+  // Reset build state
+  const resetBuildState = () => {
+    setSpec('');
+    setCode('');
+    setLogs([]);
+    setIsComplete(false);
+    setSelectedBuild(null);
+    setBuildError(null);
+    setIsLoadingSpec(false);
+    setIsLoadingCode(false);
+    setIsLoadingPreview(false);
+  };
+
+  // Continue to build after spec is generated (for manual mode)
+  const continueToBuild = async () => {
+    if (!selectedBuild) {
+      toast.error('No build selected to continue');
+      return;
+    }
+
+    setIsLoadingCode(true);
+    setIsLoadingPreview(true);
+    
+    try {
+      // Add log
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Continuing build process after specification`]);
+      
+      // Trigger the next step of the build
+      await startBuildProcess(selectedBuild.id, selectedBuild.prompt, user?.id || '');
+      
+      // Start polling for status updates
+      startPolling(selectedBuild.id);
+      
+      toast.info('Continuing build process with code generation');
+    } catch (error) {
+      console.error('Error continuing build:', error);
+      setIsLoadingCode(false);
+      setIsLoadingPreview(false);
+      
+      let errorMessage = 'Failed to continue build. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = `Build continuation failed: ${error.message}`;
+      }
+      
+      setBuildError(errorMessage);
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`]);
+      toast.error(errorMessage);
+    }
+  };
+
   // Submit a new app build
   const handleSubmit = async (prompt: string) => {
+    resetBuildState();
     setBuildError(null);
     
     if (!prompt || prompt.trim() === '') {
@@ -106,9 +198,16 @@ export function useAppBuilder() {
     
     setIsProcessing(true);
     setCurrentStep(0);
-    setSpec('');
-    setCode('');
-    setIsComplete(false);
+    setIsLoadingSpec(true);
+    
+    // Only set loading for code and preview if autoBuild is true
+    if (autoBuild) {
+      setIsLoadingCode(true);
+      setIsLoadingPreview(true);
+    }
+    
+    // Start with an initial log
+    setLogs([`[${new Date().toLocaleTimeString()}] Starting build process for: "${prompt}"`]);
     
     try {
       // Step 1: Create the build record
@@ -118,6 +217,8 @@ export function useAppBuilder() {
         throw new Error('Failed to create build record');
       }
       
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Build record created with ID: ${buildData.id}`]);
+      
       // Step 2: Trigger the build process
       await startBuildProcess(buildData.id, prompt, user.id);
       
@@ -125,7 +226,11 @@ export function useAppBuilder() {
       // We use navigate instead of location.reload() to prevent state loss
       navigate(`/dashboard/builder?id=${buildData.id}`);
       
-      toast.info('Build process started. This may take a few minutes.');
+      const message = autoBuild 
+        ? 'Build process started. This may take a few minutes.' 
+        : 'Generating app specification. You will be able to review before continuing.';
+      
+      toast.info(message);
       
       // Step 4: Start polling for build status
       startPolling(buildData.id);
@@ -133,6 +238,9 @@ export function useAppBuilder() {
     } catch (error) {
       console.error('Error building app:', error);
       setIsProcessing(false);
+      setIsLoadingSpec(false);
+      setIsLoadingCode(false);
+      setIsLoadingPreview(false);
       
       let errorMessage = 'Failed to build app. Please try again.';
       if (error instanceof Error) {
@@ -140,6 +248,7 @@ export function useAppBuilder() {
       }
       
       setBuildError(errorMessage);
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`]);
       toast.error(errorMessage);
     }
   };
@@ -147,27 +256,38 @@ export function useAppBuilder() {
   // Load build data for an existing build
   const loadBuildDataWrapper = async (buildId: string) => {
     try {
+      setLogs([`[${new Date().toLocaleTimeString()}] Loading build data for ID: ${buildId}`]);
+      
       const result = await loadBuildData(buildId);
       
       if (result) {
-        const { build, spec: buildSpec, code: buildCode } = result;
+        const { build, spec: buildSpec, code: buildCode, buildLogs } = result;
         
         setSpec(buildSpec);
         setCode(buildCode);
         setIsComplete(build.status === 'complete');
         setSelectedBuild(build);
         
+        if (buildLogs && buildLogs.length > 0) {
+          const formattedLogs = buildLogs.map((logEntry: any) => 
+            `[${new Date(logEntry.timestamp).toLocaleTimeString()}] ${logEntry.message}`
+          );
+          setLogs(formattedLogs);
+        }
+        
         return build;
       }
     } catch (error) {
       console.error('Error loading build data:', error);
       toast.error('Failed to load app build data');
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to load build data: ${error instanceof Error ? error.message : 'Unknown error'}`]);
       return null;
     }
   };
 
   // View a specific build
   const handleViewBuild = (build: AppBuild) => {
+    resetBuildState();
     setSelectedBuild(build);
     navigate(`/dashboard/builder?id=${build.id}`, { replace: true });
     loadBuildDataWrapper(build.id);
@@ -175,12 +295,8 @@ export function useAppBuilder() {
 
   // Remix an existing build
   const handleRemixBuild = (build: AppBuild) => {
+    resetBuildState();
     setPromptInputValue(build.prompt);
-    setSelectedBuild(null);
-    setIsComplete(false);
-    setSpec('');
-    setCode('');
-    setBuildError(null);
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
@@ -195,14 +311,21 @@ export function useAppBuilder() {
     steps,
     spec,
     code,
+    logs,
     isComplete,
     selectedBuild,
     promptInputValue,
     buildError,
+    isLoadingSpec,
+    isLoadingCode,
+    isLoadingPreview,
     handleSubmit,
     handleViewBuild,
     handleRemixBuild,
     loadBuildData: loadBuildDataWrapper,
-    setPromptInputValue
+    setPromptInputValue,
+    continueToBuild,
+    autoBuild,
+    setAutoBuild
   };
 }

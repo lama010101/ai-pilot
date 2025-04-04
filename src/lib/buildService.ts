@@ -1,6 +1,17 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { AppBuildDB } from '@/types/supabase';
 import { toast } from 'sonner';
+
+// TypeScript interface extensions (to ensure all needed fields are present)
+export interface BuildWithLogs extends AppBuildDB {
+  build_log: Array<{
+    step: string;
+    status: string;
+    message: string;
+    timestamp: string;
+  }>;
+}
 
 /**
  * Create a new app build in Supabase
@@ -67,7 +78,7 @@ export const getAppBuildById = async (buildId: string) => {
       return { data: null, error };
     }
     
-    return { data: data as AppBuildDB };
+    return { data: data as BuildWithLogs };
   } catch (error) {
     console.error('Error fetching app build:', error);
     return { data: null, error };

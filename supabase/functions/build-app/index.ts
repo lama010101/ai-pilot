@@ -16,10 +16,10 @@ serve(async (req) => {
 
   try {
     // Get the request body
-    const { buildId, prompt, userId } = await req.json();
+    const { buildId, prompt, userId, autoBuild = true } = await req.json();
     
     // Log request for debugging
-    console.log("Edge function reached with:", { buildId, prompt, userId });
+    console.log("Edge function reached with:", { buildId, prompt, userId, autoBuild });
     
     // Validate inputs
     if (!buildId || !prompt || !userId) {
@@ -65,6 +65,26 @@ serve(async (req) => {
         // 2. Generate app spec using OpenAI
         const appSpec = await generateAppSpec(prompt);
         
+        // If not autoBuild, stop here and wait for user to continue
+        if (!autoBuild) {
+          await supabase
+            .from('app_builds')
+            .update({
+              build_log: [
+                { step: 'analyze_prompt', status: 'success', message: 'Prompt analyzed successfully', timestamp: new Date().toISOString() },
+                { step: 'generate_spec', status: 'success', message: 'App specification generated', timestamp: new Date().toISOString() },
+                { step: 'waiting', status: 'pending', message: 'Waiting for user to continue...', timestamp: new Date().toISOString() }
+              ],
+              spec: appSpec,
+              status: 'waiting',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', buildId);
+          
+          console.log('Spec generation completed, waiting for user to continue');
+          return;
+        }
+        
         await updateBuildLog(supabase, buildId, [
           { step: 'analyze_prompt', status: 'success', message: 'Prompt analyzed successfully', timestamp: new Date().toISOString() },
           { step: 'generate_spec', status: 'success', message: 'App specification generated', timestamp: new Date().toISOString() },
@@ -72,7 +92,32 @@ serve(async (req) => {
         ]);
         
         // 3. Generate app code using OpenAI
-        const appCode = await generateAppCode(prompt, appSpec);
+        let appCode = '';
+        try {
+          appCode = await generateAppCode(prompt, appSpec);
+        } catch (codeError) {
+          // Log the error but continue with what we have
+          console.error('Error generating application code:', codeError);
+          
+          await updateBuildLog(supabase, buildId, [
+            { step: 'analyze_prompt', status: 'success', message: 'Prompt analyzed successfully', timestamp: new Date().toISOString() },
+            { step: 'generate_spec', status: 'success', message: 'App specification generated', timestamp: new Date().toISOString() },
+            { step: 'build_app', status: 'failed', message: `Failed to generate code: ${codeError.message}`, timestamp: new Date().toISOString() }
+          ]);
+          
+          // Save what we have so far and mark as failed
+          await supabase
+            .from('app_builds')
+            .update({
+              status: 'failed',
+              error_message: `Failed to generate code: ${codeError.message}`,
+              spec: appSpec,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', buildId);
+          
+          return;
+        }
         
         await updateBuildLog(supabase, buildId, [
           { step: 'analyze_prompt', status: 'success', message: 'Prompt analyzed successfully', timestamp: new Date().toISOString() },
@@ -91,7 +136,42 @@ serve(async (req) => {
         ]);
 
         // 5. Deploy preview
-        const previewUrl = await deployPreview(buildId, appCode, prompt);
+        let previewUrl = '';
+        try {
+          previewUrl = await deployPreview(buildId, appCode, prompt);
+        } catch (deployError) {
+          // Log the error but continue with what we have
+          console.error('Error deploying preview:', deployError);
+          
+          await updateBuildLog(supabase, buildId, [
+            { step: 'analyze_prompt', status: 'success', message: 'Prompt analyzed successfully', timestamp: new Date().toISOString() },
+            { step: 'generate_spec', status: 'success', message: 'App specification generated', timestamp: new Date().toISOString() },
+            { step: 'build_app', status: 'success', message: 'Application code built', timestamp: new Date().toISOString() },
+            { step: 'package_app', status: 'success', message: 'Application packaged', timestamp: new Date().toISOString() },
+            { step: 'deploy_preview', status: 'failed', message: `Failed to deploy preview: ${deployError.message}`, timestamp: new Date().toISOString() }
+          ]);
+          
+          // Continue with what we have, but note the preview failure
+          await supabase
+            .from('app_builds')
+            .update({
+              status: 'complete', // Still mark as complete since we have spec and code
+              build_log: [
+                { step: 'analyze_prompt', status: 'success', message: 'Prompt analyzed successfully', timestamp: new Date().toISOString() },
+                { step: 'generate_spec', status: 'success', message: 'App specification generated', timestamp: new Date().toISOString() },
+                { step: 'build_app', status: 'success', message: 'Application code built', timestamp: new Date().toISOString() },
+                { step: 'package_app', status: 'success', message: 'Application packaged', timestamp: new Date().toISOString() },
+                { step: 'deploy_preview', status: 'failed', message: `Failed to deploy preview: ${deployError.message}`, timestamp: new Date().toISOString() },
+                { step: 'complete', status: 'partial', message: 'Build completed with partial success (preview unavailable)', timestamp: new Date().toISOString() }
+              ],
+              spec: appSpec,
+              code: appCode,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', buildId);
+          
+          return;
+        }
         
         const buildLogComplete = [
           { step: 'analyze_prompt', status: 'success', message: 'Prompt analyzed successfully', timestamp: new Date().toISOString() },
@@ -123,6 +203,7 @@ serve(async (req) => {
           .from('app_builds')
           .update({
             status: 'failed',
+            error_message: error.message || 'Unknown error during build process',
             build_log: [
               ...await getCurrentBuildLog(supabase, buildId),
               { step: 'error', status: 'failed', message: `Build failed: ${error.message}`, timestamp: new Date().toISOString() }

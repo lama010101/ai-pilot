@@ -2,6 +2,8 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Download, ExternalLink, Rocket } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { AppBuild } from '@/types/supabase';
 import { getShareableUrl } from '@/lib/buildService';
 import { toast } from "sonner";
@@ -15,6 +17,8 @@ interface BuildControlsProps {
   onPreview: () => void;
   onDeploy: () => void;
   hasPreview?: boolean;
+  autoBuild: boolean;
+  onAutoBuildChange: (enabled: boolean) => void;
 }
 
 /**
@@ -28,7 +32,9 @@ const BuildControls: React.FC<BuildControlsProps> = ({
   onExport,
   onPreview,
   onDeploy,
-  hasPreview = false
+  hasPreview = false,
+  autoBuild,
+  onAutoBuildChange
 }) => {
   if (!selectedBuild) return null;
   
@@ -46,49 +52,65 @@ const BuildControls: React.FC<BuildControlsProps> = ({
         toast.error("Failed to copy link to clipboard");
       });
   };
+
+  const handleAutoBuildToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    onAutoBuildChange(!autoBuild);
+  };
   
   return (
-    <div className="w-full flex flex-wrap gap-3 justify-between items-center">
-      <div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleCopyShareableLink}
-        >
-          Copy Shareable Link
-        </Button>
+    <div className="w-full flex flex-col gap-3">
+      <div className="flex flex-wrap gap-3 justify-between items-center">
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyShareableLink}
+          >
+            Copy Shareable Link
+          </Button>
+        </div>
+        
+        <div className="flex space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={isExporting}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {isExporting ? 'Exporting...' : 'Export Code'}
+          </Button>
+          
+          <Button
+            variant={hasPreview ? "default" : "outline"}
+            size="sm"
+            onClick={onPreview}
+            disabled={isPreviewLoading || !hasPreview}
+          >
+            <ExternalLink className="mr-2 h-4 w-4" />
+            {isPreviewLoading ? 'Loading...' : hasPreview ? 'View Preview' : 'No Preview Available'}
+          </Button>
+          
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onDeploy}
+            disabled={isDeploying}
+          >
+            <Rocket className="mr-2 h-4 w-4" />
+            {isDeploying ? 'Deploying...' : 'Deploy App'}
+          </Button>
+        </div>
       </div>
-      
-      <div className="flex space-x-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onExport}
-          disabled={isExporting}
-        >
-          <Download className="mr-2 h-4 w-4" />
-          {isExporting ? 'Exporting...' : 'Export Code'}
-        </Button>
-        
-        <Button
-          variant={hasPreview ? "default" : "outline"}
-          size="sm"
-          onClick={onPreview}
-          disabled={isPreviewLoading || !hasPreview}
-        >
-          <ExternalLink className="mr-2 h-4 w-4" />
-          {isPreviewLoading ? 'Loading...' : hasPreview ? 'View Preview' : 'No Preview Available'}
-        </Button>
-        
-        <Button
-          variant="default"
-          size="sm"
-          onClick={onDeploy}
-          disabled={isDeploying}
-        >
-          <Rocket className="mr-2 h-4 w-4" />
-          {isDeploying ? 'Deploying...' : 'Deploy App'}
-        </Button>
+
+      <div className="flex items-center space-x-2 self-end">
+        <Switch 
+          id="auto-build" 
+          checked={autoBuild} 
+          onCheckedChange={onAutoBuildChange}
+        />
+        <Label htmlFor="auto-build">Auto-Build After Spec</Label>
       </div>
     </div>
   );

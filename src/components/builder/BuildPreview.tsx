@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -18,8 +18,15 @@ import BuildControls from './BuildControls';
 interface BuildPreviewProps {
   spec: string;
   code: string;
+  logs: string[];
   isComplete: boolean;
+  isLoadingSpec: boolean;
+  isLoadingCode: boolean;
+  isLoadingPreview: boolean;
   selectedBuild: AppBuild | null;
+  onContinueToBuild?: () => void;
+  autoBuild: boolean;
+  onAutoBuildChange: (enabled: boolean) => void;
 }
 
 /**
@@ -27,9 +34,16 @@ interface BuildPreviewProps {
  */
 const BuildPreview: React.FC<BuildPreviewProps> = ({ 
   spec, 
-  code, 
+  code,
+  logs,
   isComplete, 
-  selectedBuild 
+  isLoadingSpec,
+  isLoadingCode,
+  isLoadingPreview,
+  selectedBuild,
+  onContinueToBuild,
+  autoBuild,
+  onAutoBuildChange
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { user } = useAuth();
@@ -42,8 +56,8 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
     handleDeploy 
   } = useBuildActions();
 
-  // Don't render if no build data is available
-  if (!spec && !code && !isComplete && !selectedBuild) {
+  // Don't render if no build data is available and nothing is loading
+  if (!spec && !code && !isComplete && !selectedBuild && !isLoadingSpec && logs.length === 0) {
     return null;
   }
 
@@ -96,9 +110,15 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
       <CardContent>
         <BuildResultTabs 
           spec={spec} 
-          code={code} 
+          code={code}
+          logs={logs} 
           previewUrl={selectedBuild?.previewUrl} 
-          iframeRef={iframeRef} 
+          iframeRef={iframeRef}
+          isLoadingSpec={isLoadingSpec}
+          isLoadingCode={isLoadingCode}
+          isLoadingPreview={isLoadingPreview}
+          onContinueToBuild={onContinueToBuild}
+          autoBuild={autoBuild}
         />
       </CardContent>
       
@@ -113,6 +133,8 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
             onPreview={onPreviewClick}
             onDeploy={onDeployClick}
             hasPreview={hasPreviewUrl}
+            autoBuild={autoBuild}
+            onAutoBuildChange={onAutoBuildChange}
           />
         </CardFooter>
       )}
