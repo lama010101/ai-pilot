@@ -48,7 +48,7 @@ const BuildResultTabs: React.FC<BuildResultTabsProps> = ({
       <TabsContent value="preview" className="mt-4">
         <div className="bg-card-foreground/5 rounded-md p-4 h-[400px] flex items-center justify-center">
           {previewUrl ? (
-            <div className="w-full h-full border border-border rounded">
+            <div className="w-full h-full border border-border rounded overflow-hidden">
               <iframe 
                 ref={iframeRef}
                 className="w-full h-full"
