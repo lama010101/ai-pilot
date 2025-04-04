@@ -118,12 +118,12 @@ export function useAppBuilder() {
           
           if (statusError) {
             console.error('Error checking build status:', statusError);
-            return;
+            return null;
           }
           
           if (!updatedBuild) {
             console.warn('No build data returned when checking status');
-            return;
+            return null;
           }
           
           if (updatedBuild.build_log && updatedBuild.build_log.length > 0) {
@@ -143,19 +143,19 @@ export function useAppBuilder() {
             setIsComplete(true);
             setIsProcessing(false);
             
+            const completedBuild: AppBuild = {
+              id: updatedBuild.id,
+              prompt: updatedBuild.prompt,
+              status: 'complete',
+              timestamp: updatedBuild.timestamp,
+              previewUrl: updatedBuild.preview_url,
+              exportUrl: updatedBuild.export_url,
+              appName: updatedBuild.app_name
+            };
+            
+            setSelectedBuild(completedBuild);
+            
             try {
-              const completedBuild: AppBuild = {
-                id: updatedBuild.id,
-                prompt: updatedBuild.prompt,
-                status: 'complete',
-                timestamp: updatedBuild.timestamp,
-                previewUrl: updatedBuild.preview_url,
-                exportUrl: updatedBuild.export_url,
-                appName: updatedBuild.app_name
-              };
-              
-              setSelectedBuild(completedBuild);
-              
               try {
                 const testJson = JSON.stringify(completedBuild);
                 JSON.parse(testJson);
