@@ -7,6 +7,7 @@ import { History } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   getUserAppBuilds, 
   createAppBuild, 
@@ -14,8 +15,9 @@ import {
   triggerAppBuild 
 } from '@/lib/buildService';
 import { AppBuild } from '@/types/supabase';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-// Import our new components
+// Import our components
 import PromptInput from '@/components/builder/PromptInput';
 import BuildProgress from '@/components/builder/BuildProgress';
 import BuildPreview from '@/components/builder/BuildPreview';
@@ -32,9 +34,13 @@ const Builder = () => {
   const [selectedBuild, setSelectedBuild] = useState<AppBuild | null>(null);
   const [isShowingHistory, setIsShowingHistory] = useState<boolean>(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
+  const [promptInputValue, setPromptInputValue] = useState<string>('');
   
   const { toast: uiToast } = useToast();
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
   
   // Steps for the build process
   const steps = [
@@ -45,6 +51,59 @@ const Builder = () => {
     'Deploying preview...',
     'Complete!'
   ];
+  
+  // Parse the URL query string to get build ID
+  const getSharedBuildId = () => {
+    const searchParams = new URLSearchParams(location.search);
+    return searchParams.get('id');
+  };
+  
+  // Load shared build from URL
+  useEffect(() => {
+    const loadSharedBuild = async () => {
+      const buildId = getSharedBuildId();
+      
+      if (buildId) {
+        try {
+          const { data: buildData } = await getAppBuildById(buildId);
+          
+          if (buildData) {
+            const build: AppBuild = {
+              id: buildData.id,
+              prompt: buildData.prompt,
+              status: buildData.status as 'processing' | 'complete' | 'failed',
+              timestamp: buildData.timestamp,
+              previewUrl: buildData.preview_url,
+              appName: buildData.app_name
+            };
+            
+            setSelectedBuild(build);
+            
+            if (buildData.spec) {
+              setSpec(buildData.spec);
+            }
+            
+            if (buildData.code) {
+              setCode(buildData.code);
+            }
+            
+            setIsComplete(buildData.status === 'complete');
+            
+            toast.success(`Loaded shared app: ${buildData.app_name}`);
+          } else {
+            toast.error('Could not load the shared app build');
+          }
+        } catch (error) {
+          console.error('Error loading shared build:', error);
+          toast.error('Failed to load the shared app build');
+        }
+      }
+    };
+    
+    if (user) {
+      loadSharedBuild();
+    }
+  }, [user, location.search]);
   
   // Fetch build history when user is available
   const fetchBuildHistory = async () => {
@@ -106,6 +165,9 @@ const Builder = () => {
       if (buildError) {
         throw buildError;
       }
+      
+      // Update URL to include the new build ID
+      navigate(`/builder?id=${buildData.id}`, { replace: true });
       
       toast.info('Build process started. This may take a few minutes.');
       
@@ -179,6 +241,50 @@ const Builder = () => {
   // Handle viewing a build from history
   const handleViewBuild = (build: AppBuild) => {
     setSelectedBuild(build);
+    
+    // Update URL when viewing a build
+    navigate(`/builder?id=${build.id}`, { replace: true });
+    
+    // Load the build data if it's not already loaded
+    loadBuildData(build.id);
+  };
+  
+  // Handle remixing a build
+  const handleRemixBuild = (build: AppBuild) => {
+    setPromptInputValue(build.prompt);
+    setSelectedBuild(null);
+    setIsComplete(false);
+    setSpec('');
+    setCode('');
+    
+    // Scroll to the prompt input
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    toast.info(`App prompt loaded for remixing: ${build.appName}`);
+    
+    // Clear the URL query parameter
+    navigate('/builder', { replace: true });
+  };
+  
+  // Load build data from API
+  const loadBuildData = async (buildId: string) => {
+    try {
+      const { data: buildData } = await getAppBuildById(buildId);
+      
+      if (buildData) {
+        if (buildData.spec) {
+          setSpec(buildData.spec);
+        }
+        
+        if (buildData.code) {
+          setCode(buildData.code);
+        }
+        
+        setIsComplete(buildData.status === 'complete');
+      }
+    } catch (error) {
+      console.error('Error loading build data:', error);
+    }
   };
   
   // Generate an app name from the prompt
@@ -233,7 +339,9 @@ const Builder = () => {
               <BuildHistoryList 
                 builds={appBuilds} 
                 onViewBuild={handleViewBuild}
+                onRemixBuild={handleRemixBuild}
                 isLoading={isLoadingHistory}
+                currentBuildId={selectedBuild?.id}
               />
             </CardContent>
           </Card>
@@ -244,6 +352,7 @@ const Builder = () => {
           currentStep={currentStep}
           steps={steps}
           onSubmit={handleSubmit}
+          initialValue={promptInputValue}
         />
         
         {isProcessing && (

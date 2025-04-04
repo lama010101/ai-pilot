@@ -101,3 +101,10 @@ export const triggerAppBuild = async (buildId: string, prompt: string, userId: s
     return { data: null, error };
   }
 };
+
+/**
+ * Get a public shareable URL for an app build
+ */
+export const getShareableUrl = (buildId: string) => {
+  return `${window.location.origin}/builder?id=${buildId}`;
+};
