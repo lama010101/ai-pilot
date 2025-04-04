@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AppBuildDB } from '@/types/supabase';
 import { toast } from 'sonner';
@@ -151,18 +150,33 @@ export const triggerAppBuild = async (buildId: string, prompt: string, userId: s
       };
     }
 
-    const { data, error } = await supabase.functions.invoke('build-app', {
-      body: { buildId, prompt, userId }
-    });
-    
-    if (error) {
-      console.error('Error triggering app build:', error);
-      return { data: null, error };
+    console.log('Triggering app build with:', { buildId, prompt, userId });
+
+    // Add a try-catch block specifically for the function invocation
+    try {
+      const { data, error } = await supabase.functions.invoke('build-app', {
+        body: { buildId, prompt, userId }
+      });
+      
+      if (error) {
+        console.error('Error invoking build-app function:', error);
+        toast.error(`Failed to start build process: ${error.message}`);
+        return { data: null, error };
+      }
+
+      console.log('Build process triggered successfully:', data);
+      return { data, error: null };
+    } catch (functionError) {
+      console.error('Exception when invoking function:', functionError);
+      toast.error('Failed to connect to build service. Please try again later.');
+      return { 
+        data: null, 
+        error: new Error(`Failed to invoke build function: ${functionError.message}`) 
+      };
     }
-    
-    return { data, error: null };
   } catch (error) {
-    console.error('Error triggering app build:', error);
+    console.error('Error in triggerAppBuild:', error);
+    toast.error('Unexpected error when starting build');
     return { data: null, error };
   }
 };

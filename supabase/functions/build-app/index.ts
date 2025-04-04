@@ -17,6 +17,9 @@ serve(async (req) => {
     // Get the request body
     const { buildId, prompt, userId } = await req.json();
     
+    // Log request for debugging
+    console.log("Edge function reached with:", { buildId, prompt, userId });
+    
     // Validate inputs
     if (!buildId || !prompt || !userId) {
       return new Response(
