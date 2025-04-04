@@ -19,15 +19,19 @@ import BuildPreview from '@/components/builder/BuildPreview';
 import BuildHistoryList from '@/components/builder/BuildHistoryList';
 
 const Builder = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user, session } = useAuth();
   const navigate = useNavigate();
   
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
+      console.log('Not authenticated, redirecting to login');
       navigate('/login');
+    } else if (isAuthenticated && user) {
+      console.log('User authenticated:', user.id);
+      console.log('Session available:', !!session);
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, navigate, user, session]);
   
   // Use our custom hooks
   const {

@@ -83,6 +83,11 @@ export function useAppBuilder() {
       
       console.log('Creating build with:', { prompt, appName, userId: user.id });
       
+      // First ensure we have a valid authenticated session
+      if (!session) {
+        throw new Error('Session is missing. Please log in again.');
+      }
+      
       const { data: buildData, error: createError } = await createAppBuild(prompt, appName, user.id);
       
       if (createError || !buildData) {

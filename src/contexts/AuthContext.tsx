@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Check if there's an active session
     const checkSession = async () => {
       try {
+        console.log('Checking Supabase auth session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -63,6 +64,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // If we have a session, check if the user is authorized
         if (session) {
           const userEmail = session.user?.email;
+          console.log('Session found for email:', userEmail);
           
           if (userEmail !== LEADER_EMAIL) {
             console.log('Unauthorized access attempt:', userEmail);
@@ -77,6 +79,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(session.user);
             setIsAuthenticated(true);
           }
+        } else {
+          console.log('No active session found');
         }
         
         setIsLoading(false);
@@ -89,10 +93,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     checkSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      // If session exists, check if user is authorized
-      if (session) {
-        const userEmail = session.user?.email;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (newSession) {
+        const userEmail = newSession.user?.email;
+        console.log('Auth state changed - session detected:', userEmail);
         
         if (userEmail !== LEADER_EMAIL) {
           console.log('Unauthorized access attempt:', userEmail);
@@ -103,12 +107,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(null);
           setIsAuthenticated(false);
         } else {
-          console.log('Auth state changed - authenticated:', session.user.id);
-          setSession(session);
-          setUser(session.user);
+          console.log('Auth state changed - authenticated:', newSession.user.id);
+          setSession(newSession);
+          setUser(newSession.user);
           setIsAuthenticated(true);
         }
       } else {
+        console.log('Auth state changed - no session');
         setSession(null);
         setUser(null);
         setIsAuthenticated(false);
@@ -148,14 +153,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
+      const siteUrl = window.location.origin;
+      console.log('Signing in with Google using site URL:', siteUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${siteUrl}/dashboard`,
         },
       });
       
       if (error) {
+        console.error('Error signing in with Google:', error);
         throw error;
       }
     } catch (error) {
