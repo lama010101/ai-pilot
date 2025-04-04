@@ -40,12 +40,12 @@ enable_signup = true
 [realtime]
 enabled = true
 
-[edge_functions]
-[edge_functions.export-build]
+[functions]
+[functions.build-app]
 verify_jwt = true
 
-[edge_functions.preview-build]
+[functions.export-build]
 verify_jwt = true
 
-[edge_functions.build-app]
+[functions.preview-build]
 verify_jwt = true
