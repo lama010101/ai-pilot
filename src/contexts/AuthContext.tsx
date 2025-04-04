@@ -31,6 +31,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Skip Supabase session check if using fake auth
     if (USE_FAKE_AUTH) {
+      // For dev mode, create a fake user and session
+      const fakeUser = {
+        id: 'fake-user-id',
+        email: LEADER_EMAIL,
+      } as User;
+      
+      const fakeSession = {
+        user: fakeUser,
+        access_token: 'fake-token',
+      } as Session;
+      
+      setUser(fakeUser);
+      setSession(fakeSession);
+      setIsAuthenticated(true);
+      setIsLoading(false);
       return;
     }
 
@@ -57,6 +72,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(null);
             setIsAuthenticated(false);
           } else {
+            console.log('Session found and authenticated:', session.user.id);
             setSession(session);
             setUser(session.user);
             setIsAuthenticated(true);
@@ -87,6 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(null);
           setIsAuthenticated(false);
         } else {
+          console.log('Auth state changed - authenticated:', session.user.id);
           setSession(session);
           setUser(session.user);
           setIsAuthenticated(true);
@@ -108,7 +125,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInWithGoogle = async () => {
     if (USE_FAKE_AUTH) {
       // Fake authentication - just redirect to dashboard
+      // Create fake user and session for dev mode
+      const fakeUser = {
+        id: 'fake-user-id',
+        email: LEADER_EMAIL,
+      } as User;
+      
+      const fakeSession = {
+        user: fakeUser,
+        access_token: 'fake-token',
+      } as Session;
+      
+      setUser(fakeUser);
+      setSession(fakeSession);
       setIsAuthenticated(true);
+      
       toast("Welcome, Leader", {
         description: "You have been signed in with Dev Mode"
       });
@@ -136,6 +167,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     if (USE_FAKE_AUTH) {
       // Fake sign out - just redirect to login
+      setUser(null);
+      setSession(null);
       setIsAuthenticated(false);
       toast("Signed out", {
         description: "You have been signed out"

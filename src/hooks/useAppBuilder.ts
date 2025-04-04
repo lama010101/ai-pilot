@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +20,7 @@ export function useAppBuilder() {
   const [promptInputValue, setPromptInputValue] = useState<string>('');
   const [buildError, setBuildError] = useState<string | null>(null);
   
-  const { user, session } = useAuth();
+  const { user, session, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
   const steps = [
@@ -54,7 +55,7 @@ export function useAppBuilder() {
       return;
     }
     
-    if (!user || !session) {
+    if (!isAuthenticated || !user) {
       const errorMessage = 'You need to be logged in to build an app';
       setBuildError(errorMessage);
       toast.error(errorMessage);
@@ -63,7 +64,11 @@ export function useAppBuilder() {
     }
 
     console.log('User authenticated:', user);
-    console.log('Active session:', session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'No expiry');
+    console.log('Session information:', {
+      exists: !!session,
+      userId: session?.user?.id,
+      hasAccessToken: !!session?.access_token,
+    });
     
     setIsProcessing(true);
     setCurrentStep(0);

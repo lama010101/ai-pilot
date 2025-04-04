@@ -41,6 +41,11 @@ export const createAppBuild = async (prompt: string, appName: string, userId: st
       };
     }
 
+    console.log('Authenticated session confirmed:', {
+      sessionId: sessionData.session.user.id,
+      accessToken: sessionData.session.access_token ? 'Present' : 'Missing'
+    });
+
     const { data, error } = await supabase
       .from('app_builds')
       .insert({

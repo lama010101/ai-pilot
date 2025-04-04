@@ -1,14 +1,16 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { History } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // Import our custom hooks
 import { useAppBuilder } from '@/hooks/useAppBuilder';
 import { useBuildHistory } from '@/hooks/useBuildHistory';
 import { useUrlParams } from '@/hooks/useUrlParams';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Import our components
 import PromptInput from '@/components/builder/PromptInput';
@@ -17,6 +19,16 @@ import BuildPreview from '@/components/builder/BuildPreview';
 import BuildHistoryList from '@/components/builder/BuildHistoryList';
 
 const Builder = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+  
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+  
   // Use our custom hooks
   const {
     isProcessing,
@@ -54,6 +66,22 @@ const Builder = () => {
       fetchBuildHistory();
     }
   });
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    // This shouldn't render as we redirect in the useEffect, but as a fallback
+    return null;
+  }
   
   return (
     <>
