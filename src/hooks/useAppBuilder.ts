@@ -14,6 +14,7 @@ export function useAppBuilder() {
     spec, setSpec,
     code, setCode,
     logs, setLogs,
+    appendLog,
     isComplete, setIsComplete,
     selectedBuild, setSelectedBuild,
     promptInputValue, setPromptInputValue,
@@ -22,7 +23,7 @@ export function useAppBuilder() {
     isLoadingCode, setIsLoadingCode,
     isLoadingPreview, setIsLoadingPreview,
     autoBuild, setAutoBuild,
-    expandedBuildIds, toggleBuildExpansion, isBuildExpanded
+    expandedBuildIds, toggleBuildExpansion
   } = useAppBuilderState();
   
   const {
@@ -83,8 +84,8 @@ export function useAppBuilder() {
       
       setSelectedBuild(completedBuild);
       
-      // Add final log
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Build completed successfully`]);
+      // Add final log instead of toast
+      appendLog('success', 'Build completed successfully');
     }
     
     // Handle errors in the build process
@@ -98,11 +99,11 @@ export function useAppBuilder() {
       setBuildError(errorMessage);
       
       // Add error to logs
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`]);
+      appendLog('error', errorMessage);
       
       console.error('Build process failed:', errorMessage);
     }
-  }, [setCode, setCurrentStep, setIsComplete, setIsProcessing, setSelectedBuild, setSpec, setLogs, setBuildError, setIsLoadingSpec, setIsLoadingCode, setIsLoadingPreview]);
+  }, [setCode, setCurrentStep, setIsComplete, setIsProcessing, setSelectedBuild, setSpec, setLogs, setBuildError, setIsLoadingSpec, setIsLoadingCode, setIsLoadingPreview, appendLog]);
   
   // Start polling for build status
   const { startPolling } = useAppBuilderEffects(
@@ -146,7 +147,7 @@ export function useAppBuilder() {
     
     try {
       // Add log
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Continuing build process after specification`]);
+      appendLog('info', 'Continuing build process after specification');
       
       // Trigger the next step of the build
       await startBuildProcess(selectedBuild.id, selectedBuild.prompt, user?.id || '');
@@ -166,7 +167,7 @@ export function useAppBuilder() {
       }
       
       setBuildError(errorMessage);
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`]);
+      appendLog('error', errorMessage);
     }
   };
 
@@ -177,7 +178,7 @@ export function useAppBuilder() {
     
     if (!prompt || prompt.trim() === '') {
       setBuildError('Please enter a description of the app you want to build');
-      console.error('Empty prompt submitted');
+      appendLog('error', 'Empty prompt submitted');
       return;
     }
     
@@ -212,7 +213,7 @@ export function useAppBuilder() {
         throw new Error('Failed to create build record');
       }
       
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Build record created with ID: ${buildData.id}`]);
+      appendLog('info', `Build record created with ID: ${buildData.id}`);
       
       // Auto-expand the new build in the history
       toggleBuildExpansion(buildData.id);
@@ -221,14 +222,15 @@ export function useAppBuilder() {
       await startBuildProcess(buildData.id, prompt, user.id);
       
       // Step 3: Navigate to the builder page with the build ID
-      // We use navigate instead of location.reload() to prevent state loss
-      navigate(`/dashboard/builder?id=${buildData.id}`);
+      const currentPath = window.location.pathname;
+      const basePath = currentPath.includes('/dashboard-dev') ? '/dashboard-dev' : '/dashboard';
+      navigate(`${basePath}/builder?id=${buildData.id}`);
       
       const message = autoBuild 
         ? 'Build process started. This may take a few minutes.' 
         : 'Generating app specification. You will be able to review before continuing.';
       
-      console.log(message);
+      appendLog('info', message);
       
       // Step 4: Start polling for build status
       startPolling(buildData.id);
@@ -246,14 +248,14 @@ export function useAppBuilder() {
       }
       
       setBuildError(errorMessage);
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: ${errorMessage}`]);
+      appendLog('error', errorMessage);
     }
   };
 
   // Load build data for an existing build
   const loadBuildDataWrapper = async (buildId: string) => {
     try {
-      setLogs([`[${new Date().toLocaleTimeString()}] Loading build data for ID: ${buildId}`]);
+      appendLog('info', `Loading build data for ID: ${buildId}`);
       
       const result = await loadBuildData(buildId);
       
@@ -272,11 +274,16 @@ export function useAppBuilder() {
           setLogs(formattedLogs);
         }
         
+        appendLog('info', `Build "${build.appName}" loaded successfully`);
         return build;
       }
     } catch (error) {
       console.error('Error loading build data:', error);
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to load build data: ${error instanceof Error ? error.message : 'Unknown error'}`]);
+      let errorMessage = 'Failed to load build data';
+      if (error instanceof Error) {
+        errorMessage += `: ${error.message}`;
+      }
+      appendLog('error', errorMessage);
       return null;
     }
   };
@@ -285,11 +292,17 @@ export function useAppBuilder() {
   const handleViewBuild = (build: AppBuild) => {
     resetBuildState();
     setSelectedBuild(build);
-    navigate(`/dashboard/builder?id=${build.id}`, { replace: true });
+    
+    const currentPath = window.location.pathname;
+    const basePath = currentPath.includes('/dashboard-dev') ? '/dashboard-dev' : '/dashboard';
+    navigate(`${basePath}/builder?id=${build.id}`, { replace: true });
+    
     loadBuildDataWrapper(build.id);
     
     // Auto-expand the viewed build in history
     toggleBuildExpansion(build.id);
+    
+    appendLog('info', `Viewing build: ${build.appName}`);
   };
 
   // Remix an existing build
@@ -299,9 +312,11 @@ export function useAppBuilder() {
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    console.log('App prompt loaded for remixing:', build.appName);
+    appendLog('info', `App prompt loaded for remixing: ${build.appName}`);
     
-    navigate('/dashboard/builder', { replace: true });
+    const currentPath = window.location.pathname;
+    const basePath = currentPath.includes('/dashboard-dev') ? '/dashboard-dev' : '/dashboard';
+    navigate(`${basePath}/builder`, { replace: true });
   };
 
   return {
@@ -328,6 +343,6 @@ export function useAppBuilder() {
     setAutoBuild,
     expandedBuildIds,
     toggleBuildExpansion,
-    isBuildExpanded
+    appendLog
   };
 }

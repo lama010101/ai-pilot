@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
   FileText, 
@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   LayoutGrid,
-  MessageSquare
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 
 interface SidebarItemProps {
@@ -35,6 +36,9 @@ const SidebarItem = ({ icon, label, to, isCollapsed }: SidebarItemProps) => (
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const location = useLocation();
+  const isDev = location.pathname.startsWith('/dashboard-dev');
+  const baseUrl = isDev ? '/dashboard-dev' : '/dashboard';
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -47,7 +51,7 @@ const Sidebar = () => {
       }`}
     >
       <div className={`p-4 flex ${isCollapsed ? 'justify-center' : 'justify-between'} items-center border-b border-sidebar-border`}>
-        {!isCollapsed && <span className="text-lg font-semibold text-white">Pilot</span>}
+        {!isCollapsed && <span className="text-lg font-semibold text-white">Pilot {isDev && "(DEV)"}</span>}
         <button 
           onClick={toggleSidebar} 
           className="p-1 rounded-md hover:bg-sidebar-accent transition-colors"
@@ -61,49 +65,57 @@ const Sidebar = () => {
         <SidebarItem 
           icon={<Home size={20} />} 
           label="Dashboard" 
-          to="/dashboard" 
+          to={`${baseUrl}`} 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 
           icon={<Users size={20} />} 
           label="Agents" 
-          to="/dashboard/agents" 
+          to={`${baseUrl}/agents`} 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 
           icon={<LayoutGrid size={20} />} 
           label="Apps" 
-          to="/dashboard/apps" 
+          to={`${baseUrl}/apps`} 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 
           icon={<FileText size={20} />} 
           label="Builder" 
-          to="/dashboard/builder" 
+          to={`${baseUrl}/builder`} 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 
           icon={<ClipboardList size={20} />} 
           label="Logs" 
-          to="/dashboard/logs" 
+          to={`${baseUrl}/logs`} 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 
           icon={<Database size={20} />} 
           label="Memory" 
-          to="/dashboard/memory" 
+          to={`${baseUrl}/memory`} 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 
           icon={<MessageSquare size={20} />} 
           label="Chat" 
-          to="/dashboard/chat" 
+          to={`${baseUrl}/chat`} 
           isCollapsed={isCollapsed} 
         />
+        {isDev && (
+          <SidebarItem 
+            icon={<Sparkles size={20} />} 
+            label="Features" 
+            to={`${baseUrl}/features`}
+            isCollapsed={isCollapsed} 
+          />
+        )}
         <SidebarItem 
           icon={<Settings size={20} />} 
           label="Settings" 
-          to="/dashboard/settings" 
+          to={`${baseUrl}/settings`} 
           isCollapsed={isCollapsed} 
         />
       </nav>

@@ -26,8 +26,11 @@ export function useAppBuilderState() {
     );
   };
 
-  const isBuildExpanded = (buildId: string) => {
-    return expandedBuildIds.includes(buildId);
+  // Function to add a log entry instead of using toast
+  const appendLog = (type: 'info' | 'success' | 'error', message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const prefix = type === 'error' ? 'ERROR' : type === 'success' ? 'SUCCESS' : 'INFO';
+    setLogs(prev => [...prev, `[${timestamp}] ${prefix}: ${message}`]);
   };
 
   return {
@@ -44,6 +47,7 @@ export function useAppBuilderState() {
     setCode,
     logs,
     setLogs,
+    appendLog,
     isComplete,
     setIsComplete,
     
@@ -71,7 +75,6 @@ export function useAppBuilderState() {
 
     // Build expansion state
     expandedBuildIds,
-    toggleBuildExpansion,
-    isBuildExpanded
+    toggleBuildExpansion
   };
 }

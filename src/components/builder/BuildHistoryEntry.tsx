@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppBuild } from '@/types/supabase';
 import { formatDistance } from 'date-fns';
-import { Check, AlertTriangle, X, ChevronRight } from 'lucide-react';
+import { Check, AlertTriangle, X, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BuildHistoryEntryProps {
@@ -67,7 +67,10 @@ const BuildHistoryEntry: React.FC<BuildHistoryEntryProps> = ({
       onOpenChange={onToggleExpand}
       className={cn(
         "border rounded-md mb-2 overflow-hidden",
-        isSelected ? "border-primary" : "border-border"
+        isSelected ? "border-primary" : "border-border",
+        build.status === 'complete' ? "border-green-200 bg-green-50/30" :
+        build.status === 'failed' ? "border-red-200 bg-red-50/30" :
+        "border-amber-200 bg-amber-50/30"
       )}
     >
       <CollapsibleTrigger asChild>
@@ -83,12 +86,11 @@ const BuildHistoryEntry: React.FC<BuildHistoryEntryProps> = ({
             <span className="text-sm text-muted-foreground">
               {formatDistance(new Date(build.timestamp), new Date(), { addSuffix: true })}
             </span>
-            <ChevronRight 
-              className={cn(
-                "h-4 w-4 transition-transform", 
-                isExpanded && "rotate-90"
-              )} 
-            />
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
           </div>
         </div>
       </CollapsibleTrigger>

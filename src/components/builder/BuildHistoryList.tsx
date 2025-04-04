@@ -10,8 +10,8 @@ interface BuildHistoryListProps {
   onRemixBuild: (build: AppBuild) => void;
   isLoading: boolean;
   currentBuildId?: string | null;
-  expandedBuildIds?: string[];
-  onToggleBuildExpansion?: (buildId: string) => void;
+  expandedBuildIds: string[];
+  onToggleBuildExpansion: (buildId: string) => void;
 }
 
 const BuildHistoryList: React.FC<BuildHistoryListProps> = ({ 
@@ -20,8 +20,8 @@ const BuildHistoryList: React.FC<BuildHistoryListProps> = ({
   onRemixBuild, 
   isLoading,
   currentBuildId,
-  expandedBuildIds = [],
-  onToggleBuildExpansion = () => {}
+  expandedBuildIds,
+  onToggleBuildExpansion
 }) => {
   if (isLoading) {
     return (

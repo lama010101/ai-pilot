@@ -14,6 +14,7 @@ import Dashboard from "./pages/Dashboard";
 import AgentDetail from "./pages/AgentDetail";
 import Unauthorized from "./pages/Unauthorized";
 import DashboardLayout from "./components/DashboardLayout";
+import DashboardDevLayout from "./components/DashboardDevLayout";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import FinanceAI from "./pages/FinanceAI";
 import BudgetSettings from "./pages/BudgetSettings";
@@ -23,6 +24,7 @@ import DeveloperSettings from "./pages/DeveloperSettings";
 import Chat from "./pages/Chat";
 import Greeting from "./pages/Greeting";
 import Builder from "./pages/Builder";
+import Features from "./pages/Features";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -60,6 +62,8 @@ const App = () => (
               <Route path="/greeting" element={<Greeting />} />
               <Route path="/login" element={<Login />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
+              
+              {/* Production Dashboard */}
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="agents/:id" element={<AgentDetail />} />
@@ -75,6 +79,25 @@ const App = () => (
                 <Route path="settings/budget" element={<BudgetSettings />} />
                 <Route path="settings/developer" element={<DeveloperSettings />} />
               </Route>
+              
+              {/* Development Dashboard */}
+              <Route path="/dashboard-dev" element={<DashboardDevLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="agents/:id" element={<AgentDetail />} />
+                <Route path="agents/finance-ai" element={<FinanceAI />} />
+                <Route path="agents" element={<PlaceholderPage title="Agents" />} />
+                <Route path="apps" element={<Apps />} />
+                <Route path="apps/:id" element={<AppDetail />} />
+                <Route path="logs" element={<PlaceholderPage title="Logs" />} />
+                <Route path="memory" element={<PlaceholderPage title="Memory" />} />
+                <Route path="chat" element={<Chat />} />
+                <Route path="builder" element={<Builder />} />
+                <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+                <Route path="settings/budget" element={<BudgetSettings />} />
+                <Route path="settings/developer" element={<DeveloperSettings />} />
+                <Route path="features" element={<Features />} />
+              </Route>
+              
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </AppInitializer>
