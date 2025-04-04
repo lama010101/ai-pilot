@@ -48,6 +48,7 @@ export type Database = {
           budget_usage: number | null
           build_log: Json | null
           code: string | null
+          export_url: string | null
           id: string
           preview_url: string | null
           production_url: string | null
@@ -63,6 +64,7 @@ export type Database = {
           budget_usage?: number | null
           build_log?: Json | null
           code?: string | null
+          export_url?: string | null
           id?: string
           preview_url?: string | null
           production_url?: string | null
@@ -78,6 +80,7 @@ export type Database = {
           budget_usage?: number | null
           build_log?: Json | null
           code?: string | null
+          export_url?: string | null
           id?: string
           preview_url?: string | null
           production_url?: string | null

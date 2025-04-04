@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AppBuildDB } from '@/types/supabase';
+import { toast } from 'sonner';
 
 /**
  * Create a new app build in Supabase
@@ -128,6 +128,9 @@ export const exportBuild = async (buildId: string, userId: string) => {
     };
   } catch (error) {
     console.error('Error exporting build:', error);
+    toast.error('Failed to export build', {
+      description: error.message
+    });
     return { downloadUrl: null, fileName: null, error };
   }
 };
@@ -147,6 +150,9 @@ export const triggerHostingPreview = async (buildId: string, userId: string) => 
     return { previewUrl: data.previewUrl, error: null };
   } catch (error) {
     console.error('Error triggering hosting preview:', error);
+    toast.error('Failed to deploy preview', {
+      description: error.message
+    });
     return { previewUrl: null, error };
   }
 };

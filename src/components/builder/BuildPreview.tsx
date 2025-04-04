@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { 
   Card, 
@@ -35,16 +34,6 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
 
-  // Handler for deploying the app
-  const handleDeploy = () => {
-    toast.info('Deployment in progress! Your app will be available shortly.');
-    
-    setTimeout(() => {
-      toast.success('App deployed successfully! You can access it at the production URL.');
-    }, 3000);
-  };
-
-  // Handler for exporting the build as a ZIP file
   const handleExport = async () => {
     if (!selectedBuild || !user) return;
     
@@ -76,7 +65,6 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
     }
   };
 
-  // Handler for previewing the build
   const handlePreview = async () => {
     if (!selectedBuild || !user) return;
     
