@@ -1,29 +1,80 @@
-import { useState } from 'react';
+
+import { useState, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { 
-  createAppBuild, 
-  getAppBuildById, 
-  triggerAppBuild 
-} from '@/lib/buildService';
 import { AppBuild } from '@/types/supabase';
+import { useAppBuilderState } from './useAppBuilderState';
+import { useAppBuilderService } from './useAppBuilderService';
+import { useAppBuilderEffects } from './useAppBuilderEffects';
 
 export function useAppBuilder() {
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [currentStep, setCurrentStep] = useState<number>(0);
-  const [spec, setSpec] = useState<string>('');
-  const [code, setCode] = useState<string>('');
-  const [isComplete, setIsComplete] = useState<boolean>(false);
-  const [selectedBuild, setSelectedBuild] = useState<AppBuild | null>(null);
-  const [promptInputValue, setPromptInputValue] = useState<string>('');
-  const [buildError, setBuildError] = useState<string | null>(null);
+  const {
+    isProcessing, setIsProcessing,
+    currentStep, setCurrentStep,
+    spec, setSpec,
+    code, setCode,
+    isComplete, setIsComplete,
+    selectedBuild, setSelectedBuild,
+    promptInputValue, setPromptInputValue,
+    buildError, setBuildError
+  } = useAppBuilderState();
+  
+  const {
+    createBuildRecord,
+    startBuildProcess,
+    loadBuildData,
+    navigateToBuild
+  } = useAppBuilderService();
   
   const { toast: uiToast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
   
+  // Handle updates from build status polling
+  const handleBuildStatusChange = useCallback((updatedBuild: any, isComplete: boolean) => {
+    if (updatedBuild.build_log && updatedBuild.build_log.length > 0) {
+      const completedSteps = updatedBuild.build_log.filter(
+        (step: any) => step.status === 'success'
+      ).length;
+      setCurrentStep(Math.min(completedSteps, 5));
+    }
+    
+    if (updatedBuild.spec) {
+      setSpec(updatedBuild.spec);
+    }
+    
+    if (updatedBuild.code) {
+      setCode(updatedBuild.code);
+    }
+    
+    if (isComplete) {
+      setIsComplete(true);
+      setIsProcessing(false);
+      
+      const completedBuild: AppBuild = {
+        id: updatedBuild.id,
+        prompt: updatedBuild.prompt,
+        status: 'complete',
+        timestamp: updatedBuild.timestamp,
+        previewUrl: updatedBuild.preview_url,
+        exportUrl: updatedBuild.export_url,
+        appName: updatedBuild.app_name
+      };
+      
+      setSelectedBuild(completedBuild);
+    }
+  }, [setCode, setCurrentStep, setIsComplete, setIsProcessing, setSelectedBuild, setSpec]);
+  
+  // Start polling for build status
+  const { startPolling } = useAppBuilderEffects(
+    selectedBuild?.id || null,
+    handleBuildStatusChange,
+    setBuildError
+  );
+  
+  // Define the steps in the build process
   const steps = [
     'Analyzing prompt...',
     'Generating app specification...',
@@ -33,20 +84,7 @@ export function useAppBuilder() {
     'Complete!'
   ];
 
-  const generateAppName = (prompt: string): string => {
-    const words = prompt.split(' ');
-    const nameWords = words.filter(word => 
-      word.length > 3 && 
-      !['build', 'create', 'make', 'with', 'that', 'app', 'application'].includes(word.toLowerCase())
-    ).slice(0, 2);
-    
-    if (nameWords.length === 0) {
-      return 'ZapApp-' + Math.floor(Math.random() * 1000);
-    }
-    
-    return nameWords.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('') + 'App';
-  };
-
+  // Submit a new app build
   const handleSubmit = async (prompt: string) => {
     setBuildError(null);
     
@@ -72,142 +110,25 @@ export function useAppBuilder() {
     setCode('');
     setIsComplete(false);
     
-    let statusInterval: number | null = null;
-    
     try {
-      const appName = generateAppName(prompt);
+      // Step 1: Create the build record
+      const buildData = await createBuildRecord(prompt, user.id);
       
-      console.log('Creating build with:', { prompt, appName, userId: user.id });
-      
-      const { data: buildData, error: createError } = await createAppBuild(prompt, appName, user.id);
-      
-      if (createError || !buildData) {
-        console.error('Failed to create build record:', createError);
-        const errorMessage = createError?.message || 'Failed to create build record';
-        setBuildError(`Build failed: ${errorMessage}`);
-        setIsProcessing(false);
-        toast.error(`Build failed: ${errorMessage}`);
-        throw new Error(errorMessage);
+      if (!buildData) {
+        throw new Error('Failed to create build record');
       }
       
-      console.log('Build record created:', buildData);
+      // Step 2: Trigger the build process
+      await startBuildProcess(buildData.id, prompt, user.id);
       
-      const { data: buildResult, error: buildError } = await triggerAppBuild(buildData.id, prompt, user.id);
-      
-      if (buildError) {
-        console.error('Failed to trigger build process:', buildError);
-        setBuildError(`Build failed: ${buildError.message}`);
-        setIsProcessing(false);
-        toast.error(`Build failed: ${buildError.message}`);
-        throw buildError;
-      }
-      
-      console.log('Build process triggered:', buildResult);
-      
-      try {
-        navigate(`/builder?id=${buildData.id}`);
-      } catch (navError) {
-        console.error('Navigation error:', navError);
-      }
+      // Step 3: Navigate to the builder page with the build ID
+      // We use navigate instead of location.reload() to prevent state loss
+      navigate(`/dashboard/builder?id=${buildData.id}`);
       
       toast.info('Build process started. This may take a few minutes.');
       
-      const checkBuildStatus = async () => {
-        try {
-          const { data: updatedBuild, error: statusError } = await getAppBuildById(buildData.id);
-          
-          if (statusError) {
-            console.error('Error checking build status:', statusError);
-            return null;
-          }
-          
-          if (!updatedBuild) {
-            console.warn('No build data returned when checking status');
-            return null;
-          }
-          
-          if (updatedBuild.build_log && updatedBuild.build_log.length > 0) {
-            const completedSteps = updatedBuild.build_log.filter(step => step.status === 'success').length;
-            setCurrentStep(Math.min(completedSteps, 5));
-          }
-          
-          if (updatedBuild.spec) {
-            setSpec(updatedBuild.spec);
-          }
-          
-          if (updatedBuild.code) {
-            setCode(updatedBuild.code);
-          }
-          
-          if (updatedBuild.status === 'complete') {
-            setIsComplete(true);
-            setIsProcessing(false);
-            
-            const completedBuild: AppBuild = {
-              id: updatedBuild.id,
-              prompt: updatedBuild.prompt,
-              status: 'complete',
-              timestamp: updatedBuild.timestamp,
-              previewUrl: updatedBuild.preview_url,
-              exportUrl: updatedBuild.export_url,
-              appName: updatedBuild.app_name
-            };
-            
-            setSelectedBuild(completedBuild);
-            
-            try {
-              try {
-                const testJson = JSON.stringify(completedBuild);
-                JSON.parse(testJson);
-                localStorage.setItem(`build_${completedBuild.id}`, testJson);
-              } catch (storageError) {
-                console.error('Failed to save build to localStorage:', storageError);
-              }
-            } catch (buildError) {
-              console.error('Error processing completed build:', buildError);
-            }
-            
-            toast.success('App successfully built!');
-            if (statusInterval) {
-              clearInterval(statusInterval);
-              statusInterval = null;
-            }
-            
-            return completedBuild;
-          } else if (updatedBuild.status === 'failed') {
-            setIsProcessing(false);
-            const failMessage = 'App build failed. Please try a different prompt.';
-            setBuildError(failMessage);
-            toast.error(failMessage);
-            if (statusInterval) {
-              clearInterval(statusInterval);
-              statusInterval = null;
-            }
-          }
-          
-          return null;
-        } catch (checkError) {
-          console.error('Error in checkBuildStatus:', checkError);
-          return null;
-        }
-      };
-      
-      statusInterval = window.setInterval(checkBuildStatus, 5000);
-      
-      await checkBuildStatus();
-      
-      setTimeout(() => {
-        if (isProcessing) {
-          setIsProcessing(false);
-          const timeoutMessage = 'Build process timed out. Please try again later.';
-          setBuildError(timeoutMessage);
-          toast.error('Build process is taking longer than expected. Please check the build status later.');
-          if (statusInterval) {
-            clearInterval(statusInterval);
-            statusInterval = null;
-          }
-        }
-      }, 5 * 60 * 1000);
+      // Step 4: Start polling for build status
+      startPolling(buildData.id);
       
     } catch (error) {
       console.error('Error building app:', error);
@@ -219,47 +140,21 @@ export function useAppBuilder() {
       }
       
       setBuildError(errorMessage);
-      
       toast.error(errorMessage);
-      
-      if (statusInterval) {
-        clearInterval(statusInterval);
-        statusInterval = null;
-      }
     }
   };
 
-  const loadBuildData = async (buildId: string) => {
+  // Load build data for an existing build
+  const loadBuildDataWrapper = async (buildId: string) => {
     try {
-      const { data: buildData, error } = await getAppBuildById(buildId);
+      const result = await loadBuildData(buildId);
       
-      if (error) {
-        console.error('Error fetching build data:', error);
-        toast.error('Failed to load app build data');
-        return null;
-      }
-      
-      if (buildData) {
-        if (buildData.spec) {
-          setSpec(buildData.spec);
-        }
+      if (result) {
+        const { build, spec: buildSpec, code: buildCode } = result;
         
-        if (buildData.code) {
-          setCode(buildData.code);
-        }
-        
-        setIsComplete(buildData.status === 'complete');
-        
-        const build: AppBuild = {
-          id: buildData.id,
-          prompt: buildData.prompt,
-          status: buildData.status as 'processing' | 'complete' | 'failed',
-          timestamp: buildData.timestamp,
-          previewUrl: buildData.preview_url,
-          exportUrl: buildData.export_url,
-          appName: buildData.app_name
-        };
-        
+        setSpec(buildSpec);
+        setCode(buildCode);
+        setIsComplete(build.status === 'complete');
         setSelectedBuild(build);
         
         return build;
@@ -271,14 +166,14 @@ export function useAppBuilder() {
     }
   };
 
+  // View a specific build
   const handleViewBuild = (build: AppBuild) => {
     setSelectedBuild(build);
-    
-    navigate(`/builder?id=${build.id}`, { replace: true });
-    
-    loadBuildData(build.id);
+    navigate(`/dashboard/builder?id=${build.id}`, { replace: true });
+    loadBuildDataWrapper(build.id);
   };
 
+  // Remix an existing build
   const handleRemixBuild = (build: AppBuild) => {
     setPromptInputValue(build.prompt);
     setSelectedBuild(null);
@@ -291,7 +186,7 @@ export function useAppBuilder() {
     
     toast.info(`App prompt loaded for remixing: ${build.appName}`);
     
-    navigate('/builder', { replace: true });
+    navigate('/dashboard/builder', { replace: true });
   };
 
   return {
@@ -307,7 +202,7 @@ export function useAppBuilder() {
     handleSubmit,
     handleViewBuild,
     handleRemixBuild,
-    loadBuildData,
+    loadBuildData: loadBuildDataWrapper,
     setPromptInputValue
   };
 }

@@ -5,24 +5,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Plus, FileText, ArrowRight } from "lucide-react";
+import { Eye, FileText, ArrowRight, PlusSquare } from "lucide-react";
 import { AppSpecDB } from "@/lib/supabaseTypes";
-import { getAppSpecs, createAppSpec } from "@/lib/supabaseService";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { getAppSpecs } from "@/lib/supabaseService";
 import { toast } from "sonner";
 
 const Apps = () => {
   const [appSpecs, setAppSpecs] = useState<AppSpecDB[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newApp, setNewApp] = useState({
-    name: "",
-    description: "",
-    content: ""
-  });
   const navigate = useNavigate();
 
   const fetchApps = async () => {
@@ -45,36 +35,6 @@ const Apps = () => {
   useEffect(() => {
     fetchApps();
   }, []);
-
-  const handleCreateApp = async () => {
-    try {
-      if (!newApp.name.trim()) {
-        toast.error("App name is required");
-        return;
-      }
-
-      const { data, error } = await createAppSpec({
-        name: newApp.name,
-        description: newApp.description,
-        content: newApp.content,
-        status: 'draft',
-        author_id: 'leader' // Using a fixed author for now
-      });
-
-      if (error) throw error;
-
-      setDialogOpen(false);
-      setNewApp({ name: "", description: "", content: "" });
-      
-      if (data) {
-        toast.success("App specification created successfully");
-        setAppSpecs([data, ...appSpecs]);
-      }
-    } catch (error) {
-      console.error("Error creating app spec:", error);
-      toast.error("Failed to create app specification");
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -118,7 +78,7 @@ const Apps = () => {
         </CardContent>
         <CardFooter>
           <Button variant="ghost" className="w-full justify-between" onClick={() => navigate(`/dashboard/apps/${app.id}`)}>
-            View Details <ArrowRight size={16} />
+            <Eye size={16} className="mr-2" /> View Details <ArrowRight size={16} />
           </Button>
         </CardFooter>
       </Card>
@@ -129,13 +89,13 @@ const Apps = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Apps</h1>
+          <h1 className="text-3xl font-bold">Your Apps</h1>
           <p className="text-muted-foreground mt-1">
-            Manage and monitor AI-generated applications
+            Monitor and manage your AI-generated applications
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> New App
+        <Button onClick={() => navigate('/dashboard/builder')} className="flex items-center gap-2">
+          <PlusSquare className="h-4 w-4" /> Create New App
         </Button>
       </div>
 
@@ -154,60 +114,15 @@ const Apps = () => {
             <div>
               <h3 className="text-lg font-semibold">No Apps Yet</h3>
               <p className="text-muted-foreground">
-                Create your first app specification to begin
+                Create your first app in the Builder tab
               </p>
-              <Button className="mt-4" onClick={() => setDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" /> Create App
+              <Button className="mt-4" onClick={() => navigate('/dashboard/builder')}>
+                <PlusSquare className="mr-2 h-4 w-4" /> Go to Builder
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Create New App</DialogTitle>
-            <DialogDescription>
-              Define a new application specification for AI agents to build
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div>
-              <Label htmlFor="app-name">App Name</Label>
-              <Input
-                id="app-name"
-                value={newApp.name}
-                onChange={(e) => setNewApp({...newApp, name: e.target.value})}
-                placeholder="E.g., Zap, TaskMaster, etc."
-              />
-            </div>
-            <div>
-              <Label htmlFor="app-description">Short Description</Label>
-              <Input
-                id="app-description"
-                value={newApp.description}
-                onChange={(e) => setNewApp({...newApp, description: e.target.value})}
-                placeholder="A brief description of the app"
-              />
-            </div>
-            <div>
-              <Label htmlFor="app-spec">Specification (Optional)</Label>
-              <Textarea
-                id="app-spec"
-                value={newApp.content}
-                onChange={(e) => setNewApp({...newApp, content: e.target.value})}
-                placeholder="Initial specification details or leave blank for AI to generate"
-                className="min-h-[100px]"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateApp}>Create</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

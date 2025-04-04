@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,14 +44,22 @@ const Builder = () => {
     toggleHistory
   } = useBuildHistory();
   
+  // Log on mount for debugging
+  useEffect(() => {
+    console.log("Builder page mounted");
+  }, []);
+  
   // Handle URL parameters and shared builds
   useUrlParams((build) => {
-    handleViewBuild(build);
-    
-    // Also update the history if needed
-    if (build && build.id) {
-      addBuildToHistory(build);
-      fetchBuildHistory();
+    if (build) {
+      console.log("Build loaded from URL params:", build.id);
+      handleViewBuild(build);
+      
+      // Also update the history if needed
+      if (build.id) {
+        addBuildToHistory(build);
+        fetchBuildHistory();
+      }
     }
   });
   
