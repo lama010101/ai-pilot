@@ -1,14 +1,12 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client'; // Use the standardized client
+import { supabase, USE_FAKE_AUTH } from '@/lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 // Get the leader email from environment variables
 const LEADER_EMAIL = import.meta.env.VITE_LEADER_EMAIL || 'emartin6867@gmail.com';
-// Use the development flag for fake authentication
-const USE_FAKE_AUTH = import.meta.env.VITE_USE_FAKE_AUTH === 'true';
 
 interface AuthContextType {
   user: User | null;
@@ -31,28 +29,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Skip Supabase session check if using fake auth
     if (USE_FAKE_AUTH) {
-      // For dev mode, create a fake user and session
-      const fakeUser = {
-        id: 'fake-user-id',
-        email: LEADER_EMAIL,
-      } as User;
-      
-      const fakeSession = {
-        user: fakeUser,
-        access_token: 'fake-token',
-      } as Session;
-      
-      setUser(fakeUser);
-      setSession(fakeSession);
-      setIsAuthenticated(true);
-      setIsLoading(false);
       return;
     }
 
     // Check if there's an active session
     const checkSession = async () => {
       try {
-        console.log('Checking Supabase auth session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -64,7 +46,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // If we have a session, check if the user is authorized
         if (session) {
           const userEmail = session.user?.email;
-          console.log('Session found for email:', userEmail);
           
           if (userEmail !== LEADER_EMAIL) {
             console.log('Unauthorized access attempt:', userEmail);
@@ -74,13 +55,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(null);
             setIsAuthenticated(false);
           } else {
-            console.log('Session found and authenticated:', session.user.id);
             setSession(session);
             setUser(session.user);
             setIsAuthenticated(true);
           }
-        } else {
-          console.log('No active session found');
         }
         
         setIsLoading(false);
@@ -93,10 +71,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     checkSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (newSession) {
-        const userEmail = newSession.user?.email;
-        console.log('Auth state changed - session detected:', userEmail);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // If session exists, check if user is authorized
+      if (session) {
+        const userEmail = session.user?.email;
         
         if (userEmail !== LEADER_EMAIL) {
           console.log('Unauthorized access attempt:', userEmail);
@@ -107,13 +85,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(null);
           setIsAuthenticated(false);
         } else {
-          console.log('Auth state changed - authenticated:', newSession.user.id);
-          setSession(newSession);
-          setUser(newSession.user);
+          setSession(session);
+          setUser(session.user);
           setIsAuthenticated(true);
         }
       } else {
-        console.log('Auth state changed - no session');
         setSession(null);
         setUser(null);
         setIsAuthenticated(false);
@@ -130,21 +106,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInWithGoogle = async () => {
     if (USE_FAKE_AUTH) {
       // Fake authentication - just redirect to dashboard
-      // Create fake user and session for dev mode
-      const fakeUser = {
-        id: 'fake-user-id',
-        email: LEADER_EMAIL,
-      } as User;
-      
-      const fakeSession = {
-        user: fakeUser,
-        access_token: 'fake-token',
-      } as Session;
-      
-      setUser(fakeUser);
-      setSession(fakeSession);
       setIsAuthenticated(true);
-      
       toast("Welcome, Leader", {
         description: "You have been signed in with Dev Mode"
       });
@@ -153,18 +115,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
-      const siteUrl = window.location.origin;
-      console.log('Signing in with Google using site URL:', siteUrl);
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${siteUrl}/dashboard`,
+          redirectTo: `${window.location.origin}/dashboard`,
         },
       });
       
       if (error) {
-        console.error('Error signing in with Google:', error);
         throw error;
       }
     } catch (error) {
@@ -176,8 +134,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     if (USE_FAKE_AUTH) {
       // Fake sign out - just redirect to login
-      setUser(null);
-      setSession(null);
       setIsAuthenticated(false);
       toast("Signed out", {
         description: "You have been signed out"

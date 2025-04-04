@@ -25,11 +25,4 @@ if (import.meta.env.DEV && (!import.meta.env.VITE_SUPABASE_URL || !import.meta.e
   console.warn('⚠️ Using default Supabase credentials. Set up your .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for proper functionality.');
 }
 
-// Configure client with explicit auth options for consistent behavior
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

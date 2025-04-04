@@ -19,33 +19,6 @@ export const createAppBuild = async (prompt: string, appName: string, userId: st
 
     console.log('Creating app build with:', { prompt, appName, userId });
 
-    // Verify the current auth session before attempting the insert
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
-      console.error('No active session found when attempting to create build');
-      return {
-        data: null,
-        error: new Error('Authentication session is missing. Please log in again.')
-      };
-    }
-
-    // Confirm the session user ID matches the provided user ID
-    if (sessionData.session.user.id !== userId) {
-      console.error('Session user ID mismatch:', { 
-        sessionUserId: sessionData.session.user.id, 
-        providedUserId: userId 
-      });
-      return {
-        data: null,
-        error: new Error('User ID mismatch. Please log in again.')
-      };
-    }
-
-    console.log('Authenticated session confirmed:', {
-      sessionId: sessionData.session.user.id,
-      accessToken: sessionData.session.access_token ? 'Present' : 'Missing'
-    });
-
     const { data, error } = await supabase
       .from('app_builds')
       .insert({
