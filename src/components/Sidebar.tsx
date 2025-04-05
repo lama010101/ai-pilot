@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  Home, 
+  Rocket, 
   FileText, 
   Users, 
   Database, 
@@ -63,9 +63,9 @@ const Sidebar = () => {
       
       <nav className="flex-1 p-3 space-y-2">
         <SidebarItem 
-          icon={<Home size={20} />} 
-          label="Dashboard" 
-          to={`${baseUrl}`} 
+          icon={<Rocket size={20} />} 
+          label="Pilot" 
+          to={`${baseUrl}/pilot`} 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 

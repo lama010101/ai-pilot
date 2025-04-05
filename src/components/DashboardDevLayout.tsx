@@ -1,4 +1,3 @@
-
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -295,8 +294,8 @@ const DashboardDevLayout = () => {
     // Add emergency redirect if page remains blank
     const timeout = setTimeout(() => {
       if (location.pathname === '/dashboard-dev' || location.pathname === '/dashboard-dev/') {
-        console.log("Emergency redirect to /dashboard-dev/builder");
-        navigate('/dashboard-dev/builder', { replace: true });
+        console.log("Emergency redirect to /dashboard-dev/pilot");
+        navigate('/dashboard-dev/pilot', { replace: true });
       }
     }, 2000);
     

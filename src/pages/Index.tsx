@@ -27,7 +27,7 @@ const Index = () => {
       ...prev,
       authChecked: true,
       redirectTarget: isAuthenticated 
-        ? (isDev ? '/dashboard-dev/builder' : '/dashboard/builder') 
+        ? (isDev ? '/dashboard-dev/pilot' : '/dashboard/pilot') 
         : '/login'
     }));
     
@@ -36,13 +36,13 @@ const Index = () => {
       
       if (isAuthenticated) {
         // If user is authenticated, redirect to the appropriate dashboard
-        console.log("User is authenticated, redirecting to:", isDev ? '/dashboard-dev/builder' : '/dashboard/builder');
-        navigate(isDev ? '/dashboard-dev/builder' : '/dashboard/builder', { replace: true });
+        console.log("User is authenticated, redirecting to:", isDev ? '/dashboard-dev/pilot' : '/dashboard/pilot');
+        navigate(isDev ? '/dashboard-dev/pilot' : '/dashboard/pilot', { replace: true });
       } else {
         // If user is not authenticated, redirect to login
         console.log("User is not authenticated, redirecting to login");
         navigate('/login', { 
-          state: { from: { pathname: isDev ? '/dashboard-dev/builder' : '/dashboard/builder' } },
+          state: { from: { pathname: isDev ? '/dashboard-dev/pilot' : '/dashboard/pilot' } },
           replace: true
         });
       }
@@ -71,20 +71,6 @@ const Index = () => {
           {isLoading ? "Checking authentication..." : 
            isAuthenticated ? `Loading ${isDev ? "development" : ""} dashboard...` : "Redirecting to login..."}
         </p>
-        
-        {/* Debug information */}
-        <div className="mt-6 p-4 border border-gray-200 rounded text-xs text-left w-64">
-          <p>Started: {debugInfo.startTime}</p>
-          <p>Auth checked: {debugInfo.authChecked ? '✅' : '⏳'}</p>
-          <p>Target: {debugInfo.redirectTarget || 'Not set yet'}</p>
-          <p>Redirect attempted: {debugInfo.redirectAttempted ? '✅' : '❌'}</p>
-          <p>isLoading: {isLoading ? 'true' : 'false'}</p>
-          <p>isAuthenticated: {isAuthenticated ? 'true' : 'false'}</p>
-        </div>
-      </div>
-      
-      <div id="debug-overlay" style={{ position: 'fixed', bottom: 0, left: 0, background: '#111', color: '#0f0', padding: '8px', zIndex: 9999 }}>
-        ROUTE: / (Index) | Auth: {isAuthenticated ? '✅' : '❌'} | Loading: {isLoading ? '⏳' : '✓'}
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -266,8 +265,8 @@ const DashboardLayout = () => {
     // Add emergency redirect if page remains blank
     const timeout = setTimeout(() => {
       if (location.pathname === '/dashboard' || location.pathname === '/dashboard/') {
-        console.log("Emergency redirect to /dashboard/builder");
-        navigate('/dashboard/builder', { replace: true });
+        console.log("Emergency redirect to /dashboard/pilot");
+        navigate('/dashboard/pilot', { replace: true });
       }
     }, 2000);
     
@@ -298,10 +297,6 @@ const DashboardLayout = () => {
                 <Outlet />
               </main>
               <UniversalChat />
-            </div>
-            <DebugPanel />
-            <div id="debug-overlay" style={{ position: 'fixed', bottom: 0, left: 0, background: '#111', color: '#0f0', padding: '8px', zIndex: 9999 }}>
-              Dashboard: PROD | Path: {location.pathname} | Auth: {isAuthenticated ? '✅' : '❌'}
             </div>
           </div>
         </StorageDataChecker>

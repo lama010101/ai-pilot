@@ -24,6 +24,7 @@ import Greeting from "./pages/Greeting";
 import Builder from "./pages/Builder";
 import Features from "./pages/Features";
 import Memory from "./pages/Memory";
+import Pilot from "./pages/Pilot";
 import Index from "./pages/Index";
 
 // Create a QueryClient instance outside of the component function
@@ -68,7 +69,8 @@ const App = () => {
                 
                 {/* Production Dashboard */}
                 <Route path="/dashboard" element={<DashboardLayout />}>
-                  <Route index element={<Navigate to="/dashboard/builder" replace />} />
+                  <Route index element={<Navigate to="/dashboard/pilot" replace />} />
+                  <Route path="pilot" element={<Pilot />} />
                   <Route path="agents/:id" element={<AgentDetail />} />
                   <Route path="agents/finance-ai" element={<FinanceAI />} />
                   <Route path="agents" element={<PlaceholderPage title="Agents" />} />
@@ -85,7 +87,8 @@ const App = () => {
                 
                 {/* Development Dashboard */}
                 <Route path="/dashboard-dev" element={<DashboardDevLayout />}>
-                  <Route index element={<Navigate to="/dashboard-dev/builder" replace />} />
+                  <Route index element={<Navigate to="/dashboard-dev/pilot" replace />} />
+                  <Route path="pilot" element={<Pilot />} />
                   <Route path="agents/:id" element={<AgentDetail />} />
                   <Route path="agents/finance-ai" element={<FinanceAI />} />
                   <Route path="agents" element={<PlaceholderPage title="Agents" />} />
