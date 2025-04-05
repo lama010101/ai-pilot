@@ -1,8 +1,10 @@
+
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import UniversalChat from './UniversalChat';
 import AuthGuard from './AuthGuard';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -300,6 +302,7 @@ const DashboardDevLayout = () => {
                 <main className="flex-1 overflow-auto p-6">
                   <Outlet />
                 </main>
+                <UniversalChat />
               </div>
             </div>
             <DebugPanel />

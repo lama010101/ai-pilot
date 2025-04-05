@@ -3,8 +3,6 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { AuthProvider } from "./contexts/AuthContext";
 import { seedInitialAgents } from "./lib/supabase";
 import { initializeChatTable } from "./lib/chatService";
@@ -25,6 +23,7 @@ import Chat from "./pages/Chat";
 import Greeting from "./pages/Greeting";
 import Builder from "./pages/Builder";
 import Features from "./pages/Features";
+import Memory from "./pages/Memory";
 import Index from "./pages/Index";
 
 // Create a QueryClient instance outside of the component function
@@ -56,8 +55,6 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <AppInitializer>
-            <Toaster />
-            <Sonner />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/greeting" element={<Greeting />} />
@@ -66,14 +63,13 @@ const App = () => (
               
               {/* Production Dashboard */}
               <Route path="/dashboard" element={<DashboardLayout />}>
-                <Route index element={<Dashboard />} />
+                <Route index element={<Navigate to="/dashboard/builder" replace />} />
                 <Route path="agents/:id" element={<AgentDetail />} />
                 <Route path="agents/finance-ai" element={<FinanceAI />} />
                 <Route path="agents" element={<PlaceholderPage title="Agents" />} />
                 <Route path="apps" element={<Apps />} />
                 <Route path="apps/:id" element={<AppDetail />} />
-                <Route path="logs" element={<PlaceholderPage title="Logs" />} />
-                <Route path="memory" element={<PlaceholderPage title="Memory" />} />
+                <Route path="memory" element={<Memory />} />
                 <Route path="chat" element={<Chat />} />
                 <Route path="builder" element={<Builder />} />
                 <Route path="settings" element={<PlaceholderPage title="Settings" />} />
@@ -84,14 +80,13 @@ const App = () => (
               
               {/* Development Dashboard */}
               <Route path="/dashboard-dev" element={<DashboardDevLayout />}>
-                <Route index element={<Dashboard />} />
+                <Route index element={<Navigate to="/dashboard-dev/builder" replace />} />
                 <Route path="agents/:id" element={<AgentDetail />} />
                 <Route path="agents/finance-ai" element={<FinanceAI />} />
                 <Route path="agents" element={<PlaceholderPage title="Agents" />} />
                 <Route path="apps" element={<Apps />} />
                 <Route path="apps/:id" element={<AppDetail />} />
-                <Route path="logs" element={<PlaceholderPage title="Logs" />} />
-                <Route path="memory" element={<PlaceholderPage title="Memory" />} />
+                <Route path="memory" element={<Memory />} />
                 <Route path="chat" element={<Chat />} />
                 <Route path="builder" element={<Builder />} />
                 <Route path="settings" element={<PlaceholderPage title="Settings" />} />

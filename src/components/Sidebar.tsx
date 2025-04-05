@@ -1,18 +1,18 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
   FileText, 
   Users, 
-  ClipboardList, 
   Database, 
   Settings,
   ChevronLeft,
   ChevronRight,
   LayoutGrid,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  MemoryStick
 } from 'lucide-react';
 
 interface SidebarItemProps {
@@ -87,13 +87,7 @@ const Sidebar = () => {
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 
-          icon={<ClipboardList size={20} />} 
-          label="Logs" 
-          to={`${baseUrl}/logs`} 
-          isCollapsed={isCollapsed} 
-        />
-        <SidebarItem 
-          icon={<Database size={20} />} 
+          icon={<MemoryStick size={20} />} 
           label="Memory" 
           to={`${baseUrl}/memory`} 
           isCollapsed={isCollapsed} 
