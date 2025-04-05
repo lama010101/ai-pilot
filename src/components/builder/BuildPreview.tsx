@@ -1,23 +1,15 @@
 
-import React, { useRef, useState, useEffect } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader,
-  CardTitle 
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import React, { useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { AppBuild } from '@/types/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import { useBuildActions } from '@/hooks/useBuildActions';
 import BuildResultTabs from './BuildResultTabs';
-import BuildControls from './BuildControls';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ChevronUp, Copy, Clipboard } from 'lucide-react';
 
 interface BuildPreviewProps {
-  spec: string;
-  code: string;
+  spec?: string;
+  code?: string;
   logs: string[];
   isComplete: boolean;
   isLoadingSpec: boolean;
@@ -26,119 +18,203 @@ interface BuildPreviewProps {
   selectedBuild: AppBuild | null;
   onContinueToBuild?: () => void;
   autoBuild: boolean;
-  onAutoBuildChange: (enabled: boolean) => void;
+  onAutoBuildChange: (value: boolean) => void;
+  showFullLogs?: boolean;
+  onCopyLogs?: () => void;
+  onToggleFullLogs?: () => void;
 }
 
-/**
- * Component to display build results and provide action buttons
- */
-const BuildPreview: React.FC<BuildPreviewProps> = ({ 
-  spec, 
+const BuildPreview: React.FC<BuildPreviewProps> = ({
+  spec,
   code,
   logs,
-  isComplete, 
+  isComplete,
   isLoadingSpec,
   isLoadingCode,
   isLoadingPreview,
   selectedBuild,
   onContinueToBuild,
   autoBuild,
-  onAutoBuildChange
+  onAutoBuildChange,
+  showFullLogs = false,
+  onCopyLogs,
+  onToggleFullLogs
 }) => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { user } = useAuth();
-  const { 
-    isExporting, 
-    isPreviewLoading, 
-    isDeploying, 
-    handleExport, 
-    handlePreview, 
-    handleDeploy 
-  } = useBuildActions();
-
-  // Don't render if no build data is available and nothing is loading
-  if (!spec && !code && !isComplete && !selectedBuild && !isLoadingSpec && logs.length === 0) {
+  const logsRef = useRef<HTMLDivElement>(null);
+  const [specExpanded, setSpecExpanded] = React.useState(true);
+  const [codeExpanded, setCodeExpanded] = React.useState(true);
+  const [logsExpanded, setLogsExpanded] = React.useState(true);
+  
+  // Auto-scroll to bottom of logs when they update
+  useEffect(() => {
+    if (logsRef.current && logsExpanded) {
+      logsRef.current.scrollTop = logsRef.current.scrollHeight;
+    }
+  }, [logs, logsExpanded]);
+  
+  if (!spec && !code && logs.length === 0 && !selectedBuild) {
     return null;
   }
-
-  // Handle export button click
-  const onExportClick = () => {
-    handleExport(selectedBuild, user);
-  };
-
-  // Handle preview button click
-  const onPreviewClick = () => {
-    // Update iframe source if available
-    if (selectedBuild?.previewUrl && iframeRef.current) {
-      iframeRef.current.src = selectedBuild.previewUrl;
-    }
-    
-    handlePreview(selectedBuild, user);
-  };
-
-  // Handle deploy button click
-  const onDeployClick = () => {
-    handleDeploy(selectedBuild, user);
-  };
-
-  // Check if the preview URL exists
-  const hasPreviewUrl = Boolean(selectedBuild?.previewUrl);
-
+  
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>
-              {selectedBuild ? selectedBuild.appName : 'Build Results'}
-            </CardTitle>
-            <CardDescription>
-              {selectedBuild 
-                ? `App generated from prompt: ${selectedBuild.prompt.substring(0, 100)}${selectedBuild.prompt.length > 100 ? '...' : ''}`
-                : 'App generated from your prompt'
-              }
-            </CardDescription>
-          </div>
-          {selectedBuild && selectedBuild.status === 'complete' && (
-            <div className="flex space-x-2">
-              <Badge variant="success">Build Complete</Badge>
-              {hasPreviewUrl && <Badge variant="outline">Preview Available</Badge>}
-            </div>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <BuildResultTabs 
-          spec={spec} 
-          code={code}
-          logs={logs} 
-          previewUrl={selectedBuild?.previewUrl} 
-          iframeRef={iframeRef}
-          isLoadingSpec={isLoadingSpec}
-          isLoadingCode={isLoadingCode}
-          isLoadingPreview={isLoadingPreview}
-          onContinueToBuild={onContinueToBuild}
-          autoBuild={autoBuild}
-        />
-      </CardContent>
-      
-      {(isComplete || selectedBuild?.status === 'complete') && (
-        <CardFooter>
-          <BuildControls 
-            selectedBuild={selectedBuild}
-            isExporting={isExporting}
-            isPreviewLoading={isPreviewLoading}
-            isDeploying={isDeploying}
-            onExport={onExportClick}
-            onPreview={onPreviewClick}
-            onDeploy={onDeployClick}
-            hasPreview={hasPreviewUrl}
-            autoBuild={autoBuild}
-            onAutoBuildChange={onAutoBuildChange}
-          />
-        </CardFooter>
+    <div className="space-y-4">
+      {spec && (
+        <Collapsible open={specExpanded} onOpenChange={setSpecExpanded}>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Application Specification</CardTitle>
+                  <CardDescription>
+                    AI-generated app specification
+                  </CardDescription>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    {specExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
+                <BuildResultTabs 
+                  spec={spec}
+                  isLoadingSpec={isLoadingSpec}
+                  selectedTab="spec"
+                />
+                
+                {onContinueToBuild && (
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="auto-build"
+                        checked={autoBuild}
+                        onChange={(e) => onAutoBuildChange(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor="auto-build" className="text-sm text-muted-foreground">
+                        Automatically build after generating spec
+                      </label>
+                    </div>
+                    <Button onClick={onContinueToBuild}>Continue to Build</Button>
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       )}
-    </Card>
+      
+      {code && (
+        <Collapsible open={codeExpanded} onOpenChange={setCodeExpanded}>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Generated Code</CardTitle>
+                  <CardDescription>
+                    AI-generated application code
+                  </CardDescription>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    {codeExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
+                <BuildResultTabs 
+                  code={code}
+                  isLoadingCode={isLoadingCode}
+                  selectedTab="code"
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
+      
+      {logs.length > 0 && (
+        <Collapsible open={logsExpanded} onOpenChange={setLogsExpanded}>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Build Logs</CardTitle>
+                  <CardDescription>
+                    Build process logs and messages
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {onCopyLogs && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={onCopyLogs}
+                      className="flex items-center gap-1"
+                    >
+                      <Clipboard size={14} />
+                      Copy Logs
+                    </Button>
+                  )}
+                  {onToggleFullLogs && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={onToggleFullLogs}
+                      className="flex items-center gap-1"
+                    >
+                      {showFullLogs ? "Show Recent" : "Show All"}
+                    </Button>
+                  )}
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      {logsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
+                <div 
+                  ref={logsRef}
+                  className="bg-muted rounded p-4 h-64 overflow-y-auto font-mono text-sm"
+                >
+                  <pre className="whitespace-pre-wrap">
+                    {logs.join('\n')}
+                  </pre>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
+      
+      {selectedBuild?.preview_url && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Live Preview</CardTitle>
+            <CardDescription>
+              Preview of "{selectedBuild.app_name}"
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="aspect-video w-full border rounded-md overflow-hidden">
+              <iframe 
+                src={selectedBuild.preview_url} 
+                title="App Preview"
+                className="w-full h-full"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 

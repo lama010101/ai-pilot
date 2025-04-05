@@ -1,6 +1,6 @@
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { USE_FAKE_AUTH } from '@/lib/supabaseClient';
@@ -10,14 +10,32 @@ const Login = () => {
   const { signInWithGoogle, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [debugInfo, setDebugInfo] = useState({ 
+    redirectAttempted: false,
+    redirectTarget: '',
+    authStatus: ''
+  });
   
   // Check if the user was trying to access the dev dashboard
   const from = location.state?.from?.pathname || '';
   const redirectPath = from.includes('dashboard-dev') ? '/dashboard-dev' : '/dashboard';
 
   useEffect(() => {
+    // Update debug info
+    setDebugInfo(prev => ({
+      ...prev,
+      authStatus: isAuthenticated 
+        ? 'authenticated' 
+        : isLoading 
+          ? 'loading' 
+          : 'not authenticated',
+      redirectTarget: redirectPath
+    }));
+    
     if (isAuthenticated && !isLoading) {
-      navigate(redirectPath);
+      console.log("Login: User is authenticated, redirecting to:", redirectPath);
+      setDebugInfo(prev => ({ ...prev, redirectAttempted: true }));
+      navigate(redirectPath, { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate, redirectPath]);
 
@@ -62,6 +80,15 @@ const Login = () => {
             >
               Back to Welcome <ArrowRight size={16} />
             </Button>
+          </div>
+        </div>
+        
+        {/* Debug information - will remove after fixing issues */}
+        <div className="mt-6 p-2 border border-gray-200 rounded text-xs">
+          <div className="text-muted-foreground space-y-1">
+            <p>Auth status: {debugInfo.authStatus}</p>
+            <p>Redirect target: {debugInfo.redirectTarget}</p>
+            <p>Redirect attempted: {debugInfo.redirectAttempted ? 'Yes' : 'No'}</p>
           </div>
         </div>
       </div>

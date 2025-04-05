@@ -1,12 +1,12 @@
-
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import AuthGuard from './AuthGuard';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Home, RefreshCw } from 'lucide-react';
+import { AlertCircle, Home, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Simple error boundary component
@@ -15,11 +15,9 @@ const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Add global error handler
     const errorHandler = (event: ErrorEvent) => {
       console.error("Global error caught:", event.error);
       setHasError(true);
-      // Prevent the default error handling
       event.preventDefault();
     };
 
@@ -72,10 +70,8 @@ const StorageDataChecker = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check for corrupted localStorage items
     const checkStorageData = () => {
       try {
-        // List of keys that could contain corrupted data
         const keysToCheck = [
           'app_builder_state', 
           'app_builds', 
@@ -89,7 +85,6 @@ const StorageDataChecker = ({ children }: { children: React.ReactNode }) => {
           try {
             const storedData = localStorage.getItem(key);
             if (storedData) {
-              // Try to parse JSON data to see if it's valid
               try {
                 JSON.parse(storedData);
                 console.log(`Valid ${key} data found`);
@@ -104,7 +99,6 @@ const StorageDataChecker = ({ children }: { children: React.ReactNode }) => {
           }
         });
         
-        // Also check for any keys starting with "build_"
         Object.keys(localStorage).forEach(key => {
           if (key.startsWith('build_')) {
             try {
@@ -134,7 +128,6 @@ const StorageDataChecker = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const handleReset = () => {
-    // Clear potentially problematic localStorage items
     const keysToRemove = [
       'app_builder_state', 
       'app_builds', 
@@ -150,7 +143,6 @@ const StorageDataChecker = ({ children }: { children: React.ReactNode }) => {
       }
     });
     
-    // Also remove any keys starting with "build_"
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('build_')) {
         try {
@@ -189,15 +181,85 @@ const StorageDataChecker = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Debug Panel component to show session and routing state
+const DebugPanel = () => {
+  const { user, session, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const isDev = location.pathname.includes('dashboard-dev');
+  const [lastBuildId, setLastBuildId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    try {
+      const storedBuilds = localStorage.getItem('app_builds');
+      if (storedBuilds) {
+        const builds = JSON.parse(storedBuilds);
+        if (builds.length > 0) {
+          setLastBuildId(builds[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Error getting last build ID:", error);
+    }
+  }, []);
+
+  return (
+    <div className="fixed bottom-4 right-4 text-xs bg-background border border-border rounded-lg p-3 shadow-md w-64 z-50">
+      <h4 className="font-medium mb-2 flex items-center justify-between">
+        Debug Info
+        <span className="text-green-500">✓ Mounted</span>
+      </h4>
+      <div className="space-y-1 text-muted-foreground">
+        <p>Auth: {isAuthenticated ? '✅ Signed in' : '❌ Not signed in'}</p>
+        <p>User: {user?.email || 'None'}</p>
+        <p>Path: {location.pathname}</p>
+        <p>Dashboard: {isDev ? 'DEV' : 'PROD'}</p>
+        <p>Session: {session ? '✅ Active' : '❌ None'}</p>
+        <p>Last build: {lastBuildId || 'None'}</p>
+      </div>
+    </div>
+  );
+};
+
+// Dashboard switcher button
+const DashboardSwitcher = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isDev = location.pathname.includes('dashboard-dev');
+  
+  const switchDashboard = () => {
+    const currentPath = isDev 
+      ? location.pathname.replace('/dashboard-dev', '') 
+      : location.pathname.replace('/dashboard', '');
+    
+    const targetPath = isDev 
+      ? `/dashboard${currentPath}` 
+      : `/dashboard-dev${currentPath}`;
+    
+    console.log(`Switching from ${location.pathname} to ${targetPath}`);
+    navigate(targetPath);
+  };
+  
+  return (
+    <Button 
+      onClick={switchDashboard} 
+      variant="outline" 
+      size="sm"
+      className="flex items-center gap-1"
+    >
+      <ArrowRightLeft size={14} />
+      Switch to {isDev ? 'Production' : 'Development'} Dashboard
+    </Button>
+  );
+};
+
 // Environment Switcher component
 const EnvironmentSwitcher = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSwitchEnvironment = (value: string) => {
     if (value === 'prod') {
-      // Extract current path after '/dashboard-dev/'
-      const currentPath = window.location.pathname.replace('/dashboard-dev', '');
-      // Navigate to production dashboard with same path
+      const currentPath = location.pathname.replace('/dashboard-dev', '');
       navigate(`/dashboard${currentPath}`);
     }
   };
@@ -219,9 +281,11 @@ const EnvironmentSwitcher = () => {
 };
 
 const DashboardDevLayout = () => {
+  const location = useLocation();
+  
   useEffect(() => {
-    console.log("Dashboard DEV layout mounted");
-  }, []);
+    console.log("Dashboard DEV layout mounted at path:", location.pathname);
+  }, [location.pathname]);
 
   return (
     <AuthGuard>
@@ -232,12 +296,13 @@ const DashboardDevLayout = () => {
             <div className="flex flex-1 overflow-hidden">
               <Sidebar />
               <div className="flex flex-col flex-1 overflow-hidden">
-                <Header />
+                <Header extraButtons={<DashboardSwitcher />} />
                 <main className="flex-1 overflow-auto p-6">
                   <Outlet />
                 </main>
               </div>
             </div>
+            <DebugPanel />
           </div>
         </StorageDataChecker>
       </ErrorBoundary>

@@ -1,9 +1,10 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { History } from 'lucide-react';
+import { History, ChevronDown, ChevronUp, Clipboard } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Import our custom hooks
 import { useAppBuilder } from '@/hooks/useAppBuilder';
@@ -41,7 +42,12 @@ const Builder = () => {
     autoBuild,
     setAutoBuild,
     expandedBuildIds,
-    toggleBuildExpansion
+    toggleBuildExpansion,
+    isPromptInputCollapsed,
+    setIsPromptInputCollapsed,
+    showFullLogs,
+    setShowFullLogs,
+    copyLogs
   } = useAppBuilder();
   
   const {
@@ -53,10 +59,20 @@ const Builder = () => {
     toggleHistory
   } = useBuildHistory();
   
+  // Ref for auto-scrolling to results
+  const resultsRef = useRef<HTMLDivElement>(null);
+  
   // Log on mount for debugging
   useEffect(() => {
     console.log("Builder page mounted");
   }, []);
+  
+  // Scroll to results when processing completes
+  useEffect(() => {
+    if (!isProcessing && isComplete && resultsRef.current) {
+      resultsRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [isProcessing, isComplete]);
   
   // Handle URL parameters and shared builds
   useUrlParams((build) => {
@@ -119,14 +135,40 @@ const Builder = () => {
           </Card>
         )}
         
-        <PromptInput 
-          isProcessing={isProcessing}
-          currentStep={currentStep}
-          steps={steps}
-          onSubmit={handleSubmit}
-          initialValue={promptInputValue}
-          buildError={buildError}
-        />
+        <Collapsible 
+          open={!isPromptInputCollapsed} 
+          onOpenChange={setIsPromptInputCollapsed}
+        >
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Create New App</CardTitle>
+                  <CardDescription>
+                    Describe the app you want to create in natural language
+                  </CardDescription>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    {isPromptInputCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
+                <PromptInput 
+                  isProcessing={isProcessing}
+                  currentStep={currentStep}
+                  steps={steps}
+                  onSubmit={handleSubmit}
+                  initialValue={promptInputValue}
+                  buildError={buildError}
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
         
         {isProcessing && (
           <Card className="p-4">
@@ -139,19 +181,24 @@ const Builder = () => {
           </Card>
         )}
         
-        <BuildPreview 
-          spec={spec}
-          code={code}
-          logs={logs}
-          isComplete={isComplete}
-          isLoadingSpec={isLoadingSpec}
-          isLoadingCode={isLoadingCode}
-          isLoadingPreview={isLoadingPreview}
-          selectedBuild={selectedBuild}
-          onContinueToBuild={spec && !autoBuild ? continueToBuild : undefined}
-          autoBuild={autoBuild}
-          onAutoBuildChange={setAutoBuild}
-        />
+        <div ref={resultsRef}>
+          <BuildPreview 
+            spec={spec}
+            code={code}
+            logs={logs}
+            isComplete={isComplete}
+            isLoadingSpec={isLoadingSpec}
+            isLoadingCode={isLoadingCode}
+            isLoadingPreview={isLoadingPreview}
+            selectedBuild={selectedBuild}
+            onContinueToBuild={spec && !autoBuild ? continueToBuild : undefined}
+            autoBuild={autoBuild}
+            onAutoBuildChange={setAutoBuild}
+            showFullLogs={showFullLogs}
+            onToggleFullLogs={() => setShowFullLogs(!showFullLogs)}
+            onCopyLogs={copyLogs}
+          />
+        </div>
       </div>
     </>
   );

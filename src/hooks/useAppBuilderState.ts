@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppBuild } from '@/types/supabase';
 
 export function useAppBuilderState() {
@@ -17,6 +17,26 @@ export function useAppBuilderState() {
   const [isLoadingPreview, setIsLoadingPreview] = useState<boolean>(false);
   const [autoBuild, setAutoBuild] = useState<boolean>(true);
   const [expandedBuildIds, setExpandedBuildIds] = useState<string[]>([]);
+  const [isPromptInputCollapsed, setIsPromptInputCollapsed] = useState<boolean>(false);
+  
+  // Add a 'show full logs' state
+  const [showFullLogs, setShowFullLogs] = useState<boolean>(false);
+
+  // When processing starts, collapse the prompt input
+  useEffect(() => {
+    if (isProcessing) {
+      setIsPromptInputCollapsed(true);
+    }
+  }, [isProcessing]);
+
+  // When a new build is selected, expand it and collapse others
+  useEffect(() => {
+    if (selectedBuild?.id) {
+      if (!expandedBuildIds.includes(selectedBuild.id)) {
+        setExpandedBuildIds(prev => [...prev, selectedBuild.id as string]);
+      }
+    }
+  }, [selectedBuild, expandedBuildIds]);
 
   const toggleBuildExpansion = (buildId: string) => {
     setExpandedBuildIds(prev => 
@@ -31,6 +51,21 @@ export function useAppBuilderState() {
     const timestamp = new Date().toLocaleTimeString();
     const prefix = type === 'error' ? 'ERROR' : type === 'success' ? 'SUCCESS' : 'INFO';
     setLogs(prev => [...prev, `[${timestamp}] ${prefix}: ${message}`]);
+    
+    // Also log to console for debugging
+    console.log(`[${timestamp}] ${prefix}: ${message}`);
+  };
+  
+  // Function to copy all logs to clipboard
+  const copyLogs = () => {
+    const logText = logs.join('\n');
+    navigator.clipboard.writeText(logText)
+      .then(() => {
+        appendLog('success', 'Logs copied to clipboard');
+      })
+      .catch(err => {
+        appendLog('error', `Failed to copy logs: ${err.message}`);
+      });
   };
 
   return {
@@ -48,6 +83,9 @@ export function useAppBuilderState() {
     logs,
     setLogs,
     appendLog,
+    copyLogs,
+    showFullLogs,
+    setShowFullLogs,
     isComplete,
     setIsComplete,
     
@@ -72,6 +110,8 @@ export function useAppBuilderState() {
     setPromptInputValue,
     buildError,
     setBuildError,
+    isPromptInputCollapsed,
+    setIsPromptInputCollapsed,
 
     // Build expansion state
     expandedBuildIds,

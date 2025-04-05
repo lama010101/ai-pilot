@@ -10,7 +10,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-const Header = () => {
+interface HeaderProps {
+  extraButtons?: React.ReactNode;
+}
+
+const Header = ({ extraButtons }: HeaderProps) => {
   const { signOut, user } = useAuth();
   
   // Extract first letter of email for avatar fallback
@@ -36,6 +40,8 @@ const Header = () => {
       </div>
       
       <div className="flex items-center space-x-4">
+        {extraButtons}
+        
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
