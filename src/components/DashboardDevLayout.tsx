@@ -284,10 +284,36 @@ const EnvironmentSwitcher = () => {
 
 const DashboardDevLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading } = useAuth();
+  const [hasRendered, setHasRendered] = useState(false);
   
   useEffect(() => {
     console.log("Dashboard DEV layout mounted at path:", location.pathname);
-  }, [location.pathname]);
+    setHasRendered(true);
+    
+    // Add emergency redirect if page remains blank
+    const timeout = setTimeout(() => {
+      if (location.pathname === '/dashboard-dev' || location.pathname === '/dashboard-dev/') {
+        console.log("Emergency redirect to /dashboard-dev/builder");
+        navigate('/dashboard-dev/builder', { replace: true });
+      }
+    }, 2000);
+    
+    return () => clearTimeout(timeout);
+  }, [location.pathname, navigate]);
+
+  // Show loading indicator while authentication is being checked
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full border-4 border-pilot-600 border-t-transparent animate-spin"></div>
+          <p className="mt-4 text-pilot-200">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthGuard>
@@ -306,6 +332,9 @@ const DashboardDevLayout = () => {
               </div>
             </div>
             <DebugPanel />
+            <div id="debug-overlay" style={{ position: 'fixed', bottom: 0, left: 0, background: '#111', color: '#0f0', padding: '8px', zIndex: 9999 }}>
+              Dashboard: DEV | Path: {location.pathname} | Auth: {isAuthenticated ? '✅' : '❌'}
+            </div>
           </div>
         </StorageDataChecker>
       </ErrorBoundary>

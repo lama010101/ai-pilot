@@ -3,7 +3,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, USE_FAKE_AUTH } from '@/lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 
 // Get the leader email from environment variables
 const LEADER_EMAIL = import.meta.env.VITE_LEADER_EMAIL || 'emartin6867@gmail.com';
@@ -27,6 +26,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("AuthProvider mounted, USE_FAKE_AUTH:", USE_FAKE_AUTH);
+    
     // Skip Supabase session check if using fake auth
     if (USE_FAKE_AUTH) {
       return;
@@ -35,6 +36,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Check if there's an active session
     const checkSession = async () => {
       try {
+        console.log("Checking for existing session...");
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -42,6 +44,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setIsLoading(false);
           return;
         }
+        
+        console.log("Session check complete:", session ? "Session found" : "No session");
         
         // If we have a session, check if the user is authorized
         if (session) {
@@ -68,10 +72,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    checkSession();
-
-    // Listen for auth changes
+    // Set up auth change listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Auth state changed:", _event, session ? "Session exists" : "No session");
+      
       // If session exists, check if user is authorized
       if (session) {
         const userEmail = session.user?.email;
@@ -98,27 +102,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(false);
     });
 
+    // Then check for existing session
+    checkSession();
+
     return () => {
       subscription.unsubscribe();
     };
   }, [navigate]);
 
   const signInWithGoogle = async () => {
+    console.log("signInWithGoogle called, USE_FAKE_AUTH:", USE_FAKE_AUTH);
+    
     if (USE_FAKE_AUTH) {
       // Fake authentication - just redirect to dashboard
+      console.log("Using fake auth, setting isAuthenticated to true");
       setIsAuthenticated(true);
-      toast("Welcome, Leader", {
-        description: "You have been signed in with Dev Mode"
-      });
-      navigate('/dashboard');
+      console.log("Redirecting to dashboard (fake auth)");
+      navigate('/dashboard/builder');
       return;
     }
 
     try {
+      console.log("Starting Google OAuth flow");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}/dashboard/builder`,
         },
       });
       
@@ -127,30 +136,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error) {
       console.error('Error signing in:', error);
-      toast.error('Error signing in with Google');
     }
   };
 
   const signOut = async () => {
+    console.log("signOut called, USE_FAKE_AUTH:", USE_FAKE_AUTH);
+    
     if (USE_FAKE_AUTH) {
       // Fake sign out - just redirect to login
+      console.log("Using fake auth, setting isAuthenticated to false");
       setIsAuthenticated(false);
-      toast("Signed out", {
-        description: "You have been signed out"
-      });
+      console.log("Redirecting to login (fake auth)");
       navigate('/login');
       return;
     }
 
     try {
+      console.log("Signing out via Supabase");
       await supabase.auth.signOut();
-      toast("Signed out", {
-        description: "You have been signed out successfully"
-      });
+      console.log("Sign out complete, redirecting to login");
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
-      toast.error('Error signing out');
     }
   };
 

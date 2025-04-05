@@ -5,7 +5,9 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
+// Set a very high TOAST_REMOVE_DELAY to effectively disable toasts
+// Later we can remove toast functionality entirely
+const TOAST_LIMIT = 0
 const TOAST_REMOVE_DELAY = 1000000
 
 type ToasterToast = ToastProps & {
@@ -139,32 +141,16 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
+// Modified toast function to log to console instead of showing UI toast
 function toast({ ...props }: Toast) {
-  const id = genId()
-
-  const update = (props: ToasterToast) =>
-    dispatch({
-      type: "UPDATE_TOAST",
-      toast: { ...props, id },
-    })
-  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
-
-  dispatch({
-    type: "ADD_TOAST",
-    toast: {
-      ...props,
-      id,
-      open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss()
-      },
-    },
-  })
-
+  // Instead of showing a toast, log to console
+  console.log(`[Log] ${props.title || ""}: ${props.description || ""}`);
+  
+  // Return empty response
   return {
-    id: id,
-    dismiss,
-    update,
+    id: "",
+    dismiss: () => {},
+    update: () => {},
   }
 }
 

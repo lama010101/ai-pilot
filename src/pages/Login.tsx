@@ -18,9 +18,11 @@ const Login = () => {
   
   // Check if the user was trying to access the dev dashboard
   const from = location.state?.from?.pathname || '';
-  const redirectPath = from.includes('dashboard-dev') ? '/dashboard-dev' : '/dashboard';
+  const redirectPath = from.includes('dashboard-dev') ? '/dashboard-dev/builder' : '/dashboard/builder';
 
   useEffect(() => {
+    console.log("Login page mounted, auth status:", { isAuthenticated, isLoading, from, redirectPath });
+    
     // Update debug info
     setDebugInfo(prev => ({
       ...prev,
@@ -32,12 +34,29 @@ const Login = () => {
       redirectTarget: redirectPath
     }));
     
-    if (isAuthenticated && !isLoading) {
+    if (isAuthenticated && !isLoading && !debugInfo.redirectAttempted) {
       console.log("Login: User is authenticated, redirecting to:", redirectPath);
       setDebugInfo(prev => ({ ...prev, redirectAttempted: true }));
       navigate(redirectPath, { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate, redirectPath]);
+  }, [isAuthenticated, isLoading, navigate, redirectPath, from, debugInfo.redirectAttempted]);
+
+  // Add emergency fallback if login gets stuck
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isAuthenticated && !debugInfo.redirectAttempted) {
+        console.log("Emergency redirect to dashboard");
+        navigate('/dashboard/builder', { replace: true });
+      }
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, [navigate, isAuthenticated, debugInfo.redirectAttempted]);
+
+  const handleSignIn = () => {
+    console.log("Sign in button clicked");
+    signInWithGoogle();
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -59,7 +78,7 @@ const Login = () => {
           </p>
           
           <Button 
-            onClick={signInWithGoogle}
+            onClick={handleSignIn}
             className="w-full bg-white hover:bg-gray-100 text-gray-900 font-semibold"
             disabled={isLoading}
           >
@@ -83,7 +102,7 @@ const Login = () => {
           </div>
         </div>
         
-        {/* Debug information - will remove after fixing issues */}
+        {/* Debug information */}
         <div className="mt-6 p-2 border border-gray-200 rounded text-xs">
           <div className="text-muted-foreground space-y-1">
             <p>Auth status: {debugInfo.authStatus}</p>
@@ -91,6 +110,10 @@ const Login = () => {
             <p>Redirect attempted: {debugInfo.redirectAttempted ? 'Yes' : 'No'}</p>
           </div>
         </div>
+      </div>
+      
+      <div id="debug-overlay" style={{ position: 'fixed', bottom: 0, left: 0, background: '#111', color: '#0f0', padding: '8px', zIndex: 9999 }}>
+        ROUTE: /login | Auth: {isAuthenticated ? '✅' : '❌'} | Loading: {isLoading ? '⏳' : '✓'}
       </div>
     </div>
   );

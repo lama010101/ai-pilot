@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -49,59 +49,65 @@ const AppInitializer = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <BrowserRouter>
-        <AuthProvider>
-          <AppInitializer>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/greeting" element={<Greeting />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/unauthorized" element={<Unauthorized />} />
-              
-              {/* Production Dashboard */}
-              <Route path="/dashboard" element={<DashboardLayout />}>
-                <Route index element={<Navigate to="/dashboard/builder" replace />} />
-                <Route path="agents/:id" element={<AgentDetail />} />
-                <Route path="agents/finance-ai" element={<FinanceAI />} />
-                <Route path="agents" element={<PlaceholderPage title="Agents" />} />
-                <Route path="apps" element={<Apps />} />
-                <Route path="apps/:id" element={<AppDetail />} />
-                <Route path="memory" element={<Memory />} />
-                <Route path="chat" element={<Chat />} />
-                <Route path="builder" element={<Builder />} />
-                <Route path="settings" element={<PlaceholderPage title="Settings" />} />
-                <Route path="settings/budget" element={<BudgetSettings />} />
-                <Route path="settings/developer" element={<DeveloperSettings />} />
-                <Route path="features" element={<Features />} />
-              </Route>
-              
-              {/* Development Dashboard */}
-              <Route path="/dashboard-dev" element={<DashboardDevLayout />}>
-                <Route index element={<Navigate to="/dashboard-dev/builder" replace />} />
-                <Route path="agents/:id" element={<AgentDetail />} />
-                <Route path="agents/finance-ai" element={<FinanceAI />} />
-                <Route path="agents" element={<PlaceholderPage title="Agents" />} />
-                <Route path="apps" element={<Apps />} />
-                <Route path="apps/:id" element={<AppDetail />} />
-                <Route path="memory" element={<Memory />} />
-                <Route path="chat" element={<Chat />} />
-                <Route path="builder" element={<Builder />} />
-                <Route path="settings" element={<PlaceholderPage title="Settings" />} />
-                <Route path="settings/budget" element={<BudgetSettings />} />
-                <Route path="settings/developer" element={<DeveloperSettings />} />
-                <Route path="features" element={<Features />} />
-              </Route>
-              
-              <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
-          </AppInitializer>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useEffect(() => {
+    console.log("App component mounted");
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <AppInitializer>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/greeting" element={<Greeting />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/unauthorized" element={<Unauthorized />} />
+                
+                {/* Production Dashboard */}
+                <Route path="/dashboard" element={<DashboardLayout />}>
+                  <Route index element={<Navigate to="/dashboard/builder" replace />} />
+                  <Route path="agents/:id" element={<AgentDetail />} />
+                  <Route path="agents/finance-ai" element={<FinanceAI />} />
+                  <Route path="agents" element={<PlaceholderPage title="Agents" />} />
+                  <Route path="apps" element={<Apps />} />
+                  <Route path="apps/:id" element={<AppDetail />} />
+                  <Route path="memory" element={<Memory />} />
+                  <Route path="chat" element={<Chat />} />
+                  <Route path="builder" element={<Builder />} />
+                  <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+                  <Route path="settings/budget" element={<BudgetSettings />} />
+                  <Route path="settings/developer" element={<DeveloperSettings />} />
+                  <Route path="features" element={<Features />} />
+                </Route>
+                
+                {/* Development Dashboard */}
+                <Route path="/dashboard-dev" element={<DashboardDevLayout />}>
+                  <Route index element={<Navigate to="/dashboard-dev/builder" replace />} />
+                  <Route path="agents/:id" element={<AgentDetail />} />
+                  <Route path="agents/finance-ai" element={<FinanceAI />} />
+                  <Route path="agents" element={<PlaceholderPage title="Agents" />} />
+                  <Route path="apps" element={<Apps />} />
+                  <Route path="apps/:id" element={<AppDetail />} />
+                  <Route path="memory" element={<Memory />} />
+                  <Route path="chat" element={<Chat />} />
+                  <Route path="builder" element={<Builder />} />
+                  <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+                  <Route path="settings/budget" element={<BudgetSettings />} />
+                  <Route path="settings/developer" element={<DeveloperSettings />} />
+                  <Route path="features" element={<Features />} />
+                </Route>
+                
+                <Route path="*" element={<Navigate to="/login" replace />} />
+              </Routes>
+            </AppInitializer>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
