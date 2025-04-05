@@ -80,7 +80,12 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
               <CardContent>
                 <BuildResultTabs 
                   spec={spec}
+                  code=""
+                  logs={[]}
                   isLoadingSpec={isLoadingSpec}
+                  isLoadingCode={false}
+                  iframeRef={null}
+                  isLoadingPreview={false}
                 />
                 
                 {onContinueToBuild && (
@@ -127,8 +132,13 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
             <CollapsibleContent>
               <CardContent>
                 <BuildResultTabs 
+                  spec=""
                   code={code}
+                  logs={[]}
+                  isLoadingSpec={false}
                   isLoadingCode={isLoadingCode}
+                  iframeRef={null}
+                  isLoadingPreview={false}
                 />
               </CardContent>
             </CollapsibleContent>

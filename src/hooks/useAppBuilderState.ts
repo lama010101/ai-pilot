@@ -18,8 +18,6 @@ export function useAppBuilderState() {
   const [autoBuild, setAutoBuild] = useState<boolean>(true);
   const [expandedBuildIds, setExpandedBuildIds] = useState<string[]>([]);
   const [isPromptInputCollapsed, setIsPromptInputCollapsed] = useState<boolean>(false);
-  
-  // Add a 'show full logs' state
   const [showFullLogs, setShowFullLogs] = useState<boolean>(false);
 
   // When processing starts, collapse the prompt input

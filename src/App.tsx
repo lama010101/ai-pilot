@@ -51,64 +51,62 @@ const AppInitializer = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => (
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <AppInitializer>
-              <Toaster />
-              <Sonner />
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/greeting" element={<Greeting />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/unauthorized" element={<Unauthorized />} />
-                
-                {/* Production Dashboard */}
-                <Route path="/dashboard" element={<DashboardLayout />}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="agents/:id" element={<AgentDetail />} />
-                  <Route path="agents/finance-ai" element={<FinanceAI />} />
-                  <Route path="agents" element={<PlaceholderPage title="Agents" />} />
-                  <Route path="apps" element={<Apps />} />
-                  <Route path="apps/:id" element={<AppDetail />} />
-                  <Route path="logs" element={<PlaceholderPage title="Logs" />} />
-                  <Route path="memory" element={<PlaceholderPage title="Memory" />} />
-                  <Route path="chat" element={<Chat />} />
-                  <Route path="builder" element={<Builder />} />
-                  <Route path="settings" element={<PlaceholderPage title="Settings" />} />
-                  <Route path="settings/budget" element={<BudgetSettings />} />
-                  <Route path="settings/developer" element={<DeveloperSettings />} />
-                  <Route path="features" element={<Features />} />
-                </Route>
-                
-                {/* Development Dashboard */}
-                <Route path="/dashboard-dev" element={<DashboardDevLayout />}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="agents/:id" element={<AgentDetail />} />
-                  <Route path="agents/finance-ai" element={<FinanceAI />} />
-                  <Route path="agents" element={<PlaceholderPage title="Agents" />} />
-                  <Route path="apps" element={<Apps />} />
-                  <Route path="apps/:id" element={<AppDetail />} />
-                  <Route path="logs" element={<PlaceholderPage title="Logs" />} />
-                  <Route path="memory" element={<PlaceholderPage title="Memory" />} />
-                  <Route path="chat" element={<Chat />} />
-                  <Route path="builder" element={<Builder />} />
-                  <Route path="settings" element={<PlaceholderPage title="Settings" />} />
-                  <Route path="settings/budget" element={<BudgetSettings />} />
-                  <Route path="settings/developer" element={<DeveloperSettings />} />
-                  <Route path="features" element={<Features />} />
-                </Route>
-                
-                <Route path="*" element={<Navigate to="/login" replace />} />
-              </Routes>
-            </AppInitializer>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </React.StrictMode>
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppInitializer>
+            <Toaster />
+            <Sonner />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/greeting" element={<Greeting />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/unauthorized" element={<Unauthorized />} />
+              
+              {/* Production Dashboard */}
+              <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="agents/:id" element={<AgentDetail />} />
+                <Route path="agents/finance-ai" element={<FinanceAI />} />
+                <Route path="agents" element={<PlaceholderPage title="Agents" />} />
+                <Route path="apps" element={<Apps />} />
+                <Route path="apps/:id" element={<AppDetail />} />
+                <Route path="logs" element={<PlaceholderPage title="Logs" />} />
+                <Route path="memory" element={<PlaceholderPage title="Memory" />} />
+                <Route path="chat" element={<Chat />} />
+                <Route path="builder" element={<Builder />} />
+                <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+                <Route path="settings/budget" element={<BudgetSettings />} />
+                <Route path="settings/developer" element={<DeveloperSettings />} />
+                <Route path="features" element={<Features />} />
+              </Route>
+              
+              {/* Development Dashboard */}
+              <Route path="/dashboard-dev" element={<DashboardDevLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="agents/:id" element={<AgentDetail />} />
+                <Route path="agents/finance-ai" element={<FinanceAI />} />
+                <Route path="agents" element={<PlaceholderPage title="Agents" />} />
+                <Route path="apps" element={<Apps />} />
+                <Route path="apps/:id" element={<AppDetail />} />
+                <Route path="logs" element={<PlaceholderPage title="Logs" />} />
+                <Route path="memory" element={<PlaceholderPage title="Memory" />} />
+                <Route path="chat" element={<Chat />} />
+                <Route path="builder" element={<Builder />} />
+                <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+                <Route path="settings/budget" element={<BudgetSettings />} />
+                <Route path="settings/developer" element={<DeveloperSettings />} />
+                <Route path="features" element={<Features />} />
+              </Route>
+              
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </AppInitializer>
+        </AuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
 );
 
 export default App;
