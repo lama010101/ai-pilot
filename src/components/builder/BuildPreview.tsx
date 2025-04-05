@@ -24,7 +24,7 @@ interface BuildPreviewProps {
   onToggleFullLogs?: () => void;
 }
 
-const BuildPreview: React.FC<BuildPreviewProps> = ({
+const BuildPreview: React.FC<BuildPreviewProps> = ({ 
   spec,
   code,
   logs,
@@ -81,7 +81,6 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
                 <BuildResultTabs 
                   spec={spec}
                   isLoadingSpec={isLoadingSpec}
-                  selectedTab="spec"
                 />
                 
                 {onContinueToBuild && (
@@ -130,7 +129,6 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
                 <BuildResultTabs 
                   code={code}
                   isLoadingCode={isLoadingCode}
-                  selectedTab="code"
                 />
               </CardContent>
             </CollapsibleContent>
@@ -195,18 +193,18 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
         </Collapsible>
       )}
       
-      {selectedBuild?.preview_url && (
+      {selectedBuild?.previewUrl && (
         <Card>
           <CardHeader>
             <CardTitle>Live Preview</CardTitle>
             <CardDescription>
-              Preview of "{selectedBuild.app_name}"
+              Preview of "{selectedBuild.appName}"
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="aspect-video w-full border rounded-md overflow-hidden">
               <iframe 
-                src={selectedBuild.preview_url} 
+                src={selectedBuild.previewUrl} 
                 title="App Preview"
                 className="w-full h-full"
               />
