@@ -86,6 +86,7 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
                   isLoadingCode={false}
                   iframeRef={null}
                   isLoadingPreview={false}
+                  autoBuild={autoBuild}
                 />
                 
                 {onContinueToBuild && (
@@ -139,6 +140,7 @@ const BuildPreview: React.FC<BuildPreviewProps> = ({
                   isLoadingCode={isLoadingCode}
                   iframeRef={null}
                   isLoadingPreview={false}
+                  autoBuild={autoBuild}
                 />
               </CardContent>
             </CollapsibleContent>

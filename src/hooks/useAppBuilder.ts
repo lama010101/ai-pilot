@@ -15,6 +15,7 @@ export function useAppBuilder() {
     code, setCode,
     logs, setLogs,
     appendLog,
+    copyLogs,
     isComplete, setIsComplete,
     selectedBuild, setSelectedBuild,
     promptInputValue, setPromptInputValue,
@@ -23,7 +24,9 @@ export function useAppBuilder() {
     isLoadingCode, setIsLoadingCode,
     isLoadingPreview, setIsLoadingPreview,
     autoBuild, setAutoBuild,
-    expandedBuildIds, toggleBuildExpansion
+    expandedBuildIds, toggleBuildExpansion,
+    isPromptInputCollapsed, setIsPromptInputCollapsed,
+    showFullLogs, setShowFullLogs
   } = useAppBuilderState();
   
   const {
@@ -343,6 +346,11 @@ export function useAppBuilder() {
     setAutoBuild,
     expandedBuildIds,
     toggleBuildExpansion,
-    appendLog
+    appendLog,
+    copyLogs,
+    isPromptInputCollapsed,
+    setIsPromptInputCollapsed,
+    showFullLogs,
+    setShowFullLogs
   };
 }

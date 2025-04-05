@@ -16,7 +16,7 @@ interface BuildResultTabsProps {
   isLoadingCode: boolean;
   isLoadingPreview: boolean;
   onContinueToBuild?: () => void;
-  autoBuild: boolean;
+  autoBuild?: boolean;
 }
 
 /**
@@ -32,7 +32,7 @@ const BuildResultTabs: React.FC<BuildResultTabsProps> = ({
   isLoadingCode,
   isLoadingPreview,
   onContinueToBuild,
-  autoBuild
+  autoBuild = true
 }) => {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = React.useState("spec");
