@@ -78,6 +78,7 @@ const App = () => (
                 <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                 <Route path="settings/budget" element={<BudgetSettings />} />
                 <Route path="settings/developer" element={<DeveloperSettings />} />
+                <Route path="features" element={<Features />} />
               </Route>
               
               {/* Development Dashboard */}

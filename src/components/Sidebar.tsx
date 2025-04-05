@@ -104,14 +104,12 @@ const Sidebar = () => {
           to={`${baseUrl}/chat`} 
           isCollapsed={isCollapsed} 
         />
-        {isDev && (
-          <SidebarItem 
-            icon={<Sparkles size={20} />} 
-            label="Features" 
-            to={`${baseUrl}/features`}
-            isCollapsed={isCollapsed} 
-          />
-        )}
+        <SidebarItem 
+          icon={<Sparkles size={20} />} 
+          label="Features" 
+          to={`${baseUrl}/features`}
+          isCollapsed={isCollapsed} 
+        />
         <SidebarItem 
           icon={<Settings size={20} />} 
           label="Settings" 
