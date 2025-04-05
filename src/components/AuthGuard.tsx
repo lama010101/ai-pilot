@@ -1,7 +1,7 @@
 
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -10,12 +10,14 @@ interface AuthGuardProps {
 const AuthGuard = ({ children }: AuthGuardProps) => {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate('/login');
+      // Save the location they were trying to go to
+      navigate('/login', { state: { from: location } });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, navigate, location]);
 
   if (isLoading) {
     return (

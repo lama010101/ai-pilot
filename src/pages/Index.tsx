@@ -1,23 +1,27 @@
 
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, isLoading } = useAuth();
+  
+  // Check if the URL contains dashboard-dev to determine where to redirect
+  const isDev = location.pathname.includes('dashboard-dev');
 
   useEffect(() => {
     if (isLoading) return;
     
     if (isAuthenticated) {
-      // If user is authenticated, redirect to dashboard
-      navigate('/dashboard/chat');
+      // If user is authenticated, redirect to the appropriate dashboard
+      navigate(isDev ? '/dashboard-dev' : '/dashboard/chat');
     } else {
       // If user is not authenticated, redirect to login
-      navigate('/login');
+      navigate('/login', { state: { from: { pathname: isDev ? '/dashboard-dev' : '/dashboard' } } });
     }
-  }, [navigate, isAuthenticated, isLoading]);
+  }, [navigate, isAuthenticated, isLoading, isDev]);
 
   // Improved loading state with more feedback
   return (
@@ -27,7 +31,7 @@ const Index = () => {
         <p className="mt-4 text-pilot-200">Redirecting to dashboard...</p>
         <p className="mt-2 text-xs text-pilot-100">
           {isLoading ? "Checking authentication..." : 
-           isAuthenticated ? "Loading dashboard..." : "Redirecting to login..."}
+           isAuthenticated ? `Loading ${isDev ? "development" : ""} dashboard...` : "Redirecting to login..."}
         </p>
       </div>
     </div>

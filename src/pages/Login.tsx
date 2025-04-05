@@ -1,7 +1,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { USE_FAKE_AUTH } from '@/lib/supabaseClient';
 import { ArrowRight } from 'lucide-react';
@@ -9,12 +9,17 @@ import { ArrowRight } from 'lucide-react';
 const Login = () => {
   const { signInWithGoogle, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Check if the user was trying to access the dev dashboard
+  const from = location.state?.from?.pathname || '';
+  const redirectPath = from.includes('dashboard-dev') ? '/dashboard-dev' : '/dashboard';
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      navigate('/dashboard');
+      navigate(redirectPath);
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, navigate, redirectPath]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

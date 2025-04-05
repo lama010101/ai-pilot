@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { AppBuildDB } from '@/types/supabase';
-import { toast } from 'sonner';
 
 // TypeScript interface extensions (to ensure all needed fields are present)
 export interface BuildWithLogs extends AppBuildDB {
@@ -171,7 +170,6 @@ export const triggerAppBuild = async (buildId: string, prompt: string, userId: s
       
       if (error) {
         console.error('Error invoking build-app function:', error);
-        toast.error(`Failed to start build process: ${error.message}`);
         return { data: null, error };
       }
 
@@ -179,7 +177,6 @@ export const triggerAppBuild = async (buildId: string, prompt: string, userId: s
       return { data, error: null };
     } catch (functionError) {
       console.error('Exception when invoking function:', functionError);
-      toast.error('Failed to connect to build service. Please try again later.');
       return { 
         data: null, 
         error: new Error(`Failed to invoke build function: ${functionError.message}`) 
@@ -187,7 +184,6 @@ export const triggerAppBuild = async (buildId: string, prompt: string, userId: s
     }
   } catch (error) {
     console.error('Error in triggerAppBuild:', error);
-    toast.error('Unexpected error when starting build');
     return { data: null, error };
   }
 };
@@ -206,9 +202,6 @@ export const exportBuild = async (buildId: string, userId: string) => {
   try {
     if (!buildId || !userId) {
       console.error('Cannot export build: required parameters missing');
-      toast.error('Unable to export build', {
-        description: 'Missing build ID or user authentication'
-      });
       return { downloadUrl: null, fileName: null, error: new Error('Build ID and User ID are required to export') };
     }
 
@@ -218,17 +211,11 @@ export const exportBuild = async (buildId: string, userId: string) => {
     
     if (error) {
       console.error('Error exporting build:', error);
-      toast.error('Failed to export build', {
-        description: error.message
-      });
       return { downloadUrl: null, fileName: null, error };
     }
     
     if (!data.success) {
       console.error('Error exporting build:', data.error);
-      toast.error('Failed to export build', {
-        description: data.error
-      });
       return { downloadUrl: null, fileName: null, error: new Error(data.error) };
     }
     
@@ -239,9 +226,6 @@ export const exportBuild = async (buildId: string, userId: string) => {
     };
   } catch (error) {
     console.error('Error exporting build:', error);
-    toast.error('Failed to export build', {
-      description: error.message
-    });
     return { downloadUrl: null, fileName: null, error };
   }
 };
@@ -253,9 +237,6 @@ export const triggerHostingPreview = async (buildId: string, userId: string) => 
   try {
     if (!buildId || !userId) {
       console.error('Cannot trigger hosting preview: required parameters missing');
-      toast.error('Unable to deploy preview', {
-        description: 'Missing build ID or user authentication'
-      });
       return { previewUrl: null, error: new Error('Build ID and User ID are required to deploy preview') };
     }
 
@@ -265,26 +246,17 @@ export const triggerHostingPreview = async (buildId: string, userId: string) => 
     
     if (error) {
       console.error('Error triggering hosting preview:', error);
-      toast.error('Failed to deploy preview', {
-        description: error.message
-      });
       return { previewUrl: null, error };
     }
     
     if (!data.success) {
       console.error('Error triggering hosting preview:', data.error);
-      toast.error('Failed to deploy preview', {
-        description: data.error
-      });
       return { previewUrl: null, error: new Error(data.error) };
     }
     
     return { previewUrl: data.previewUrl, error: null };
   } catch (error) {
     console.error('Error triggering hosting preview:', error);
-    toast.error('Failed to deploy preview', {
-      description: error.message
-    });
     return { previewUrl: null, error };
   }
 };
