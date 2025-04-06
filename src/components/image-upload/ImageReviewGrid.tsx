@@ -11,18 +11,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import ImageProcessingButton from './ImageProcessingButton';
 
 interface ImageReviewGridProps {
   images: ProcessedImage[];
   onToggleSelection: (index: number, selected: boolean) => void;
   onToggleReadyForGame: (index: number, ready: boolean) => void;
+  onImageMetadataUpdate?: (index: number, metadata: any) => void;
 }
 
 const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
   images,
   onToggleSelection,
-  onToggleReadyForGame
+  onToggleReadyForGame,
+  onImageMetadataUpdate
 }) => {
+  const handleMetadataUpdate = (index: number, metadata: any) => {
+    if (onImageMetadataUpdate) {
+      onImageMetadataUpdate(index, metadata);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Table>
@@ -37,6 +46,7 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
             <TableHead>Date</TableHead>
             <TableHead>Type</TableHead>
             <TableHead className="w-24">Ready</TableHead>
+            <TableHead className="w-28">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -62,7 +72,7 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                   <img 
                     src={image.descriptionImageUrl} 
                     alt="Description" 
-                    className="h-full w-full object-cover rounded-md"
+                    className="h-full w-full object-contain rounded-md"
                   />
                 </div>
               </TableCell>
@@ -104,6 +114,15 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                     <X className="h-4 w-4" />
                   )}
                 </div>
+              </TableCell>
+              <TableCell>
+                <ImageProcessingButton 
+                  image={{
+                    id: image.originalFileName,
+                    imageUrl: image.imageUrl
+                  }}
+                  onProcessingComplete={(metadata) => handleMetadataUpdate(index, metadata)}
+                />
               </TableCell>
             </TableRow>
           ))}

@@ -21,6 +21,13 @@ export interface ProcessedImage {
     gps: { lat: number; lon: number } | null;
     is_true_event: boolean;
     is_ai_generated: boolean;
+    is_mature_content?: boolean;
+    accuracy_description?: number;
+    accuracy_date?: number;
+    accuracy_location?: number;
+    accuracy_historical?: number;
+    accuracy_realness?: number;
+    accuracy_maturity?: number;
   };
   imageUrl: string;
   descriptionImageUrl: string;
@@ -106,6 +113,42 @@ const ImageUpload = () => {
     );
   }, []);
 
+  const handleImageMetadataUpdate = useCallback((index: number, metadata: any) => {
+    setProcessedImages(prev => 
+      prev.map((img, i) => {
+        if (i === index) {
+          return {
+            ...img,
+            metadata: {
+              ...img.metadata,
+              title: metadata.title || img.metadata.title,
+              description: metadata.description || img.metadata.description,
+              date: metadata.date || img.metadata.date,
+              year: metadata.year || img.metadata.year,
+              location: metadata.address || img.metadata.location,
+              gps: metadata.gps || img.metadata.gps,
+              is_true_event: metadata.is_historical ?? img.metadata.is_true_event,
+              is_ai_generated: metadata.is_ai_generated ?? img.metadata.is_ai_generated,
+              is_mature_content: metadata.is_mature_content ?? false,
+              accuracy_description: metadata.accuracy_description,
+              accuracy_date: metadata.accuracy_date,
+              accuracy_location: metadata.accuracy_location,
+              accuracy_historical: metadata.accuracy_historical,
+              accuracy_realness: metadata.accuracy_realness,
+              accuracy_maturity: metadata.accuracy_maturity
+            }
+          };
+        }
+        return img;
+      })
+    );
+    
+    toast({
+      title: "Image metadata updated",
+      description: "The image metadata has been verified and updated",
+    });
+  }, [toast]);
+
   const saveToDatabase = useCallback(async () => {
     const selectedImages = processedImages.filter(img => img.selected);
     
@@ -136,7 +179,14 @@ const ImageUpload = () => {
               is_ai_generated: img.metadata.is_ai_generated,
               ready_for_game: img.ready_for_game,
               image_url: img.imageUrl,
-              description_image_url: img.descriptionImageUrl
+              description_image_url: img.descriptionImageUrl,
+              is_mature_content: img.metadata.is_mature_content,
+              accuracy_description: img.metadata.accuracy_description,
+              accuracy_date: img.metadata.accuracy_date,
+              accuracy_location: img.metadata.accuracy_location,
+              accuracy_historical: img.metadata.accuracy_historical,
+              accuracy_realness: img.metadata.accuracy_realness,
+              accuracy_maturity: img.metadata.accuracy_maturity
             } as any)
             .select();
             
@@ -230,6 +280,7 @@ const ImageUpload = () => {
                 images={processedImages}
                 onToggleSelection={toggleImageSelection}
                 onToggleReadyForGame={toggleReadyForGame}
+                onImageMetadataUpdate={handleImageMetadataUpdate}
               />
             </CardContent>
           </Card>
