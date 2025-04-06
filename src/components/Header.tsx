@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
@@ -42,24 +41,22 @@ const Header = ({ extraButtons }: HeaderProps) => {
       <div className="flex items-center space-x-4">
         {extraButtons}
         
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center space-x-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} />
-                  <AvatarFallback>{getInitial()}</AvatarFallback>
-                </Avatar>
-                {!USE_FAKE_AUTH && user?.email && (
-                  <span className="text-sm hidden md:inline">{user.email}</span>
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>You are logged in as the Leader</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center space-x-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user?.user_metadata?.avatar_url} />
+                <AvatarFallback>{getInitial()}</AvatarFallback>
+              </Avatar>
+              {!USE_FAKE_AUTH && user?.email && (
+                <span className="text-sm hidden md:inline">{user.email}</span>
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>You are logged in as the Leader</p>
+          </TooltipContent>
+        </Tooltip>
         
         <button 
           onClick={signOut}

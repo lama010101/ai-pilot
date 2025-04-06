@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
 import { AGENT_COMMAND_TEMPLATES } from "@/lib/supabaseTypes";
 import { cn } from "@/lib/utils";
 import { calculateTaskCost } from "@/lib/supabaseService";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CommandSuggestionsProps {
   agentRole: string;  // Changed from agentType to agentRole to match AgentDetail usage
@@ -43,30 +43,28 @@ const CommandSuggestions = ({ agentRole, onSelect }: CommandSuggestionsProps) =>
           <ScrollArea className="h-60 rounded-md">
             <div className="space-y-2 p-2">
               {commands.map((command, idx) => (
-                <TooltipProvider key={idx}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start h-auto py-2 px-3 text-left font-normal"
-                        onClick={() => {
-                          onSelect(command);
-                          setIsOpen(false);
-                        }}
-                      >
-                        <div className="flex flex-col items-start">
-                          <span>{command}</span>
-                          <span className="text-xs text-muted-foreground mt-1">
-                            Est. Cost: ${calculateTaskCost(command).toFixed(2)}
-                          </span>
-                        </div>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Select this command template</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip key={idx}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start h-auto py-2 px-3 text-left font-normal"
+                      onClick={() => {
+                        onSelect(command);
+                        setIsOpen(false);
+                      }}
+                    >
+                      <div className="flex flex-col items-start">
+                        <span>{command}</span>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          Est. Cost: ${calculateTaskCost(command).toFixed(2)}
+                        </span>
+                      </div>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Select this command template</p>
+                  </TooltipContent>
+                </Tooltip>
               ))}
             </div>
           </ScrollArea>

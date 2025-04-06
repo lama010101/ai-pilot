@@ -2,7 +2,6 @@
 import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./contexts/AuthContext";
 import { seedInitialAgents } from "./lib/supabase";
 import { initializeChatTable } from "./lib/chatService";
@@ -27,6 +26,7 @@ import Memory from "./pages/Memory";
 import Pilot from "./pages/Pilot";
 import Index from "./pages/Index";
 import ImageUpload from "./pages/ImageUpload";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
 // Create a QueryClient instance outside of the component function
 const queryClient = new QueryClient();
@@ -58,7 +58,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+      <TooltipPrimitive.Provider>
         <BrowserRouter>
           <AuthProvider>
             <AppInitializer>
@@ -111,7 +111,7 @@ const App = () => {
             </AppInitializer>
           </AuthProvider>
         </BrowserRouter>
-      </TooltipProvider>
+      </TooltipPrimitive.Provider>
     </QueryClientProvider>
   );
 };
