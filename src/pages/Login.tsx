@@ -105,7 +105,7 @@ const Login = () => {
           </Button>
           
           <div className="mt-6 text-center">
-            {/* Replace "Back to Welcome" with "Temp" button */}
+            {/* Temp login button */}
             <Button 
               variant="outline" 
               onClick={handleTempLogin}

@@ -26,7 +26,8 @@ import Memory from "./pages/Memory";
 import Pilot from "./pages/Pilot";
 import Index from "./pages/Index";
 import ImageUpload from "./pages/ImageUpload";
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import Project from "./pages/Project";
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 
 // Create a QueryClient instance outside of the component function
 const queryClient = new QueryClient();
@@ -58,7 +59,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipPrimitive.Provider>
+      <TooltipProvider>
         <BrowserRouter>
           <AuthProvider>
             <AppInitializer>
@@ -81,6 +82,7 @@ const App = () => {
                   <Route path="chat" element={<Chat />} />
                   <Route path="builder" element={<Builder />} />
                   <Route path="images" element={<ImageUpload />} />
+                  <Route path="project" element={<Project />} />
                   <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                   <Route path="settings/budget" element={<BudgetSettings />} />
                   <Route path="settings/developer" element={<DeveloperSettings />} />
@@ -100,6 +102,7 @@ const App = () => {
                   <Route path="chat" element={<Chat />} />
                   <Route path="builder" element={<Builder />} />
                   <Route path="images" element={<ImageUpload />} />
+                  <Route path="project" element={<Project />} />
                   <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                   <Route path="settings/budget" element={<BudgetSettings />} />
                   <Route path="settings/developer" element={<DeveloperSettings />} />
@@ -111,7 +114,7 @@ const App = () => {
             </AppInitializer>
           </AuthProvider>
         </BrowserRouter>
-      </TooltipPrimitive.Provider>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 };

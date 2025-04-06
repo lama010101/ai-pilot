@@ -5,7 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Loader2, FileSearch, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ImageMetadataVerifier from './ImageMetadataVerifier';
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
 
 interface ImageProcessingButtonProps {
   image: {
@@ -69,37 +74,39 @@ const ImageProcessingButton: React.FC<ImageProcessingButtonProps> = ({
 
   return (
     <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button 
-            onClick={handleOpenDialog}
-            variant={hasVerified ? "default" : "outline"}
-            size="sm"
-            className="flex items-center"
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : hasVerified ? (
-              <>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Verified
-              </>
-            ) : (
-              <>
-                <FileSearch className="h-4 w-4 mr-2" />
-                Verify Metadata
-              </>
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          {hasVerified ? "Metadata has been verified" : "Click to verify image metadata"}
-        </TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              onClick={handleOpenDialog}
+              variant={hasVerified ? "default" : "outline"}
+              size="sm"
+              className="flex items-center"
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : hasVerified ? (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Verified
+                </>
+              ) : (
+                <>
+                  <FileSearch className="h-4 w-4 mr-2" />
+                  Verify Metadata
+                </>
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {hasVerified ? "Metadata has been verified" : "Click to verify image metadata"}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[700px]">

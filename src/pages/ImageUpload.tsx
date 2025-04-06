@@ -4,11 +4,13 @@ import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, Image, Check, X, Save, FileSpreadsheet } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Upload, Image, Check, X, Save, FileSpreadsheet, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import ImageUploader from '@/components/image-upload/ImageUploader';
 import ImageReviewGrid from '@/components/image-upload/ImageReviewGrid';
+import SavedImagesGallery from '@/components/image-upload/SavedImagesGallery';
 import * as XLSX from 'xlsx';
 
 export interface ProcessedImage {
@@ -38,13 +40,30 @@ export interface ProcessedImage {
   selected?: boolean;
 }
 
+interface ProjectDb {
+  id: string;
+  name: string;
+  supabaseId: string;
+  isConnected: boolean;
+}
+
 const ImageUpload = () => {
+  const [activeTab, setActiveTab] = useState('upload');
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const [processLog, setProcessLog] = useState<string[]>([]);
   const [metadataFile, setMetadataFile] = useState<File | null>(null);
+  const [availableProjects, setAvailableProjects] = useState<ProjectDb[]>([
+    {
+      id: 'guess-history',
+      name: 'Guess History',
+      supabaseId: 'pbpcegbobdnqqkloousm',
+      isConnected: true
+    }
+  ]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const { toast } = useToast();
 
   // Load saved state from localStorage on initial load
@@ -128,11 +147,11 @@ const ImageUpload = () => {
     });
   }, []);
 
-  const handleUpload = useCallback(async (eventZipFile: File, descZipFile: File) => {
-    if (!eventZipFile || !descZipFile) {
+  const handleUpload = useCallback(async (files: FileList, metadataFile: File | null = null) => {
+    if (!files || files.length === 0) {
       toast({
-        title: "Missing files",
-        description: "Please select both event and description ZIP files",
+        title: "No files selected",
+        description: "Please select at least one image file to upload",
         variant: "destructive"
       });
       return;
@@ -141,7 +160,7 @@ const ImageUpload = () => {
     try {
       setIsUploading(true);
       setIsProcessing(true);
-      addToLog(`Starting upload process for ${eventZipFile.name} and ${descZipFile.name}`);
+      addToLog(`Starting upload process for ${files.length} files`);
       
       // Process metadata file if provided
       let metadataEntries: any[] = [];
@@ -149,63 +168,89 @@ const ImageUpload = () => {
         metadataEntries = await processMetadataFile(metadataFile);
       }
       
-      const formData = new FormData();
-      formData.append('eventZip', eventZipFile);
-      formData.append('descriptionZip', descZipFile);
+      // Process each file
+      const processedImagesData: ProcessedImage[] = [];
       
-      addToLog("Sending files to processing function...");
-      
-      const response = await supabase.functions.invoke('process-images', {
-        body: formData,
-      });
-      
-      if (response.error) {
-        throw new Error(response.error.message || 'Error processing images');
-      }
-      
-      addToLog(`Successfully processed ${response.data.processedImages.length} images`);
-      
-      const images = response.data.processedImages.map((img: ProcessedImage) => {
-        // Check if we have metadata for this image in the Excel file
-        let enhancedMetadata = { ...img.metadata };
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.startsWith('image/')) {
+          addToLog(`Skipping non-image file: ${file.name}`);
+          continue;
+        }
         
+        addToLog(`Processing image: ${file.name}`);
+        
+        // Create file URL
+        const imageUrl = URL.createObjectURL(file);
+        
+        // Generate placeholder metadata
+        let metadata: ProcessedImage['metadata'] = {
+          title: file.name.split('.')[0],
+          description: null,
+          date: null,
+          year: null,
+          location: null,
+          gps: null,
+          is_true_event: false,
+          is_ai_generated: false,
+          is_mature_content: false,
+          manual_override: false,
+          accuracy_description: 0,
+          accuracy_date: 0,
+          accuracy_location: 0,
+          accuracy_historical: 0,
+          accuracy_realness: 0,
+          accuracy_maturity: 0,
+        };
+        
+        // Check if we have metadata for this image in the Excel file
         if (metadataEntries.length > 0) {
-          const matchedMetadata = findMetadataForImage(img.originalFileName, metadataEntries);
+          const matchedMetadata = findMetadataForImage(file.name, metadataEntries);
           if (matchedMetadata) {
-            addToLog(`Found metadata match for ${img.originalFileName} in Excel file`);
+            addToLog(`Found metadata match for ${file.name} in Excel file`);
             
-            // Only use Excel data for fields that are not already populated
-            if (!enhancedMetadata.title && matchedMetadata.title) {
-              enhancedMetadata.title = matchedMetadata.title;
-            }
-            if (!enhancedMetadata.description && matchedMetadata.description) {
-              enhancedMetadata.description = matchedMetadata.description;
-            }
-            if (!enhancedMetadata.date && matchedMetadata.date) {
-              enhancedMetadata.date = matchedMetadata.date;
-            }
-            if (!enhancedMetadata.year && matchedMetadata.year) {
-              enhancedMetadata.year = parseInt(matchedMetadata.year);
-            }
-            if (!enhancedMetadata.location && matchedMetadata.location) {
-              enhancedMetadata.location = matchedMetadata.location;
-            }
+            metadata = {
+              ...metadata,
+              title: matchedMetadata.title || metadata.title,
+              description: matchedMetadata.description || metadata.description,
+              date: matchedMetadata.date || metadata.date,
+              year: matchedMetadata.year ? parseInt(matchedMetadata.year) : metadata.year,
+              location: matchedMetadata.location || metadata.location,
+              gps: matchedMetadata.gps || (matchedMetadata.latitude && matchedMetadata.longitude 
+                ? { lat: parseFloat(matchedMetadata.latitude), lon: parseFloat(matchedMetadata.longitude) } 
+                : metadata.gps),
+              is_true_event: matchedMetadata.is_historical !== undefined 
+                ? !!matchedMetadata.is_historical 
+                : metadata.is_true_event,
+              is_ai_generated: matchedMetadata.is_ai_generated !== undefined 
+                ? !!matchedMetadata.is_ai_generated 
+                : metadata.is_ai_generated,
+              is_mature_content: matchedMetadata.is_mature_content !== undefined 
+                ? !!matchedMetadata.is_mature_content 
+                : metadata.is_mature_content,
+            };
           }
         }
         
-        return {
-          ...img,
-          metadata: enhancedMetadata,
+        // Create a processed image entry
+        processedImagesData.push({
+          originalFileName: file.name,
+          descFileName: `desc_${file.name}`,
+          metadata,
+          imageUrl,
+          descriptionImageUrl: imageUrl, // Same URL for now
           ready_for_game: false,
           selected: true
-        };
-      });
+        });
+        
+        addToLog(`Successfully processed image: ${file.name}`);
+      }
       
-      setProcessedImages(images);
+      setProcessedImages(processedImagesData);
       
       toast({
         title: "Processing complete",
-        description: `Successfully processed ${images.length} images`,
+        description: `Successfully processed ${processedImagesData.length} images`,
       });
     } catch (error) {
       console.error("Upload error:", error);
@@ -220,7 +265,7 @@ const ImageUpload = () => {
       setIsUploading(false);
       setIsProcessing(false);
     }
-  }, [toast, addToLog, metadataFile, processMetadataFile, findMetadataForImage]);
+  }, [toast, addToLog, processMetadataFile, findMetadataForImage]);
 
   const handleMetadataFileSelect = (file: File | null) => {
     setMetadataFile(file);
@@ -306,6 +351,9 @@ const ImageUpload = () => {
       setIsSaving(true);
       addToLog(`Starting database save for ${selectedImages.length} images`);
       
+      // Count how many are ready for the game
+      const readyImages = selectedImages.filter(img => img.ready_for_game);
+      
       const savedImages = await Promise.all(
         selectedImages.map(async (img) => {
           addToLog(`Saving image "${img.originalFileName}" to database...`);
@@ -342,27 +390,37 @@ const ImageUpload = () => {
           
           addToLog(`Successfully saved "${img.originalFileName}" to AI Pilot DB`);
           
-          // If ready for game, also save to Guess-History DB
-          if (img.ready_for_game) {
+          // If ready for game and we have a selected project, also save to project DB
+          if (img.ready_for_game && selectedProjectId) {
             try {
-              // Instead of direct DB connection, we use the edge function
-              const response = await supabase.functions.invoke('image-metadata-verification', {
-                body: { 
-                  imageUrl: img.imageUrl,
-                  imageId: img.originalFileName,
-                  metadata: img.metadata,
-                  saveToGameDb: true
-                }
-              });
+              // Get the selected project
+              const project = availableProjects.find(p => p.id === selectedProjectId);
               
-              if (response.error) {
-                addToLog(`WARNING: Could not save to game DB - ${response.error.message}`);
+              if (project && project.isConnected) {
+                addToLog(`Saving "${img.originalFileName}" to project '${project.name}'...`);
+                
+                // Instead of direct DB connection, we use the edge function
+                const response = await supabase.functions.invoke('image-metadata-verification', {
+                  body: { 
+                    imageUrl: img.imageUrl,
+                    imageId: img.originalFileName,
+                    metadata: img.metadata,
+                    saveToGameDb: true,
+                    projectId: project.supabaseId
+                  }
+                });
+                
+                if (response.error) {
+                  addToLog(`WARNING: Could not save to project '${project.name}' - ${response.error.message}`);
+                } else {
+                  addToLog(`Successfully saved "${img.originalFileName}" to ${project.name}`);
+                }
               } else {
-                addToLog(`Successfully saved "${img.originalFileName}" to Game DB`);
+                addToLog(`WARNING: Project ${selectedProjectId} not found or not connected`);
               }
-            } catch (gameDbError) {
-              addToLog(`WARNING: Game DB save failed - ${gameDbError.message}`);
-              console.error("Game DB save error:", gameDbError);
+            } catch (projectSaveError) {
+              addToLog(`WARNING: Project save failed - ${projectSaveError.message}`);
+              console.error("Project save error:", projectSaveError);
             }
           }
           
@@ -370,9 +428,43 @@ const ImageUpload = () => {
         })
       );
       
+      // Calculate average accuracy
+      let totalAccuracy = 0;
+      let accuracyCount = 0;
+      
+      selectedImages.forEach(img => {
+        const accuracies = [
+          img.metadata.accuracy_description,
+          img.metadata.accuracy_date,
+          img.metadata.accuracy_location,
+          img.metadata.accuracy_historical,
+          img.metadata.accuracy_realness,
+          img.metadata.accuracy_maturity
+        ].filter(score => score !== undefined && score !== null) as number[];
+        
+        if (accuracies.length > 0) {
+          totalAccuracy += accuracies.reduce((sum, score) => sum + score, 0) / accuracies.length;
+          accuracyCount++;
+        }
+      });
+      
+      const averageAccuracy = accuracyCount > 0 ? totalAccuracy / accuracyCount : 0;
+      
+      // Format the summary message
+      let summaryMessage = `${selectedImages.length} images processed.`;
+      
+      if (accuracyCount > 0) {
+        summaryMessage += ` Metadata saved with average accuracy ${averageAccuracy.toFixed(2)}.`;
+      }
+      
+      if (selectedProjectId && readyImages.length > 0) {
+        const project = availableProjects.find(p => p.id === selectedProjectId);
+        summaryMessage += ` ${readyImages.length} saved to ${project?.name || selectedProjectId}.`;
+      }
+      
       toast({
         title: "Images saved successfully",
-        description: `Saved ${savedImages.length} images to the database`,
+        description: summaryMessage,
       });
       
       // Clear localStorage after successful save
@@ -383,6 +475,10 @@ const ImageUpload = () => {
         console.warn("Could not clear localStorage", e);
       }
       
+      // Switch to the gallery tab
+      setActiveTab('gallery');
+      
+      // Clear processed images
       setProcessedImages([]);
       setProcessLog([]);
     } catch (error) {
@@ -395,7 +491,7 @@ const ImageUpload = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [processedImages, toast, addToLog]);
+  }, [processedImages, toast, addToLog, selectedProjectId, availableProjects]);
 
   const clearAllData = () => {
     if (confirm("Are you sure you want to clear all data? This will remove all images and logs.")) {
@@ -428,94 +524,127 @@ const ImageUpload = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Image Upload & Processing</h1>
+            <h1 className="text-3xl font-bold">Image Collector</h1>
             <p className="text-muted-foreground">
-              Upload ZIP files containing event images and their descriptions
+              Upload, manage and verify images for AI Pilot projects
             </p>
           </div>
-          
-          {processedImages.length > 0 && (
-            <Button variant="outline" onClick={clearAllData}>
-              Clear All Data
-            </Button>
-          )}
         </div>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload Image Files</CardTitle>
-            <CardDescription>
-              Select two ZIP files: one with event images and one with corresponding description images
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ImageUploader 
-              onUpload={handleUpload} 
-              isUploading={isUploading} 
-              isProcessing={isProcessing}
-              onMetadataFileSelect={handleMetadataFileSelect}
-            />
-          </CardContent>
-        </Card>
-        
-        {processLog.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Processing Log</CardTitle>
-              <CardDescription>
-                Activity log for image processing operations
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-muted p-4 rounded-md max-h-40 overflow-y-auto text-sm font-mono">
-                {processLog.map((log, index) => (
-                  <div key={index} className="py-0.5">{log}</div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        
-        {processedImages.length > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div>
-                <CardTitle>Review Images ({processedImages.length})</CardTitle>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="upload">Upload</TabsTrigger>
+            <TabsTrigger value="gallery">Gallery</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="upload" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Upload Image Files</CardTitle>
                 <CardDescription>
-                  Review and select images before saving to the database
+                  Drag & drop images directly or upload ZIP files with images and their descriptions
                 </CardDescription>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="select-all" 
-                    checked={processedImages.every(img => img.selected)}
-                    onCheckedChange={(checked) => toggleSelectAll(!!checked)}
+              </CardHeader>
+              <CardContent>
+                <ImageUploader 
+                  onUpload={handleUpload} 
+                  isUploading={isUploading} 
+                  isProcessing={isProcessing}
+                  onMetadataFileSelect={handleMetadataFileSelect}
+                />
+              </CardContent>
+            </Card>
+            
+            {processLog.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Processing Log</CardTitle>
+                  <CardDescription>
+                    Activity log for image processing operations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-muted p-4 rounded-md max-h-40 overflow-y-auto text-sm font-mono">
+                    {processLog.map((log, index) => (
+                      <div key={index} className="py-0.5">{log}</div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {processedImages.length > 0 && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div>
+                    <CardTitle>Review Images ({processedImages.length})</CardTitle>
+                    <CardDescription>
+                      Review and select images before saving to the database
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-col md:flex-row items-end md:items-center gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="select-all" 
+                        checked={processedImages.every(img => img.selected)}
+                        onCheckedChange={(checked) => toggleSelectAll(!!checked)}
+                      />
+                      <label htmlFor="select-all" className="text-sm font-medium">
+                        Select All
+                      </label>
+                    </div>
+                    
+                    <select 
+                      className="px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={selectedProjectId}
+                      onChange={(e) => setSelectedProjectId(e.target.value)}
+                    >
+                      <option value="">Save to Pilot DB Only</option>
+                      {availableProjects.map(project => (
+                        <option key={project.id} value={project.id} disabled={!project.isConnected}>
+                          {project.name} {!project.isConnected && "(Disconnected)"}
+                        </option>
+                      ))}
+                    </select>
+                    
+                    <Button 
+                      onClick={saveToDatabase} 
+                      disabled={isSaving || !processedImages.some(img => img.selected)}
+                      className="flex items-center space-x-2"
+                    >
+                      <Save className="h-4 w-4" />
+                      <span>{isSaving ? "Saving..." : "Save to Database"}</span>
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      onClick={clearAllData}
+                      className="ml-auto md:ml-0"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ImageReviewGrid 
+                    images={processedImages}
+                    onToggleSelection={toggleImageSelection}
+                    onToggleReadyForGame={toggleReadyForGame}
+                    onImageMetadataUpdate={handleImageMetadataUpdate}
                   />
-                  <label htmlFor="select-all" className="text-sm font-medium">
-                    Select All
-                  </label>
-                </div>
-                <Button 
-                  onClick={saveToDatabase} 
-                  disabled={isSaving || !processedImages.some(img => img.selected)}
-                  className="flex items-center space-x-2"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>Save Selected to Database</span>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ImageReviewGrid 
-                images={processedImages}
-                onToggleSelection={toggleImageSelection}
-                onToggleReadyForGame={toggleReadyForGame}
-                onImageMetadataUpdate={handleImageMetadataUpdate}
-              />
-            </CardContent>
-          </Card>
-        )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="gallery">
+            <Card>
+              <CardContent className="pt-6">
+                <SavedImagesGallery />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );
