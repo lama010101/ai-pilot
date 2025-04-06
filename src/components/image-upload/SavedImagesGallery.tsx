@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -69,12 +70,37 @@ const SavedImagesGallery = () => {
       }
       
       // Convert the data to match the SavedImage interface
-      const typedImages: SavedImage[] = data || [];
+      const typedImages: SavedImage[] = data?.map(item => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        date: item.date,
+        year: item.year,
+        location: item.location,
+        gps: item.gps,
+        is_true_event: item.is_true_event,
+        is_ai_generated: item.is_ai_generated,
+        ready_for_game: item.ready_for_game,
+        image_url: item.image_url,
+        description_image_url: item.description_image_url,
+        // Add fields that might not be in the database yet but are in our interface
+        is_mature_content: item.is_mature_content ?? false,
+        accuracy_description: item.accuracy_description ?? null,
+        accuracy_date: item.accuracy_date ?? null,
+        accuracy_location: item.accuracy_location ?? null,
+        accuracy_historical: item.accuracy_historical ?? null,
+        accuracy_realness: item.accuracy_realness ?? null,
+        accuracy_maturity: item.accuracy_maturity ?? null,
+        manual_override: item.manual_override ?? false,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      })) || [];
+      
       setImages(typedImages);
       
       toast({
         title: "Images loaded",
-        description: `Found ${data?.length || 0} saved images`,
+        description: `Found ${typedImages.length} saved images`,
       });
     } catch (error) {
       console.error("Error fetching images:", error);
@@ -115,6 +141,30 @@ const SavedImagesGallery = () => {
     if (activeTab === "mature") return images.filter(img => img.is_mature_content);
     return images;
   }, [images, activeTab]);
+
+  // Function to safely display GPS coordinates
+  const displayGpsCoordinates = (gps: Json | null): string => {
+    if (!gps) return "N/A";
+    
+    try {
+      // Handle GPS being an object with lat/lon properties
+      if (typeof gps === 'object' && gps !== null) {
+        const gpsObj = gps as Record<string, any>;
+        if (gpsObj.lat !== undefined && gpsObj.lon !== undefined) {
+          return `${gpsObj.lat}, ${gpsObj.lon}`;
+        }
+        // Handle GPS being an array [lat, lng]
+        if (Array.isArray(gps) && gps.length >= 2) {
+          return `${gps[0]}, ${gps[1]}`;
+        }
+      }
+      // If we can't determine the format, just stringify it
+      return JSON.stringify(gps);
+    } catch (e) {
+      console.error("Error parsing GPS data:", e);
+      return "Invalid GPS data";
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -319,11 +369,7 @@ const SavedImagesGallery = () => {
                       
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">GPS</p>
-                        <p>
-                          {selectedImage.gps ? 
-                            `${selectedImage.gps.lat}, ${selectedImage.gps.lon}` : 
-                            "N/A"}
-                        </p>
+                        <p>{displayGpsCoordinates(selectedImage.gps)}</p>
                       </div>
                     </div>
                   </div>
