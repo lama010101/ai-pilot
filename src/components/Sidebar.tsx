@@ -12,7 +12,8 @@ import {
   LayoutGrid,
   MessageSquare,
   Sparkles,
-  MemoryStick
+  MemoryStick,
+  Image
 } from 'lucide-react';
 
 interface SidebarItemProps {
@@ -84,6 +85,12 @@ const Sidebar = () => {
           icon={<FileText size={20} />} 
           label="Builder" 
           to={`${baseUrl}/builder`} 
+          isCollapsed={isCollapsed} 
+        />
+        <SidebarItem 
+          icon={<Image size={20} />} 
+          label="Images" 
+          to={`${baseUrl}/images`} 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 

@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -50,16 +49,13 @@ const ImageUpload = () => {
       setIsUploading(true);
       setIsProcessing(true);
       
-      // Create form data for the upload
       const formData = new FormData();
       formData.append('eventZip', eventZipFile);
       formData.append('descriptionZip', descZipFile);
       
-      // Call the Supabase edge function
       const response = await supabase.functions.invoke('process-images', {
         body: formData,
         headers: {
-          // No Content-Type header needed as it will be set automatically for FormData
         },
       });
       
@@ -67,7 +63,6 @@ const ImageUpload = () => {
         throw new Error(response.error.message || 'Error processing images');
       }
       
-      // Add selection state to each image
       const images = response.data.processedImages.map((img: ProcessedImage) => ({
         ...img,
         ready_for_game: false,
@@ -126,10 +121,8 @@ const ImageUpload = () => {
     try {
       setIsSaving(true);
       
-      // Save each image to the database using the correct table name and fields
       const savedImages = await Promise.all(
         selectedImages.map(async (img) => {
-          // Use explicit type casting to ensure TypeScript recognizes the table
           const { data, error } = await supabase
             .from('images')
             .insert({
@@ -157,7 +150,6 @@ const ImageUpload = () => {
         description: `Saved ${savedImages.length} images to the database`,
       });
       
-      // Clear processed images after successful save
       setProcessedImages([]);
     } catch (error) {
       console.error("Save error:", error);

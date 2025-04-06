@@ -35,6 +35,14 @@ export const agents: Agent[] = [
     description: 'Runs tests, quality checks, and code reviews',
     currentTask: 'Waiting for code to test'
   },
+  { 
+    id: 'image-agent', 
+    name: 'Image Agent', 
+    status: 'idle', 
+    lastActive: '5 mins ago',
+    description: 'Extracts metadata from images using OCR + AI',
+    currentTask: 'Processing uploaded images'
+  },
 ];
 
 export interface ActivityLog {
@@ -48,4 +56,5 @@ export const activityLogs: ActivityLog[] = [
   { id: '1', agentId: 'writer', timestamp: 'Just now', message: 'AI Writer updated project spec' },
   { id: '2', agentId: 'coder', timestamp: '1 min ago', message: 'AI Coder generated file /components/Auth.tsx' },
   { id: '3', agentId: 'tester', timestamp: '3 mins ago', message: 'AI Tester completed code review' },
+  { id: '4', agentId: 'image-agent', timestamp: '5 mins ago', message: 'Image Agent processed 8 images' },
 ];

@@ -1,3 +1,4 @@
+
 import { supabase, USE_FAKE_AUTH } from '../supabaseClient';
 import { AgentDB } from '../supabaseTypes';
 import { agents as mockAgents } from '@/data/agents';
@@ -40,6 +41,20 @@ const zapWriterAgent: AgentDB = {
 
 if (!mockAgentsDB.some(agent => agent.id === 'zapwriter')) {
   mockAgentsDB.push(zapWriterAgent);
+}
+
+// Ensure Image Agent exists
+const imageAgent: AgentDB = {
+  id: 'image-agent',
+  name: 'Image Agent',
+  role: 'Extracts metadata from images using OCR + AI',
+  phase: 1,
+  is_ephemeral: false,
+  last_updated: new Date().toISOString()
+};
+
+if (!mockAgentsDB.some(agent => agent.id === 'image-agent')) {
+  mockAgentsDB.push(imageAgent);
 }
 
 // Agent operations
@@ -90,6 +105,20 @@ export async function createAgent(agent: Omit<AgentDB, 'id' | 'last_updated'>) {
 export async function generateAgentFromSpec(spec: string) {
   // This is a mock implementation. In a real app, this would call an API or use AI
   // to generate agent configuration based on the spec.
+  
+  // If the spec mentions Image or OCR, assume it's an Image Agent
+  if (spec.includes("Image") || spec.includes("OCR")) {
+    return {
+      data: {
+        name: "Image Agent",
+        role: "Extracts metadata from images using OCR + AI",
+        is_ephemeral: false,
+        phase: 1,
+        initialTask: "Process and extract metadata from uploaded images"
+      },
+      error: null
+    };
+  }
   
   // If the spec mentions Zap, assume it's a Zap-specific agent
   if (spec.includes("Zap")) {
