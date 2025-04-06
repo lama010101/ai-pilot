@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { USE_FAKE_AUTH } from '@/lib/supabaseClient';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Key } from 'lucide-react';
 
 const Login = () => {
-  const { signInWithGoogle, isAuthenticated, isLoading } = useAuth();
+  const { signInWithGoogle, signInWithEmail, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [debugInfo, setDebugInfo] = useState({ 
@@ -57,6 +57,19 @@ const Login = () => {
     console.log("Sign in button clicked");
     signInWithGoogle();
   };
+  
+  // Temp login handler - automatically logs in as emartin6867@gmail.com
+  const handleTempLogin = () => {
+    console.log("Temp login clicked");
+    // If we're using fake auth, we can just pretend to log in
+    if (USE_FAKE_AUTH) {
+      signInWithEmail('emartin6867@gmail.com', 'dummy-password');
+    } else {
+      // In production, we'd use a more secure method
+      console.log("Attempting temp login with emartin6867@gmail.com");
+      signInWithEmail('emartin6867@gmail.com', 'dummy-password');
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -92,12 +105,14 @@ const Login = () => {
           </Button>
           
           <div className="mt-6 text-center">
+            {/* Replace "Back to Welcome" with "Temp" button */}
             <Button 
-              variant="link" 
-              onClick={() => navigate('/greeting')}
+              variant="outline" 
+              onClick={handleTempLogin}
               className="text-muted-foreground flex items-center gap-1"
             >
-              Back to Welcome <ArrowRight size={16} />
+              <Key size={16} className="mr-1" />
+              Temp
             </Button>
           </div>
         </div>
