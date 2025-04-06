@@ -11,7 +11,7 @@ import { AgentDB } from '@/lib/supabaseTypes';
 import RunAgentButton from '@/components/RunAgentButton';
 import AgentFeedback from '@/components/AgentFeedback';
 import FeedbackSummary from '@/components/FeedbackSummary';
-import Timeline from '@/components/Timeline';
+import { Timeline, TimelineItem } from '@/components/Timeline';
 import AgentSpecViewer from '@/components/AgentSpecViewer';
 
 const AgentDetail = () => {
@@ -114,7 +114,7 @@ const AgentDetail = () => {
                 </Button>
               ) : (
                 <div className="space-y-2 mt-4">
-                  <RunAgentButton agent={agent} variant="default" size="default" className="w-full" />
+                  <RunAgentButton agentId={agent.id} variant="default" size="default" className="w-full" />
                   <Button variant="outline" className="w-full" disabled>
                     <StopCircle className="mr-2 h-4 w-4" />
                     Stop Agent
@@ -133,12 +133,40 @@ const AgentDetail = () => {
               </TabsList>
               
               <TabsContent value="activity" className="space-y-4">
-                <Timeline agentId={agent.id} />
+                <div>
+                  {agent.id && (
+                    <div className="space-y-4">
+                      <TimelineItem>
+                        <TimelineItem.Indicator>
+                          <div className="h-2 w-2 rounded-full bg-primary"></div>
+                        </TimelineItem.Indicator>
+                        <TimelineItem.Content>
+                          <div className="font-medium">Agent created</div>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(agent.created_at || Date.now()).toLocaleString()}
+                          </div>
+                        </TimelineItem.Content>
+                      </TimelineItem>
+                      
+                      <TimelineItem>
+                        <TimelineItem.Indicator>
+                          <div className="h-2 w-2 rounded-full bg-primary"></div>
+                        </TimelineItem.Indicator>
+                        <TimelineItem.Content>
+                          <div className="font-medium">Last updated</div>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(agent.last_updated || Date.now()).toLocaleString()}
+                          </div>
+                        </TimelineItem.Content>
+                      </TimelineItem>
+                    </div>
+                  )}
+                </div>
               </TabsContent>
               
               <TabsContent value="feedback" className="space-y-4">
                 <FeedbackSummary agentId={agent.id} />
-                <AgentFeedback agentId={agent.id} />
+                <AgentFeedback agentId={agent.id} taskId="" />
               </TabsContent>
               
               <TabsContent value="spec" className="space-y-4">
