@@ -26,6 +26,7 @@ export interface AppBuild {
   previewUrl?: string;
   exportUrl?: string;
   appName: string;
+  created_at?: string; // Added this field to match usage in Pilot.tsx
 }
 
 export interface GeneratedAppDB {

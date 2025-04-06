@@ -26,7 +26,8 @@ export function useBuildHistory() {
           status: build.status as 'processing' | 'complete' | 'failed',
           timestamp: build.timestamp,
           previewUrl: build.preview_url,
-          appName: build.app_name
+          appName: build.app_name,
+          created_at: build.timestamp // Add created_at field that maps to timestamp
         }));
         
         setAppBuilds(builds);

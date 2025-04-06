@@ -8,14 +8,15 @@ import { Activity, Rocket, Code, MessageSquare, Database, Settings, LayoutGrid }
 import { getAgents, getActivityLogs } from "@/lib/supabaseService";
 import { useBuildHistory } from "@/hooks/useBuildHistory";
 import { AgentDB } from "@/lib/supabaseTypes";
+import { agents } from "@/data/agents";
 
 const Pilot = () => {
-  const [agents, setAgents] = useState<AgentDB[]>([]);
+  const [dbAgents, setDbAgents] = useState<AgentDB[]>([]);
   const [activeAgents, setActiveAgents] = useState(0);
   const [logs, setLogs] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const { builds } = useBuildHistory();
+  const { appBuilds } = useBuildHistory();
   
   useEffect(() => {
     const fetchSystemData = async () => {
@@ -25,8 +26,9 @@ const Pilot = () => {
         // Fetch agents data
         const { data: agentsData } = await getAgents();
         if (agentsData) {
-          setAgents(agentsData);
-          setActiveAgents(agentsData.filter(agent => agent.status === 'running').length);
+          setDbAgents(agentsData);
+          // Calculate active agents based on mock data since AgentDB doesn't have status
+          setActiveAgents(agents.filter(a => a.status === 'running').length);
         }
         
         // Fetch log count
@@ -91,7 +93,7 @@ const Pilot = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeAgents}/{agents.length}</div>
+            <div className="text-2xl font-bold">{activeAgents}/{dbAgents.length}</div>
             <p className="text-sm text-muted-foreground">Active agents</p>
           </CardContent>
         </Card>
@@ -103,9 +105,9 @@ const Pilot = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{builds.length}</div>
+            <div className="text-2xl font-bold">{appBuilds.length}</div>
             <p className="text-sm text-muted-foreground">
-              {builds.length > 0 ? `Last build: ${new Date(builds[0]?.created_at).toLocaleDateString()}` : 'No builds yet'}
+              {appBuilds.length > 0 ? `Last build: ${new Date(appBuilds[0]?.created_at).toLocaleDateString()}` : 'No builds yet'}
             </p>
           </CardContent>
         </Card>
@@ -215,7 +217,7 @@ const Pilot = () => {
           <CardDescription>Latest operations and events</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {builds.slice(0, 5).map((build, index) => (
+          {appBuilds.slice(0, 5).map((build, index) => (
             <div key={index} className="flex items-start space-x-4 pb-4 border-b">
               <div className="h-2 w-2 mt-2 rounded-full bg-green-500"></div>
               <div className="flex-1">
@@ -226,7 +228,7 @@ const Pilot = () => {
               </div>
             </div>
           ))}
-          {builds.length === 0 && (
+          {appBuilds.length === 0 && (
             <p className="text-center text-muted-foreground py-4">No recent activity</p>
           )}
         </CardContent>
