@@ -7,13 +7,15 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { PlayCircle } from "lucide-react";
 import { AGENT_COMMAND_TEMPLATES } from "@/lib/supabaseTypes";
+import { cn } from "@/lib/utils";
 
 interface RunAgentButtonProps {
   agentId: string;
+  className?: string;
   onSuccess?: () => void;
 }
 
-const RunAgentButton = ({ agentId, onSuccess }: RunAgentButtonProps) => {
+const RunAgentButton = ({ agentId, className, onSuccess }: RunAgentButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [command, setCommand] = useState("");
@@ -132,7 +134,7 @@ Zap aligns with our peace mission by democratizing app creation and fostering in
       <Button 
         onClick={handleOpenDialog}
         variant="default"
-        className="gap-2"
+        className={cn("gap-2", className)}
       >
         <PlayCircle className="h-4 w-4" />
         Run Agent Now
