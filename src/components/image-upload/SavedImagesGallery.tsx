@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,28 +17,31 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Json } from "@/integrations/supabase/types";
 
 interface SavedImage {
   id: string;
-  title: string;
-  description: string;
-  date: string;
-  year: number;
-  location: string;
-  is_true_event: boolean;
-  is_ai_generated: boolean;
-  is_mature_content: boolean;
-  ready_for_game: boolean;
-  image_url: string;
-  description_image_url: string;
-  accuracy_description: number;
-  accuracy_date: number;
-  accuracy_location: number;
-  accuracy_historical: number;
-  accuracy_realness: number;
-  accuracy_maturity: number;
-  manual_override: boolean;
-  created_at: string;
+  title: string | null;
+  description: string | null;
+  date: string | null;
+  year: number | null;
+  location: string | null;
+  gps: Json | null;
+  is_true_event: boolean | null;
+  is_ai_generated: boolean | null;
+  is_mature_content: boolean | null;
+  ready_for_game: boolean | null;
+  image_url: string | null;
+  description_image_url: string | null;
+  accuracy_description: number | null;
+  accuracy_date: number | null;
+  accuracy_location: number | null;
+  accuracy_historical: number | null;
+  accuracy_realness: number | null;
+  accuracy_maturity: number | null;
+  manual_override: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const SavedImagesGallery = () => {
@@ -66,7 +68,9 @@ const SavedImagesGallery = () => {
         throw error;
       }
       
-      setImages(data || []);
+      // Convert the data to match the SavedImage interface
+      const typedImages: SavedImage[] = data || [];
+      setImages(typedImages);
       
       toast({
         title: "Images loaded",

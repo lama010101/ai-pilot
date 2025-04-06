@@ -6,7 +6,7 @@ import { Upload, FileArchive, Loader2, FileSpreadsheet } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 interface ImageUploaderProps {
-  onUpload: (eventZipFile: File, descZipFile: File) => void;
+  onUpload: (files: FileList, metadataFile?: File | null) => Promise<void>;
   onMetadataFileSelect?: (file: File | null) => void;
   isUploading: boolean;
   isProcessing: boolean;
@@ -18,24 +18,16 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   isUploading,
   isProcessing 
 }) => {
-  const [eventZipFile, setEventZipFile] = useState<File | null>(null);
-  const [descZipFile, setDescZipFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [metadataFile, setMetadataFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   
-  const eventInputRef = useRef<HTMLInputElement>(null);
-  const descInputRef = useRef<HTMLInputElement>(null);
+  const filesInputRef = useRef<HTMLInputElement>(null);
   const metadataInputRef = useRef<HTMLInputElement>(null);
 
-  const triggerEventFileSelect = () => {
-    if (eventInputRef.current) {
-      eventInputRef.current.click();
-    }
-  };
-
-  const triggerDescFileSelect = () => {
-    if (descInputRef.current) {
-      descInputRef.current.click();
+  const triggerFileSelect = () => {
+    if (filesInputRef.current) {
+      filesInputRef.current.click();
     }
   };
   
@@ -45,22 +37,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
   };
 
-  const handleEventFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    if (file && file.name.endsWith('.zip')) {
-      setEventZipFile(file);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setSelectedFiles(files);
     } else {
-      setEventZipFile(null);
-      e.target.value = '';
-    }
-  };
-
-  const handleDescFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    if (file && file.name.endsWith('.zip')) {
-      setDescZipFile(file);
-    } else {
-      setDescZipFile(null);
+      setSelectedFiles(null);
       e.target.value = '';
     }
   };
@@ -82,7 +64,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   };
 
   const handleSubmit = () => {
-    if (eventZipFile && descZipFile) {
+    if (selectedFiles) {
       setUploadProgress(0);
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
@@ -91,7 +73,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         });
       }, 300);
       
-      onUpload(eventZipFile, descZipFile);
+      onUpload(selectedFiles, metadataFile);
       
       // Stop the progress animation after upload completes
       setTimeout(() => {
@@ -101,58 +83,33 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
   };
 
-  const isReadyToUpload = eventZipFile && descZipFile && !isUploading && !isProcessing;
+  const isReadyToUpload = selectedFiles && !isUploading && !isProcessing;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-dashed cursor-pointer hover:bg-muted/50 transition">
           <CardContent 
             className="flex flex-col items-center justify-center p-6 space-y-4"
-            onClick={triggerEventFileSelect}
+            onClick={triggerFileSelect}
           >
             <input
               type="file"
-              accept=".zip"
-              ref={eventInputRef}
-              onChange={handleEventFileChange}
+              accept="image/*"
+              ref={filesInputRef}
+              onChange={handleFileChange}
               className="hidden"
+              multiple
             />
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
               <FileArchive className="h-6 w-6 text-primary" />
             </div>
             <div className="text-center space-y-1">
-              <h3 className="font-medium">Events ZIP File</h3>
+              <h3 className="font-medium">Image Files</h3>
               <p className="text-sm text-muted-foreground">
-                {eventZipFile 
-                  ? `Selected: ${eventZipFile.name} (${(eventZipFile.size / (1024 * 1024)).toFixed(2)} MB)` 
-                  : 'Upload a ZIP file containing event images'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-dashed cursor-pointer hover:bg-muted/50 transition">
-          <CardContent 
-            className="flex flex-col items-center justify-center p-6 space-y-4"
-            onClick={triggerDescFileSelect}
-          >
-            <input
-              type="file"
-              accept=".zip"
-              ref={descInputRef}
-              onChange={handleDescFileChange}
-              className="hidden"
-            />
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <FileArchive className="h-6 w-6 text-primary" />
-            </div>
-            <div className="text-center space-y-1">
-              <h3 className="font-medium">Descriptions ZIP File</h3>
-              <p className="text-sm text-muted-foreground">
-                {descZipFile 
-                  ? `Selected: ${descZipFile.name} (${(descZipFile.size / (1024 * 1024)).toFixed(2)} MB)` 
-                  : 'Upload a ZIP file containing description images'}
+                {selectedFiles 
+                  ? `Selected: ${selectedFiles.length} files` 
+                  : 'Upload image files (PNG, JPG, etc.)'}
               </p>
             </div>
           </CardContent>
@@ -212,7 +169,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           ) : (
             <>
               <Upload className="mr-2 h-4 w-4" />
-              Process ZIP Files
+              Process Images
             </>
           )}
         </Button>

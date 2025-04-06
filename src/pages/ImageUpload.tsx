@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,6 +11,7 @@ import ImageUploader from '@/components/image-upload/ImageUploader';
 import ImageReviewGrid from '@/components/image-upload/ImageReviewGrid';
 import SavedImagesGallery from '@/components/image-upload/SavedImagesGallery';
 import * as XLSX from 'xlsx';
+import { Json } from "@/integrations/supabase/types";
 
 export interface ProcessedImage {
   originalFileName: string;
@@ -66,10 +66,8 @@ const ImageUpload = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const { toast } = useToast();
 
-  // Load saved state from localStorage on initial load
   useEffect(() => {
     try {
-      // Attempt to load processed images
       const savedImages = localStorage.getItem('processedImages');
       if (savedImages) {
         const parsedImages = JSON.parse(savedImages);
@@ -78,7 +76,6 @@ const ImageUpload = () => {
         addToLog("Restored previously processed images from localStorage");
       }
       
-      // Attempt to load process log
       const savedLog = localStorage.getItem('processLog');
       if (savedLog) {
         const parsedLog = JSON.parse(savedLog);
@@ -89,7 +86,6 @@ const ImageUpload = () => {
     }
   }, []);
   
-  // Save state to localStorage whenever it changes
   useEffect(() => {
     if (processedImages.length > 0) {
       try {
@@ -110,13 +106,11 @@ const ImageUpload = () => {
     }
   }, [processLog]);
   
-  // Helper function to add to process log
   const addToLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setProcessLog(prevLog => [...prevLog, `[${timestamp}] ${message}`]);
   }, []);
 
-  // Process metadata Excel file if provided
   const processMetadataFile = useCallback(async (file: File) => {
     try {
       addToLog(`Processing metadata file: ${file.name}`);
@@ -136,11 +130,9 @@ const ImageUpload = () => {
     }
   }, [addToLog]);
   
-  // Find metadata for an image by filename
   const findMetadataForImage = useCallback((filename: string, metadataArray: any[]) => {
-    const baseName = filename.split('.')[0]; // Remove extension
+    const baseName = filename.split('.')[0];
     return metadataArray.find(item => {
-      // Try to match with filename or ID column if it exists
       return (item.filename && item.filename.includes(baseName)) || 
              (item.id && item.id.includes(baseName)) ||
              (item.file && item.file.includes(baseName));
@@ -162,13 +154,11 @@ const ImageUpload = () => {
       setIsProcessing(true);
       addToLog(`Starting upload process for ${files.length} files`);
       
-      // Process metadata file if provided
       let metadataEntries: any[] = [];
       if (metadataFile) {
         metadataEntries = await processMetadataFile(metadataFile);
       }
       
-      // Process each file
       const processedImagesData: ProcessedImage[] = [];
       
       for (let i = 0; i < files.length; i++) {
@@ -180,10 +170,8 @@ const ImageUpload = () => {
         
         addToLog(`Processing image: ${file.name}`);
         
-        // Create file URL
         const imageUrl = URL.createObjectURL(file);
         
-        // Generate placeholder metadata
         let metadata: ProcessedImage['metadata'] = {
           title: file.name.split('.')[0],
           description: null,
@@ -203,7 +191,6 @@ const ImageUpload = () => {
           accuracy_maturity: 0,
         };
         
-        // Check if we have metadata for this image in the Excel file
         if (metadataEntries.length > 0) {
           const matchedMetadata = findMetadataForImage(file.name, metadataEntries);
           if (matchedMetadata) {
@@ -232,13 +219,12 @@ const ImageUpload = () => {
           }
         }
         
-        // Create a processed image entry
         processedImagesData.push({
           originalFileName: file.name,
           descFileName: `desc_${file.name}`,
           metadata,
           imageUrl,
-          descriptionImageUrl: imageUrl, // Same URL for now
+          descriptionImageUrl: imageUrl,
           ready_for_game: false,
           selected: true
         });
@@ -351,7 +337,6 @@ const ImageUpload = () => {
       setIsSaving(true);
       addToLog(`Starting database save for ${selectedImages.length} images`);
       
-      // Count how many are ready for the game
       const readyImages = selectedImages.filter(img => img.ready_for_game);
       
       const savedImages = await Promise.all(
@@ -390,16 +375,13 @@ const ImageUpload = () => {
           
           addToLog(`Successfully saved "${img.originalFileName}" to AI Pilot DB`);
           
-          // If ready for game and we have a selected project, also save to project DB
           if (img.ready_for_game && selectedProjectId) {
             try {
-              // Get the selected project
               const project = availableProjects.find(p => p.id === selectedProjectId);
               
               if (project && project.isConnected) {
                 addToLog(`Saving "${img.originalFileName}" to project '${project.name}'...`);
                 
-                // Instead of direct DB connection, we use the edge function
                 const response = await supabase.functions.invoke('image-metadata-verification', {
                   body: { 
                     imageUrl: img.imageUrl,
@@ -428,7 +410,6 @@ const ImageUpload = () => {
         })
       );
       
-      // Calculate average accuracy
       let totalAccuracy = 0;
       let accuracyCount = 0;
       
@@ -450,7 +431,6 @@ const ImageUpload = () => {
       
       const averageAccuracy = accuracyCount > 0 ? totalAccuracy / accuracyCount : 0;
       
-      // Format the summary message
       let summaryMessage = `${selectedImages.length} images processed.`;
       
       if (accuracyCount > 0) {
@@ -467,7 +447,6 @@ const ImageUpload = () => {
         description: summaryMessage,
       });
       
-      // Clear localStorage after successful save
       try {
         localStorage.removeItem('processedImages');
         localStorage.removeItem('processLog');
@@ -475,10 +454,8 @@ const ImageUpload = () => {
         console.warn("Could not clear localStorage", e);
       }
       
-      // Switch to the gallery tab
       setActiveTab('gallery');
       
-      // Clear processed images
       setProcessedImages([]);
       setProcessLog([]);
     } catch (error) {
@@ -498,7 +475,6 @@ const ImageUpload = () => {
       setProcessedImages([]);
       setProcessLog([]);
       
-      // Clear localStorage
       try {
         localStorage.removeItem('processedImages');
         localStorage.removeItem('processLog');
