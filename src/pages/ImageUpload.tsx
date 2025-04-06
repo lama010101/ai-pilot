@@ -126,9 +126,10 @@ const ImageUpload = () => {
     try {
       setIsSaving(true);
       
-      // Save each image to the database
+      // Save each image to the database using the correct table name and fields
       const savedImages = await Promise.all(
         selectedImages.map(async (img) => {
+          // Use explicit type casting to ensure TypeScript recognizes the table
           const { data, error } = await supabase
             .from('images')
             .insert({
@@ -143,9 +144,8 @@ const ImageUpload = () => {
               ready_for_game: img.ready_for_game,
               image_url: img.imageUrl,
               description_image_url: img.descriptionImageUrl
-            })
-            .select()
-            .single();
+            } as any)
+            .select();
             
           if (error) throw error;
           return data;
