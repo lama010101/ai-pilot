@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, CheckCircle, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,34 +21,71 @@ const ImageMetadataVerifier: React.FC<ImageMetadataVerifierProps> = ({
   const [isVerifying, setIsVerifying] = useState(false);
   const [metadata, setMetadata] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [progressStage, setProgressStage] = useState(0); // 0-3 for the 4 stages
   const { toast } = useToast();
+
+  const addLog = (message: string) => {
+    setLogs(prevLogs => [...prevLogs, `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
 
   const verifyImageMetadata = async () => {
     try {
       setIsVerifying(true);
       setError(null);
+      setProgressStage(0);
+      addLog("Starting image metadata verification...");
       
+      // Make sure we have a properly encoded URL
+      const processedImageUrl = encodeURIComponent(imageUrl);
+      addLog(`Prepared image URL for processing: ${imageUrl.substring(0, 20)}...`);
+      
+      // Set the first progress stage
+      setProgressStage(1);
+      addLog("Sending request to verification function...");
+      
+      // Call the edge function with the full public URL of the image
       const response = await supabase.functions.invoke('image-metadata-verification', {
-        body: { imageUrl, imageId }
+        body: { 
+          imageUrl: imageUrl,
+          imageId: imageId
+        }
       });
       
+      setProgressStage(2);
+      
       if (response.error) {
+        console.error("Function error:", response.error);
         throw new Error(response.error.message || 'Failed to verify image metadata');
       }
       
+      addLog("Received verification results successfully");
       const verifiedMetadata = response.data.data;
       setMetadata(verifiedMetadata);
+      
+      setProgressStage(3);
+      addLog(`Verification complete: ${verifiedMetadata.title}`);
       
       toast({
         title: "Verification Complete",
         description: "Image metadata has been verified and stored",
       });
       
+      // Store metadata to local storage for persistence across page reloads
+      try {
+        const existingData = JSON.parse(localStorage.getItem('verifiedImagesMetadata') || '{}');
+        existingData[imageId] = verifiedMetadata;
+        localStorage.setItem('verifiedImagesMetadata', JSON.stringify(existingData));
+      } catch (e) {
+        console.warn("Could not save metadata to localStorage", e);
+      }
+      
       if (onComplete) {
         onComplete(verifiedMetadata);
       }
     } catch (error) {
       console.error("Verification error:", error);
+      addLog(`ERROR: ${error.message || "Unknown verification error"}`);
       setError(error.message || "An error occurred during verification");
       
       toast({
@@ -66,6 +104,19 @@ const ImageMetadataVerifier: React.FC<ImageMetadataVerifierProps> = ({
     if (score >= 0.6) return { label: "Medium", color: "text-yellow-600" };
     return { label: "Low", color: "text-red-600" };
   };
+
+  // Check if metadata was loaded from localStorage
+  React.useEffect(() => {
+    try {
+      const savedMetadata = JSON.parse(localStorage.getItem('verifiedImagesMetadata') || '{}');
+      if (savedMetadata[imageId]) {
+        setMetadata(savedMetadata[imageId]);
+        addLog("Loaded previously verified metadata from local storage");
+      }
+    } catch (e) {
+      console.warn("Could not load metadata from localStorage", e);
+    }
+  }, [imageId]);
 
   return (
     <div className="space-y-4">
@@ -90,6 +141,17 @@ const ImageMetadataVerifier: React.FC<ImageMetadataVerifierProps> = ({
               )}
             </div>
             
+            {/* Progress indicator */}
+            {isVerifying && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Verification in progress</span>
+                  <span>{Math.round((progressStage / 3) * 100)}%</span>
+                </div>
+                <Progress value={(progressStage / 3) * 100} />
+              </div>
+            )}
+            
             <Button 
               onClick={verifyImageMetadata} 
               disabled={isVerifying || !imageUrl}
@@ -109,6 +171,19 @@ const ImageMetadataVerifier: React.FC<ImageMetadataVerifierProps> = ({
               <div className="flex items-center p-3 bg-red-50 text-red-700 rounded-md">
                 <AlertCircle className="h-5 w-5 mr-2" />
                 <span>{error}</span>
+              </div>
+            )}
+            
+            {/* Processing Logs */}
+            {logs.length > 0 && (
+              <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-900 rounded-md text-sm font-mono overflow-y-auto max-h-40">
+                <div className="flex items-center mb-2">
+                  <Info className="h-4 w-4 mr-2" />
+                  <span className="font-medium">Processing Log</span>
+                </div>
+                {logs.map((log, i) => (
+                  <div key={i} className="text-xs">{log}</div>
+                ))}
               </div>
             )}
             
@@ -139,6 +214,10 @@ const ImageMetadataVerifier: React.FC<ImageMetadataVerifierProps> = ({
                       <p>
                         <span className="font-medium">Mature Content:</span> 
                         {metadata.is_mature_content ? ' Yes' : ' No'}
+                      </p>
+                      <p>
+                        <span className="font-medium">Manual Override:</span> 
+                        {metadata.manual_override ? ' Yes' : ' No'}
                       </p>
                     </div>
                   </div>

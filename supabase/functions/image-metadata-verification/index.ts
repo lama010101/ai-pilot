@@ -70,10 +70,15 @@ async function runAIInference(imageUrl: string, imageId: string): Promise<any> {
             3. Date: The exact or approximate date of the event/photo (YYYY-MM-DD format if possible)
             4. Year: Just the year as a number
             5. Address: Location where the photo was taken
-            6. GPS coordinates: Estimated latitude and longitude
+            6. GPS coordinates: Estimated latitude and longitude as [lat, long]
             7. is_historical: Whether this depicts a historical event (true/false)
             8. is_ai_generated: Whether this image appears to be AI-generated (true/false)
             9. is_mature_content: Whether this contains mature/sensitive content (true/false)
+            
+            IMPORTANT:
+            - Read ANY TEXT visible in the image to help determine metadata
+            - Pay close attention to any dates, locations, or event names mentioned in text on the image
+            - For historical images, provide the most accurate date possible based on visual clues
             
             Return ONLY a JSON object with these fields, nothing else.`
           },
@@ -97,6 +102,11 @@ async function runAIInference(imageUrl: string, imageId: string): Promise<any> {
     });
     
     const result = await response.json();
+    
+    if (!result.choices || result.choices.length === 0) {
+      throw new Error(`OpenAI API error: ${JSON.stringify(result.error || result)}`);
+    }
+    
     const aiAnalysis = JSON.parse(result.choices[0].message.content);
     
     await logProcessStep(imageId, 'ai_inference_complete', { aiAnalysis });
@@ -131,12 +141,13 @@ async function runImageRecognition(imageUrl: string, imageId: string): Promise<a
             role: 'system',
             content: `You are an advanced image recognition system. Analyze the image and extract:
             1. Visual features: List all objects, landmarks, text, and people visible
-            2. Time clues: Any indicators of when this was taken
-            3. Location clues: Any indicators of where this was taken
+            2. Time clues: Any indicators of when this was taken (clothing styles, technology visible, etc.)
+            3. Location clues: Any indicators of where this was taken (landmarks, signs, architecture)
             4. Scene classification: The type of scene or event
-            5. Indicators of whether the image is AI-generated
+            5. Indicators of whether the image is AI-generated (unnatural features, textures, etc.)
             6. Indicators of whether the image contains mature content
             7. Indicators of whether this depicts a historical event
+            8. ALL TEXT VISIBLE IN THE IMAGE - this is extremely important
             
             Return ONLY a JSON object with these fields, nothing else.`
           },
@@ -160,6 +171,11 @@ async function runImageRecognition(imageUrl: string, imageId: string): Promise<a
     });
     
     const result = await response.json();
+    
+    if (!result.choices || result.choices.length === 0) {
+      throw new Error(`OpenAI API error: ${JSON.stringify(result.error || result)}`);
+    }
+    
     const recognitionResults = JSON.parse(result.choices[0].message.content);
     
     await logProcessStep(imageId, 'image_recognition_complete', { recognitionResults });
@@ -215,6 +231,11 @@ async function computeAccuracyScores(aiAnalysis: any, recognitionResults: any, i
     });
     
     const result = await response.json();
+    
+    if (!result.choices || result.choices.length === 0) {
+      throw new Error(`OpenAI API error: ${JSON.stringify(result.error || result)}`);
+    }
+    
     const accuracyScores = JSON.parse(result.choices[0].message.content);
     
     await logProcessStep(imageId, 'compute_accuracy_complete', { accuracyScores });
@@ -227,17 +248,45 @@ async function computeAccuracyScores(aiAnalysis: any, recognitionResults: any, i
 
 // Format and combine all results
 function formatResult(aiAnalysis: any, accuracyScores: any): any {
+  // Ensure GPS is in the correct format
+  let gps = aiAnalysis.gps;
+  
+  // If GPS is a string or object, try to convert it to an array
+  if (typeof gps === 'string') {
+    try {
+      // Try to parse it if it's a JSON string
+      gps = JSON.parse(gps);
+    } catch (e) {
+      // If it can't be parsed, try to extract the numbers
+      const matches = gps.match(/-?\d+\.?\d*/g);
+      if (matches && matches.length >= 2) {
+        gps = [parseFloat(matches[0]), parseFloat(matches[1])];
+      }
+    }
+  }
+  
+  // If GPS is an object with lat/lon properties, convert to array
+  if (gps && typeof gps === 'object' && !Array.isArray(gps)) {
+    if ('lat' in gps && 'lon' in gps) {
+      gps = [gps.lat, gps.lon];
+    } else if ('latitude' in gps && 'longitude' in gps) {
+      gps = [gps.latitude, gps.longitude];
+    }
+  }
+
   // Combine the AI analysis with the accuracy scores
   return {
     title: aiAnalysis.title,
     description: aiAnalysis.description,
     date: aiAnalysis.date,
-    year: aiAnalysis.year,
+    year: typeof aiAnalysis.year === 'string' ? parseInt(aiAnalysis.year, 10) : aiAnalysis.year,
     address: aiAnalysis.address,
-    gps: aiAnalysis.gps,
+    gps: gps,
     is_historical: aiAnalysis.is_historical,
     is_ai_generated: aiAnalysis.is_ai_generated,
     is_mature_content: aiAnalysis.is_mature_content,
+    manual_override: false,
+    ready: false,
     ...accuracyScores
   };
 }
@@ -262,23 +311,28 @@ async function storeToSupabase(result: any, imageId: string, imageUrl: string) {
       throw new Error(`Error storing to Pilot DB: ${pilotError.message}`);
     }
     
-    // Store to Guess-History DB
-    const guessHistoryData = {
-      id: imageId,
-      image_url: imageUrl,
-      ...result
-    };
-    
-    const { error: guessHistoryError } = await guessHistoryClient
-      .from('image_analysis')
-      .upsert(guessHistoryData);
-    
-    if (guessHistoryError) {
-      throw new Error(`Error storing to Guess-History DB: ${guessHistoryError.message}`);
+    // Only store to Guess-History DB if the image is marked as ready
+    if (result.ready === true) {
+      const guessHistoryData = {
+        id: imageId,
+        image_url: imageUrl,
+        ...result
+      };
+      
+      const { error: guessHistoryError } = await guessHistoryClient
+        .from('image_analysis')
+        .upsert(guessHistoryData);
+      
+      if (guessHistoryError) {
+        throw new Error(`Error storing to Guess-History DB: ${guessHistoryError.message}`);
+      }
+      
+      await logProcessStep(imageId, 'store_to_supabase_complete', { databases: ['pilot', 'guess-history'] });
+    } else {
+      await logProcessStep(imageId, 'store_to_supabase_complete', { databases: ['pilot'] });
     }
     
-    await logProcessStep(imageId, 'store_to_supabase_complete', { databases: ['pilot', 'guess-history'] });
-    return { pilotData, guessHistoryData };
+    return { pilotData };
   } catch (error) {
     await logProcessStep(imageId, 'store_to_supabase_error', { error: error.message });
     throw new Error(`Storing to Supabase failed: ${error.message}`);
@@ -316,7 +370,21 @@ serve(async (req) => {
   }
   
   try {
-    const { imageUrl, imageId } = await req.json();
+    console.log("Function invoked with request method:", req.method);
+    
+    let body;
+    try {
+      body = await req.json();
+      console.log("Request body received:", JSON.stringify(body));
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { imageUrl, imageId } = body;
     
     if (!imageUrl || !imageId) {
       return new Response(
@@ -324,6 +392,9 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    console.log("Processing request for imageId:", imageId);
+    console.log("Image URL:", imageUrl.substring(0, 50) + "...");
     
     // 1. Run AI inference
     const aiAnalysis = await runAIInference(imageUrl, imageId);
@@ -342,6 +413,8 @@ serve(async (req) => {
     
     // 6. Store to Supabase
     await storeToSupabase(result, imageId, imageUrl);
+    
+    console.log("Successfully processed image metadata");
     
     // Return the final result
     return new Response(
