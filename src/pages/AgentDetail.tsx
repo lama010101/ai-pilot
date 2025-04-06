@@ -114,7 +114,7 @@ const AgentDetail = () => {
                 </Button>
               ) : (
                 <div className="space-y-2 mt-4">
-                  <RunAgentButton agentId={agent.id} variant="default" size="default" className="w-full" />
+                  <RunAgentButton agentId={agent.id} className="w-full" />
                   <Button variant="outline" className="w-full" disabled>
                     <StopCircle className="mr-2 h-4 w-4" />
                     Stop Agent
@@ -143,7 +143,7 @@ const AgentDetail = () => {
                         <TimelineItem.Content>
                           <div className="font-medium">Agent created</div>
                           <div className="text-sm text-muted-foreground">
-                            {new Date(agent.created_at || Date.now()).toLocaleString()}
+                            {new Date(agent.last_updated || Date.now()).toLocaleString()}
                           </div>
                         </TimelineItem.Content>
                       </TimelineItem>
