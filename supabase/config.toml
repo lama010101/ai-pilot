@@ -49,3 +49,7 @@ verify_jwt = true
 
 [functions.preview-build]
 verify_jwt = true
+
+[functions.process-images]
+verify_jwt = false
+

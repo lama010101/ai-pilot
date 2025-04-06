@@ -26,6 +26,7 @@ import Features from "./pages/Features";
 import Memory from "./pages/Memory";
 import Pilot from "./pages/Pilot";
 import Index from "./pages/Index";
+import ImageUpload from "./pages/ImageUpload";
 
 // Create a QueryClient instance outside of the component function
 const queryClient = new QueryClient();
@@ -79,6 +80,7 @@ const App = () => {
                   <Route path="memory" element={<Memory />} />
                   <Route path="chat" element={<Chat />} />
                   <Route path="builder" element={<Builder />} />
+                  <Route path="images" element={<ImageUpload />} />
                   <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                   <Route path="settings/budget" element={<BudgetSettings />} />
                   <Route path="settings/developer" element={<DeveloperSettings />} />
@@ -97,6 +99,7 @@ const App = () => {
                   <Route path="memory" element={<Memory />} />
                   <Route path="chat" element={<Chat />} />
                   <Route path="builder" element={<Builder />} />
+                  <Route path="images" element={<ImageUpload />} />
                   <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                   <Route path="settings/budget" element={<BudgetSettings />} />
                   <Route path="settings/developer" element={<DeveloperSettings />} />

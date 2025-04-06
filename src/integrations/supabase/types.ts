@@ -60,6 +60,57 @@ export type Database = {
         }
         Relationships: []
       }
+      images: {
+        Row: {
+          created_at: string | null
+          date: string | null
+          description: string | null
+          description_image_url: string | null
+          gps: Json | null
+          id: string
+          image_url: string | null
+          is_ai_generated: boolean | null
+          is_true_event: boolean | null
+          location: string | null
+          ready_for_game: boolean | null
+          title: string | null
+          updated_at: string | null
+          year: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string | null
+          description?: string | null
+          description_image_url?: string | null
+          gps?: Json | null
+          id?: string
+          image_url?: string | null
+          is_ai_generated?: boolean | null
+          is_true_event?: boolean | null
+          location?: string | null
+          ready_for_game?: boolean | null
+          title?: string | null
+          updated_at?: string | null
+          year?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string | null
+          description?: string | null
+          description_image_url?: string | null
+          gps?: Json | null
+          id?: string
+          image_url?: string | null
+          is_ai_generated?: boolean | null
+          is_true_event?: boolean | null
+          location?: string | null
+          ready_for_game?: boolean | null
+          title?: string | null
+          updated_at?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
