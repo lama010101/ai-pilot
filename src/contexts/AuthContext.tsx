@@ -13,6 +13,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -139,6 +140,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    console.log("signInWithEmail called, USE_FAKE_AUTH:", USE_FAKE_AUTH);
+    
+    if (USE_FAKE_AUTH) {
+      // Fake authentication - just redirect to dashboard
+      console.log("Using fake auth, setting isAuthenticated to true");
+      setIsAuthenticated(true);
+      console.log("Redirecting to dashboard (fake auth)");
+      navigate('/dashboard/builder');
+      return;
+    }
+
+    try {
+      console.log(`Signing in with email: ${email}`);
+      
+      if (email !== LEADER_EMAIL) {
+        console.log('Unauthorized email attempt:', email);
+        navigate('/unauthorized');
+        return;
+      }
+      
+      // In production, this would check the actual password
+      // For now, we just allow the Leader email to sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        console.error('Error signing in with email:', error);
+        // If the user doesn't exist, try to create the account
+        if (error.message.includes('Invalid login credentials')) {
+          console.log('User not found, attempting to create account');
+          const { error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+          });
+          
+          if (signUpError) {
+            console.error('Error creating account:', signUpError);
+            return;
+          }
+          
+          // Account created, navigate to dashboard
+          console.log('Account created, setting isAuthenticated to true');
+          setIsAuthenticated(true);
+          navigate('/dashboard/builder');
+        }
+        return;
+      }
+      
+      console.log('Email sign in successful');
+      setSession(data.session);
+      setUser(data.user);
+      setIsAuthenticated(true);
+      navigate('/dashboard/builder');
+    } catch (error) {
+      console.error('Error signing in with email:', error);
+    }
+  };
+
   const signOut = async () => {
     console.log("signOut called, USE_FAKE_AUTH:", USE_FAKE_AUTH);
     
@@ -167,6 +229,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     isLoading,
     isAuthenticated,
     signInWithGoogle,
+    signInWithEmail,
     signOut,
   };
 
