@@ -78,4 +78,25 @@ export interface ImageDataDB {
   accuracy_realness?: number | null;
   accuracy_maturity?: number | null;
   manual_override?: boolean | null;
+  source?: string | null;
+}
+
+// Interface for image generation response from the agent
+export interface ImageGenerationResponse {
+  imageUrl: string;
+  promptUsed: string;
+  metadata: {
+    title: string;
+    description: string;
+    year: number;
+    date: string;
+    address: string;
+    gps: { lat: number; lng: number } | null;
+    ai_generated: boolean;
+    true_event: boolean;
+    ready: boolean;
+    mature: boolean;
+    source: string;
+  };
+  logs: string[];
 }

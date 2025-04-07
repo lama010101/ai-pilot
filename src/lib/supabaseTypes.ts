@@ -106,6 +106,7 @@ export interface ImageDB {
   accuracy_realness?: number | null;
   accuracy_maturity?: number | null;
   manual_override?: boolean | null;
+  source?: string | null;
 }
 
 // Command templates based on agent type

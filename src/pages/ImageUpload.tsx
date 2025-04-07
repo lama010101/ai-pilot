@@ -1,17 +1,20 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Image, Check, X, Save, FileSpreadsheet, Database } from "lucide-react";
+import { Upload, Image, Check, X, Save, FileSpreadsheet, Database, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import ImageUploader from '@/components/image-upload/ImageUploader';
 import ImageReviewGrid from '@/components/image-upload/ImageReviewGrid';
 import SavedImagesGallery from '@/components/image-upload/SavedImagesGallery';
+import ImageGeneratorUI from '@/components/image-upload/ImageGeneratorUI';
 import * as XLSX from 'xlsx';
 import { Json } from "@/integrations/supabase/types";
+import { ImageGenerationResponse } from '@/types/supabase';
 
 export interface ProcessedImage {
   originalFileName: string;
@@ -33,6 +36,7 @@ export interface ProcessedImage {
     accuracy_historical?: number;
     accuracy_realness?: number;
     accuracy_maturity?: number;
+    source?: string;
   };
   imageUrl: string;
   descriptionImageUrl: string;
@@ -491,6 +495,52 @@ const ImageUpload = () => {
     }
   };
 
+  const handleGeneratedImage = useCallback((response: ImageGenerationResponse) => {
+    if (!response || !response.imageUrl) {
+      toast({
+        title: "Invalid image data",
+        description: "The generated image data is incomplete",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    addToLog(`Adding AI-generated image to processed images: ${response.metadata.title}`);
+    
+    const newProcessedImage: ProcessedImage = {
+      originalFileName: `ai_generated_${Date.now()}.png`,
+      descFileName: `desc_ai_generated_${Date.now()}.png`,
+      metadata: {
+        title: response.metadata.title,
+        description: response.metadata.description,
+        date: response.metadata.date,
+        year: response.metadata.year,
+        location: response.metadata.address,
+        gps: response.metadata.gps ? {
+          lat: response.metadata.gps.lat,
+          lon: response.metadata.gps.lng
+        } : null,
+        is_true_event: response.metadata.true_event,
+        is_ai_generated: response.metadata.ai_generated,
+        is_mature_content: response.metadata.mature,
+        manual_override: true, // Mark as manually verified
+        source: response.metadata.source
+      },
+      imageUrl: response.imageUrl,
+      descriptionImageUrl: response.imageUrl, // Use same image for description
+      ready_for_game: response.metadata.ready,
+      selected: true
+    };
+    
+    setProcessedImages(prev => [...prev, newProcessedImage]);
+    setActiveTab('upload'); // Switch to upload tab to show review grid
+    
+    toast({
+      title: "Image added to collection",
+      description: "The AI-generated image has been added to your collection for review",
+    });
+  }, [toast, addToLog]);
+
   return (
     <>
       <Helmet>
@@ -510,6 +560,7 @@ const ImageUpload = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="upload">Upload</TabsTrigger>
+            <TabsTrigger value="generate">AI Generate</TabsTrigger>
             <TabsTrigger value="gallery">Gallery</TabsTrigger>
           </TabsList>
           
@@ -611,6 +662,23 @@ const ImageUpload = () => {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+          
+          <TabsContent value="generate">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wand2 className="h-5 w-5" />
+                  AI Image Generator
+                </CardTitle>
+                <CardDescription>
+                  Generate AI images of historical events using DALL-E
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ImageGeneratorUI onImageGenerated={handleGeneratedImage} />
+              </CardContent>
+            </Card>
           </TabsContent>
           
           <TabsContent value="gallery">
