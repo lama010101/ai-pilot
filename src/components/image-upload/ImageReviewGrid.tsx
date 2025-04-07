@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Check, X, Edit, Save } from "lucide-react";
+import { Check, X, Edit, Save, Eye } from "lucide-react";
 import { ProcessedImage } from '@/pages/ImageUpload';
 import {
   Table,
@@ -14,7 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import ImageProcessingButton from './ImageProcessingButton';
+import { Badge } from "@/components/ui/badge";
+import FullscreenImageViewer from './FullscreenImageViewer';
+import { ImageDB } from '@/lib/supabaseTypes';
 
 interface ImageReviewGridProps {
   images: ProcessedImage[];
@@ -36,7 +38,10 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
     date?: string;
     year?: number;
     location?: string;
+    country?: string;
   }>({});
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
   
   const handleMetadataUpdate = (index: number, metadata: any) => {
     if (onImageMetadataUpdate) {
@@ -52,6 +57,7 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
       date: image.metadata.date || '',
       year: image.metadata.year || undefined,
       location: image.metadata.location || '',
+      country: image.metadata.country || '',
     });
     setEditIndex(index);
   };
@@ -75,9 +81,43 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
     setEditValues({});
   };
   
-  // Check if an image has been verified (has accuracy scores)
-  const isVerified = (image: ProcessedImage) => {
-    return Object.keys(image.metadata).some(key => key.startsWith('accuracy_'));
+  const handleViewImage = (index: number) => {
+    setSelectedImageIndex(index);
+    setViewerOpen(true);
+  };
+  
+  const selectedImage = selectedImageIndex !== null ? images[selectedImageIndex] : null;
+
+  const formatAsImageDB = (image: ProcessedImage): ImageDB => {
+    return {
+      id: image.originalFileName || '',
+      title: image.metadata.title || null,
+      description: image.metadata.description || null,
+      date: image.metadata.date || null,
+      year: image.metadata.year || null,
+      location: image.metadata.location || null,
+      gps: image.metadata.gps || null,
+      is_true_event: image.metadata.is_true_event || false,
+      is_ai_generated: image.metadata.is_ai_generated || true,
+      ready_for_game: image.ready_for_game || false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      image_url: image.imageUrl || null,
+      description_image_url: image.descriptionImageUrl || null,
+      is_mature_content: image.metadata.is_mature_content || false,
+      accuracy_description: image.metadata.accuracy_description || 1.0,
+      accuracy_date: image.metadata.accuracy_date || 1.0,
+      accuracy_location: image.metadata.accuracy_location || 1.0,
+      accuracy_historical: image.metadata.accuracy_historical || 1.0,
+      accuracy_realness: image.metadata.accuracy_realness || 1.0,
+      accuracy_maturity: image.metadata.accuracy_maturity || 1.0,
+      manual_override: image.metadata.manual_override || false,
+      source: image.metadata.source || 'manual',
+      hints: image.metadata.hints || null,
+      country: image.metadata.country || null,
+      short_description: image.metadata.short_description || null,
+      detailed_description: image.metadata.detailed_description || null
+    };
   };
 
   return (
@@ -92,11 +132,10 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
               <TableHead>Title</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Location</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead>Date/Year</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="w-24">Ready</TableHead>
               <TableHead className="w-28">Actions</TableHead>
-              <TableHead className="w-16">Edit</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -109,7 +148,7 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                   />
                 </TableCell>
                 <TableCell>
-                  <div className="h-20 w-24 relative">
+                  <div className="h-20 w-24 relative cursor-pointer" onClick={() => handleViewImage(index)}>
                     <img 
                       src={image.imageUrl} 
                       alt="Event" 
@@ -118,7 +157,7 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="h-20 w-24 relative">
+                  <div className="h-20 w-24 relative cursor-pointer" onClick={() => handleViewImage(index)}>
                     <img 
                       src={image.descriptionImageUrl} 
                       alt="Description" 
@@ -151,13 +190,34 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                 </TableCell>
                 <TableCell>
                   {editIndex === index ? (
-                    <Input
-                      value={editValues.location}
-                      onChange={(e) => setEditValues({...editValues, location: e.target.value})}
-                      className="w-full"
-                    />
+                    <div className="space-y-2">
+                      <Input
+                        value={editValues.location}
+                        onChange={(e) => setEditValues({...editValues, location: e.target.value})}
+                        className="w-full"
+                        placeholder="Location"
+                      />
+                      <Input
+                        value={editValues.country}
+                        onChange={(e) => setEditValues({...editValues, country: e.target.value})}
+                        className="w-full"
+                        placeholder="Country"
+                      />
+                    </div>
                   ) : (
-                    image.metadata.location || "Missing"
+                    <div>
+                      <div>{image.metadata.location || "Location missing"}</div>
+                      {image.metadata.country && (
+                        <Badge variant="outline" className="mt-1">
+                          {image.metadata.country}
+                        </Badge>
+                      )}
+                      {image.metadata.gps && (
+                        <div className="text-xs text-muted-foreground mt-1 font-mono">
+                          {image.metadata.gps.lat}, {image.metadata.gps.lng || image.metadata.gps.lon}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </TableCell>
                 <TableCell>
@@ -178,9 +238,15 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                       />
                     </div>
                   ) : (
-                    image.metadata.date 
-                      ? new Date(image.metadata.date).toLocaleDateString() 
-                      : "Missing"
+                    <div>
+                      {image.metadata.date ? (
+                        <div>{image.metadata.date}</div>
+                      ) : image.metadata.year ? (
+                        <div>Year: {image.metadata.year}</div>
+                      ) : (
+                        "Missing"
+                      )}
+                    </div>
                   )}
                 </TableCell>
                 <TableCell>
@@ -191,6 +257,16 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                   }`}>
                     {image.metadata.is_ai_generated ? 'AI Generated' : 'Real Event'}
                   </span>
+                  {image.metadata.is_true_event && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 ml-1">
+                      Historical
+                    </span>
+                  )}
+                  {image.metadata.source && (
+                    <Badge variant="outline" className="ml-1">
+                      {image.metadata.source}
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div 
@@ -209,36 +285,40 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <ImageProcessingButton 
-                    image={{
-                      id: image.originalFileName,
-                      imageUrl: image.imageUrl
-                    }}
-                    onProcessingComplete={(metadata) => handleMetadataUpdate(index, metadata)}
-                    isVerified={isVerified(image)}
-                  />
-                </TableCell>
-                <TableCell>
-                  {editIndex === index ? (
-                    <div className="flex space-x-1">
-                      <Button size="icon" variant="outline" onClick={() => saveEdits(index)}>
-                        <Save className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="outline" onClick={cancelEdits}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button size="icon" variant="outline" onClick={() => startEditing(index)}>
-                      <Edit className="h-4 w-4" />
+                  <div className="flex space-x-1">
+                    <Button size="icon" variant="outline" onClick={() => handleViewImage(index)}>
+                      <Eye className="h-4 w-4" />
                     </Button>
-                  )}
+                    
+                    {editIndex === index ? (
+                      <>
+                        <Button size="icon" variant="outline" onClick={() => saveEdits(index)}>
+                          <Save className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="outline" onClick={cancelEdits}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="icon" variant="outline" onClick={() => startEditing(index)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+      
+      {selectedImage && (
+        <FullscreenImageViewer 
+          isOpen={viewerOpen}
+          onClose={() => setViewerOpen(false)}
+          image={formatAsImageDB(selectedImage)}
+        />
+      )}
     </div>
   );
 };

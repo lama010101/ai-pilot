@@ -1,3 +1,4 @@
+
 // Custom types for tables not yet reflected in the generated Supabase types
 
 export interface AppBuildDB {

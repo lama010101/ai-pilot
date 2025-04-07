@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
+
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,12 +10,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ImageIcon, Wand2, Clipboard, Loader2, Save, RefreshCw, Upload, FileSpreadsheet } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ImageIcon, Wand2, Clipboard, Loader2, Save, RefreshCw, Upload, FileSpreadsheet, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ImageGenerationResponse, ImageGenerationRow } from "@/types/supabase";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import * as XLSX from 'xlsx';
+import SavedPromptsList from './SavedPromptsList';
+import useSavedPrompts from '@/hooks/useSavedPrompts';
 
 interface ImageGeneratorUIProps {
   onImageGenerated?: (response: ImageGenerationResponse) => void;
@@ -31,7 +35,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<ImageGenerationResponse | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState('input');
+  const [activeTab, setActiveTab] = useState('manual');
   const [xlsxFile, setXlsxFile] = useState<File | null>(null);
   const [xlsxRows, setXlsxRows] = useState<ImageGenerationRow[]>([]);
   const [invalidRows, setInvalidRows] = useState<{row: number, reason: string}[]>([]);
@@ -41,6 +45,8 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     failed: number;
     total: number;
   }>({ success: 0, failed: 0, total: 0 });
+  
+  const { savedPrompts, savePrompt, removePrompt, clearAllPrompts } = useSavedPrompts();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -84,11 +90,17 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       setLogs([`${new Date().toLocaleTimeString()} - Starting image generation...`]);
       setActiveTab('logs');
 
+      // Save prompt to history
+      if (prompt.trim()) {
+        savePrompt(prompt);
+      }
+
       const response = await supabase.functions.invoke('image-generator', {
         body: {
           manualPrompt: prompt,
           autoMode: isAutoMode,
-          source: 'dalle' // Currently only supporting DALL-E
+          source: 'dalle', // Currently only supporting DALL-E
+          mode: 'manual'
         }
       });
 
@@ -134,7 +146,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [prompt, isAutoMode, toast, onImageGenerated]);
+  }, [prompt, isAutoMode, toast, onImageGenerated, savePrompt]);
 
   const copyPrompt = useCallback(() => {
     if (generatedImage?.promptUsed) {
@@ -149,7 +161,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const refreshPrompt = useCallback(() => {
     setPrompt('');
     setGeneratedImage(null);
-    setActiveTab('input');
+    setActiveTab('manual');
     setLogs([]);
     setXlsxFile(null);
     setXlsxRows([]);
@@ -293,7 +305,6 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
         });
         
         setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - Excel processing complete. Found ${validRows.length} valid rows, ${invalidRowsList.length} invalid rows.`]);
-        setActiveTab('batch');
       }
     } catch (error) {
       console.error("Error processing Excel file:", error);
@@ -421,13 +432,45 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-4">
-            <TabsTrigger value="input">Manual Input</TabsTrigger>
-            <TabsTrigger value="batch" disabled={xlsxRows.length === 0}>Batch Upload</TabsTrigger>
+            <TabsTrigger value="writer">Writer</TabsTrigger>
+            <TabsTrigger value="manual">Manual</TabsTrigger>
+            <TabsTrigger value="upload">Upload</TabsTrigger>
             <TabsTrigger value="preview" disabled={!generatedImage}>Preview</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="input" className="space-y-4">
+          <TabsContent value="writer" className="space-y-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="writer-instructions">Instructions for Writer Agent</Label>
+                <Textarea
+                  id="writer-instructions"
+                  placeholder="Describe what kind of historical events you want (e.g., 'Generate 5 medieval battles in cinematic style, 9:16 ratio')"
+                  className="min-h-[120px] resize-y"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Writer will generate structured prompts with full metadata ready for image generation
+                </p>
+              </div>
+              
+              <Button
+                className="w-full"
+                disabled={true}
+              >
+                <Wand2 className="mr-2 h-4 w-4" />
+                Generate Prompts from Instructions (Coming Soon)
+              </Button>
+              
+              <div className="bg-muted/50 p-6 rounded-md text-center">
+                <p className="mb-2 text-sm font-medium">Writer Agent Coming Soon</p>
+                <p className="text-sm text-muted-foreground">
+                  In the next update, you'll be able to generate structured historical event prompts with all required metadata automatically
+                </p>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="manual" className="space-y-4">
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <Switch
@@ -453,6 +496,13 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                 </p>
               </div>
               
+              <SavedPromptsList 
+                prompts={savedPrompts}
+                onSelectPrompt={(text) => setPrompt(text)}
+                onRemovePrompt={removePrompt}
+                onClearAll={clearAllPrompts}
+              />
+              
               <div className="space-y-4">
                 <Button
                   onClick={generateImage}
@@ -471,143 +521,134 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                     </>
                   )}
                 </Button>
-                
-                <div className="bg-muted p-4 rounded-md">
-                  <h3 className="text-sm font-medium mb-2">Batch Generation</h3>
-                  
-                  <div className="flex flex-col space-y-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={triggerFileSelect}
-                      className="flex items-center justify-center"
-                    >
-                      <FileSpreadsheet className="mr-2 h-4 w-4" />
-                      Upload Excel File (.xlsx)
-                    </Button>
-                    
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                    
-                    <Button 
-                      disabled={true} 
-                      variant="secondary"
-                    >
-                      🔄 Auto-generate from Writer Agent (Coming Soon)
-                    </Button>
-                  </div>
-                </div>
               </div>
             </div>
           </TabsContent>
           
-          <TabsContent value="batch" className="space-y-4">
+          <TabsContent value="upload" className="space-y-4">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Excel Data Preview</h3>
-                <Badge variant={invalidRows.length > 0 ? "destructive" : "outline"}>
-                  {invalidRows.length > 0 ? `${invalidRows.length} Invalid Rows` : 'All Rows Valid'}
-                </Badge>
-              </div>
-              
-              <div className="border rounded-md overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Year</TableHead>
-                      <TableHead>GPS</TableHead>
-                      <TableHead>Other</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {xlsxRows.length > 0 ? xlsxRows.map((row, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{row.title}</TableCell>
-                        <TableCell className="max-w-[300px] truncate">{row.description}</TableCell>
-                        <TableCell>{row.year}</TableCell>
-                        <TableCell>{row.gps?.lat}, {row.gps?.lng}</TableCell>
-                        <TableCell>
-                          {row.date && <Badge variant="outline" className="mr-1">Date: {row.date}</Badge>}
-                          {row.address && <Badge variant="outline" className="mr-1">Location</Badge>}
-                          {row.mature && <Badge variant="destructive" className="mr-1">Mature</Badge>}
-                          {row.true_event && <Badge variant="secondary" className="mr-1">True Event</Badge>}
-                        </TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                          No valid rows to display
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-              
-              {invalidRows.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-destructive">Invalid Rows:</h4>
-                  <ScrollArea className="h-32 border rounded-md p-2">
-                    <ul className="text-sm space-y-1">
-                      {invalidRows.map((invalid, idx) => (
-                        <li key={idx}>
-                          Row {invalid.row}: {invalid.reason}
-                        </li>
-                      ))}
-                    </ul>
-                  </ScrollArea>
-                </div>
-              )}
-              
-              {batchResults.total > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm">Batch Progress:</p>
-                    <p className="text-sm">{batchResults.success + batchResults.failed}/{batchResults.total}</p>
-                  </div>
-                  <Progress value={batchProgress} />
-                  <div className="flex justify-between text-sm">
-                    <span className="text-green-600">✅ {batchResults.success} succeeded</span>
-                    {batchResults.failed > 0 && (
-                      <span className="text-red-600">❌ {batchResults.failed} failed</span>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button
-                  onClick={generateBatchImages}
-                  disabled={isBatchGenerating || xlsxRows.length === 0}
-                  className="flex-1"
-                >
-                  {isBatchGenerating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating Batch...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Generate All Images ({xlsxRows.length})
-                    </>
+              <div className="flex flex-col space-y-4">
+                <div className="border border-dashed p-6 rounded-md text-center">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          onClick={triggerFileSelect}
+                          className="flex items-center justify-center mb-2"
+                        >
+                          <FileSpreadsheet className="mr-2 h-4 w-4" />
+                          Upload Excel File (.xlsx)
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Upload spreadsheet of events with title, description, year, and GPS</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Upload an Excel file containing events to generate images for
+                  </p>
+                  
+                  {xlsxFile && (
+                    <Badge variant="outline" className="px-3 py-1">
+                      {xlsxFile.name}
+                    </Badge>
                   )}
-                </Button>
+                </div>
                 
-                <Button
-                  variant="outline"
-                  onClick={refreshPrompt}
-                  disabled={isBatchGenerating}
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Reset
-                </Button>
+                {xlsxRows.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium">Excel Data Preview</h3>
+                      <Badge variant={invalidRows.length > 0 ? "destructive" : "outline"}>
+                        {invalidRows.length > 0 ? `${invalidRows.length} Invalid Rows` : 'All Rows Valid'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="border rounded-md overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead>Year</TableHead>
+                            <TableHead>GPS</TableHead>
+                            <TableHead>Other</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {xlsxRows.map((row, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{row.title}</TableCell>
+                              <TableCell className="max-w-[300px] truncate">{row.description}</TableCell>
+                              <TableCell>{row.year}</TableCell>
+                              <TableCell>{row.gps?.lat}, {row.gps?.lng}</TableCell>
+                              <TableCell>
+                                {row.date && <Badge variant="outline" className="mr-1">Date: {row.date}</Badge>}
+                                {row.address && <Badge variant="outline" className="mr-1">Location</Badge>}
+                                {row.mature && <Badge variant="destructive" className="mr-1">Mature</Badge>}
+                                {row.true_event && <Badge variant="secondary" className="mr-1">True Event</Badge>}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    
+                    {batchResults.total > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm">Batch Progress:</p>
+                          <p className="text-sm">{batchResults.success + batchResults.failed}/{batchResults.total}</p>
+                        </div>
+                        <Progress value={batchProgress} />
+                        <div className="flex justify-between text-sm">
+                          <span className="text-green-600">✅ {batchResults.success} succeeded</span>
+                          {batchResults.failed > 0 && (
+                            <span className="text-red-600">❌ {batchResults.failed} failed</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={generateBatchImages}
+                            disabled={isBatchGenerating || xlsxRows.length === 0}
+                            className="flex-1 w-full"
+                          >
+                            {isBatchGenerating ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Generating Batch...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                Generate All Images ({xlsxRows.length})
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Create images only for selected events</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                )}
               </div>
             </div>
           </TabsContent>
@@ -667,9 +708,18 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                     <div>
                       <Label>Source</Label>
                       <p className="mt-1 text-sm capitalize">
-                        {generatedImage.metadata.source}
+                        {generatedImage.metadata.source || "dalle"}
                       </p>
                     </div>
+                    
+                    {generatedImage.metadata.gps && (
+                      <div className="col-span-2">
+                        <Label>GPS Coordinates</Label>
+                        <p className="mt-1 text-sm font-mono">
+                          {generatedImage.metadata.gps.lat}, {generatedImage.metadata.gps.lon || generatedImage.metadata.gps.lng}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
