@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,7 +26,7 @@ export interface ProcessedImage {
     date: string | null;
     year: number | null;
     location: string | null;
-    gps: { lat: number; lon: number } | null;
+    gps: { lat: number; lng: number } | null;
     is_true_event: boolean;
     is_ai_generated: boolean;
     is_mature_content?: boolean;
@@ -37,6 +38,10 @@ export interface ProcessedImage {
     accuracy_realness?: number;
     accuracy_maturity?: number;
     source?: string;
+    country?: string;
+    short_description?: string;
+    detailed_description?: string;
+    hints?: any;
   };
   imageUrl: string;
   descriptionImageUrl: string;

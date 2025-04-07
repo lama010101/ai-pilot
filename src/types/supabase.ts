@@ -107,7 +107,7 @@ export interface ImageGenerationResponse {
     year: number | null;
     date: string | null;
     address: string | null;
-    gps: { lat: number; lng: number } | null;
+    gps: { lat: number; lng: number; } | null;
     ai_generated: boolean;
     true_event: boolean;
     ready: boolean;

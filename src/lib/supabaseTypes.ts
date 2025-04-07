@@ -1,3 +1,4 @@
+
 // Types representing Supabase database tables
 
 export interface AgentTaskDB {
@@ -106,6 +107,10 @@ export interface ImageDB {
   accuracy_maturity: number | null;
   manual_override: boolean | null;
   source: string | null;
+  hints: any | null;  // Added for writer hints
+  country: string | null;  // Added for writer country
+  short_description: string | null;  // Added for writer short description
+  detailed_description: string | null;  // Added for writer detailed description
 }
 
 // Command templates based on agent type

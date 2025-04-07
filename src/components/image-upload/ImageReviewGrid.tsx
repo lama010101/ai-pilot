@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import FullscreenImageViewer from './FullscreenImageViewer';
-import { ImageDB } from '@/lib/supabaseTypes';
+import { ImageDataDB } from '@/types/supabase';
 
 interface ImageReviewGridProps {
   images: ProcessedImage[];
@@ -88,7 +87,7 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
   
   const selectedImage = selectedImageIndex !== null ? images[selectedImageIndex] : null;
 
-  const formatAsImageDB = (image: ProcessedImage): ImageDB => {
+  const formatAsImageDB = (image: ProcessedImage): ImageDataDB => {
     return {
       id: image.originalFileName || '',
       title: image.metadata.title || null,
@@ -214,7 +213,7 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                       )}
                       {image.metadata.gps && (
                         <div className="text-xs text-muted-foreground mt-1 font-mono">
-                          {image.metadata.gps.lat}, {image.metadata.gps.lng || image.metadata.gps.lon}
+                          {image.metadata.gps.lat}, {image.metadata.gps.lng}
                         </div>
                       )}
                     </div>
