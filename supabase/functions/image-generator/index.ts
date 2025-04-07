@@ -203,30 +203,49 @@ async function saveImageMetadata(metadata: Record<string, any>, imageUrl: string
   console.log("Saving image metadata to database:", metadata);
   
   try {
+    const dataToInsert: Record<string, any> = {
+      title: metadata.title,
+      description: metadata.description || metadata.detailed_description,
+      date: metadata.date,
+      year: metadata.year,
+      location: metadata.address || metadata.location,
+      gps: metadata.gps,
+      is_true_event: metadata.is_true_event || false,
+      is_ai_generated: metadata.is_ai_generated || true,
+      ready_for_game: metadata.ready_for_game || metadata.ready || false,
+      is_mature_content: metadata.is_mature_content || metadata.mature || false,
+      image_url: imageUrl,
+      description_image_url: imageUrl,
+      source: metadata.source || "dalle",
+      accuracy_description: metadata.accuracy_description || null,
+      accuracy_date: metadata.accuracy_date || null,
+      accuracy_location: metadata.accuracy_location || null,
+      accuracy_historical: metadata.accuracy_historical || null,
+      accuracy_realness: metadata.accuracy_realness || null,
+      accuracy_maturity: metadata.accuracy_maturity || null,
+      manual_override: metadata.manual_override || false
+    };
+    
+    // Handle additional writer-specific fields
+    if (metadata.short_description) {
+      dataToInsert.short_description = metadata.short_description;
+    }
+    
+    if (metadata.detailed_description) {
+      dataToInsert.detailed_description = metadata.detailed_description;
+    }
+    
+    if (metadata.hints) {
+      dataToInsert.hints = metadata.hints;
+    }
+    
+    if (metadata.country) {
+      dataToInsert.country = metadata.country;
+    }
+    
     const { data, error } = await supabase
       .from('images')
-      .insert({
-        title: metadata.title,
-        description: metadata.description,
-        date: metadata.date,
-        year: metadata.year,
-        location: metadata.address || metadata.location,
-        gps: metadata.gps,
-        is_true_event: metadata.is_true_event || false,
-        is_ai_generated: metadata.is_ai_generated || true,
-        ready_for_game: metadata.ready_for_game || false,
-        is_mature_content: metadata.is_mature_content || false,
-        image_url: imageUrl,
-        description_image_url: imageUrl,
-        source: metadata.source || "dalle",
-        accuracy_description: metadata.accuracy_description || null,
-        accuracy_date: metadata.accuracy_date || null,
-        accuracy_location: metadata.accuracy_location || null,
-        accuracy_historical: metadata.accuracy_historical || null,
-        accuracy_realness: metadata.accuracy_realness || null,
-        accuracy_maturity: metadata.accuracy_maturity || null,
-        manual_override: metadata.manual_override || false
-      })
+      .insert(dataToInsert)
       .select()
       .single();
     
@@ -262,7 +281,7 @@ serve(async (req) => {
     });
     
     const { manualPrompt, autoMode, source = 'dalle', metadata = null } = parsedBody;
-    logs.push(`${new Date().toISOString()} - Request params: manualPrompt=${!!manualPrompt}, autoMode=${autoMode}, source=${source}`);
+    logs.push(`${new Date().toISOString()} - Request params: manualPrompt=${!!manualPrompt}, autoMode=${autoMode}, source=${source}, metadata=${!!metadata}`);
     
     // Validate request
     if (!manualPrompt && !autoMode) {
@@ -363,19 +382,19 @@ serve(async (req) => {
       promptUsed: finalPrompt,
       metadata: {
         title: extractedMetadata.title,
-        description: extractedMetadata.description,
+        description: extractedMetadata.description || extractedMetadata.detailed_description,
         year: extractedMetadata.year,
         date: extractedMetadata.date,
         address: extractedMetadata.address || extractedMetadata.location,
         gps: extractedMetadata.gps ? {
-          lat: extractedMetadata.gps.lat,
-          lng: extractedMetadata.gps.lon // Map from lon to lng format
+          lat: extractedMetadata.gps.lat || extractedMetadata.gps.lat,
+          lng: extractedMetadata.gps.lng || extractedMetadata.gps.lon // Map from lon to lng format
         } : null,
         ai_generated: true,
         true_event: extractedMetadata.is_true_event || false,
-        ready: extractedMetadata.ready_for_game || false,
-        mature: extractedMetadata.is_mature_content || false,
-        source: source
+        ready: extractedMetadata.ready_for_game || extractedMetadata.ready || false,
+        mature: extractedMetadata.is_mature_content || extractedMetadata.mature || false,
+        source: extractedMetadata.source || source
       },
       status: "success",
       logs

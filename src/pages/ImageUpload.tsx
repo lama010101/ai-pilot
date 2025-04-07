@@ -4,16 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Image, Check, X, Save, FileSpreadsheet, Database, Wand2 } from "lucide-react";
+import { Upload, Image, Check, X, Save, FileSpreadsheet, Database, Wand2, Feather } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import ImageUploader from '@/components/image-upload/ImageUploader';
 import ImageReviewGrid from '@/components/image-upload/ImageReviewGrid';
 import SavedImagesGallery from '@/components/image-upload/SavedImagesGallery';
 import ImageGeneratorUI from '@/components/image-upload/ImageGeneratorUI';
+import WriterPromptGenerator from '@/components/image-upload/WriterPromptGenerator';
 import * as XLSX from 'xlsx';
 import { Json } from "@/integrations/supabase/types";
-import { ImageGenerationResponse } from '@/types/supabase';
+import { ImageGenerationResponse, WriterPromptEntry } from '@/types/supabase';
 
 export interface ProcessedImage {
   originalFileName: string;
@@ -112,6 +113,8 @@ const ImageUpload = () => {
   const addToLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setProcessLog(prevLog => [...prevLog, `[${timestamp}] ${message}`]);
+    
+    console.log(`[${timestamp}] ${message}`);
   }, []);
 
   const processMetadataFile = useCallback(async (file: File) => {
@@ -540,6 +543,11 @@ const ImageUpload = () => {
     });
   }, [toast, addToLog]);
 
+  const handlePromptsGenerated = useCallback((prompts: WriterPromptEntry[]) => {
+    console.log("Prompts generated:", prompts);
+    // This is just for tracking purposes, the actual handling happens in WriterPromptGenerator
+  }, []);
+
   return (
     <>
       <Helmet>
@@ -558,9 +566,22 @@ const ImageUpload = () => {
         
         <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="generate">
           <TabsList>
-            <TabsTrigger value="generate">AI Generate</TabsTrigger>
-            <TabsTrigger value="upload">Upload</TabsTrigger>
-            <TabsTrigger value="gallery">Gallery</TabsTrigger>
+            <TabsTrigger value="generate">
+              <Wand2 className="h-4 w-4 mr-2" />
+              AI Generate
+            </TabsTrigger>
+            <TabsTrigger value="writer">
+              <Feather className="h-4 w-4 mr-2" />
+              Writer
+            </TabsTrigger>
+            <TabsTrigger value="upload">
+              <Upload className="h-4 w-4 mr-2" />
+              Upload
+            </TabsTrigger>
+            <TabsTrigger value="gallery">
+              <Image className="h-4 w-4 mr-2" />
+              Gallery
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="generate" className="space-y-6">
@@ -575,6 +596,42 @@ const ImageUpload = () => {
                 <ImageGeneratorUI onImageGenerated={handleGeneratedImage} suppressHeader={true} />
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          <TabsContent value="writer" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Writer Prompt Generator</CardTitle>
+                <CardDescription>
+                  Create structured prompts with metadata for historical events
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <WriterPromptGenerator 
+                  onPromptsGenerated={handlePromptsGenerated} 
+                  onImageGenerated={handleGeneratedImage}
+                  addToLog={addToLog}
+                />
+              </CardContent>
+            </Card>
+            
+            {processLog.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Processing Log</CardTitle>
+                  <CardDescription>
+                    Activity log for prompt and image generation
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-muted p-4 rounded-md max-h-40 overflow-y-auto text-sm font-mono">
+                    {processLog.map((log, index) => (
+                      <div key={index} className="py-0.5">{log}</div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
           
           <TabsContent value="upload" className="space-y-6">

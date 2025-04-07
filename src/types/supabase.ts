@@ -78,6 +78,10 @@ export interface ImageDataDB {
   accuracy_maturity: number | null;
   manual_override: boolean | null;
   source: string | null;
+  hints: any | null;  // Added for writer hints
+  country: string | null;  // Added for writer country
+  short_description: string | null;  // Added for writer short description
+  detailed_description: string | null;  // Added for writer detailed description
 }
 
 // Interface for batch image generation row from XLSX
@@ -111,5 +115,33 @@ export interface ImageGenerationResponse {
   };
   logs: string[];
   status?: "success" | "error";
+  error?: string;
+}
+
+// Interface for writer prompt entry
+export interface WriterPromptEntry {
+  prompt: string;
+  title: string;
+  short_description: string;
+  detailed_description: string;
+  hints: {
+    hint_1: string;
+    hint_2: string;
+  };
+  date?: string;
+  year: number;
+  address?: string;
+  gps: {
+    lat: number;
+    lng: number;
+  };
+  country: string;
+  selected?: boolean; // For UI selection state
+}
+
+// Interface for writer response
+export interface WriterResponse {
+  entries: WriterPromptEntry[];
+  status: "success" | "error";
   error?: string;
 }
