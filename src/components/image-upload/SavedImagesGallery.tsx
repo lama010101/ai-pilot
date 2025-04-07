@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,6 +18,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Json } from "@/integrations/supabase/types";
+import { ImageDB } from "@/lib/supabaseTypes";
 
 interface SavedImage {
   id: string;
@@ -70,7 +70,7 @@ const SavedImagesGallery = () => {
       }
       
       // Convert the data to match the SavedImage interface
-      const typedImages: SavedImage[] = data?.map(item => ({
+      const typedImages: SavedImage[] = (data as ImageDB[]).map(item => ({
         id: item.id,
         title: item.title,
         description: item.description,
@@ -83,7 +83,6 @@ const SavedImagesGallery = () => {
         ready_for_game: item.ready_for_game,
         image_url: item.image_url,
         description_image_url: item.description_image_url,
-        // Handle fields that might not be in the database yet
         is_mature_content: item.is_mature_content ?? null,
         accuracy_description: item.accuracy_description ?? null,
         accuracy_date: item.accuracy_date ?? null,
@@ -94,7 +93,7 @@ const SavedImagesGallery = () => {
         manual_override: item.manual_override ?? null,
         created_at: item.created_at,
         updated_at: item.updated_at
-      })) || [];
+      }));
       
       setImages(typedImages);
       
@@ -142,7 +141,6 @@ const SavedImagesGallery = () => {
     return images;
   }, [images, activeTab]);
 
-  // Function to safely display GPS coordinates
   const displayGpsCoordinates = (gps: Json | null): string => {
     if (!gps) return "N/A";
     
@@ -298,7 +296,6 @@ const SavedImagesGallery = () => {
         </TabsContent>
       </Tabs>
       
-      {/* Image Details Dialog */}
       <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
         {selectedImage && (
           <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
