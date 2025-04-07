@@ -97,15 +97,15 @@ export interface ImageDB {
   image_url: string | null;
   description_image_url: string | null;
   // Extended fields
-  is_mature_content?: boolean | null;
-  accuracy_description?: number | null;
-  accuracy_date?: number | null;
-  accuracy_location?: number | null;
-  accuracy_historical?: number | null;
-  accuracy_realness?: number | null;
-  accuracy_maturity?: number | null;
-  manual_override?: boolean | null;
-  source?: string | null;
+  is_mature_content: boolean | null;
+  accuracy_description: number | null;
+  accuracy_date: number | null;
+  accuracy_location: number | null;
+  accuracy_historical: number | null;
+  accuracy_realness: number | null;
+  accuracy_maturity: number | null;
+  manual_override: boolean | null;
+  source: string | null;
 }
 
 // Command templates based on agent type

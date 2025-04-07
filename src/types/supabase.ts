@@ -1,4 +1,3 @@
-
 // Custom types for tables not yet reflected in the generated Supabase types
 
 export interface AppBuildDB {
@@ -70,15 +69,15 @@ export interface ImageDataDB {
   updated_at: string | null;
   image_url: string | null;
   description_image_url: string | null;
-  is_mature_content?: boolean | null;
-  accuracy_description?: number | null;
-  accuracy_date?: number | null;
-  accuracy_location?: number | null;
-  accuracy_historical?: number | null;
-  accuracy_realness?: number | null;
-  accuracy_maturity?: number | null;
-  manual_override?: boolean | null;
-  source?: string | null;
+  is_mature_content: boolean | null;
+  accuracy_description: number | null;
+  accuracy_date: number | null;
+  accuracy_location: number | null;
+  accuracy_historical: number | null;
+  accuracy_realness: number | null;
+  accuracy_maturity: number | null;
+  manual_override: boolean | null;
+  source: string | null;
 }
 
 // Interface for batch image generation row from XLSX
@@ -100,9 +99,9 @@ export interface ImageGenerationResponse {
   metadata: {
     title: string;
     description: string;
-    year: number;
-    date: string;
-    address: string;
+    year: number | null;
+    date: string | null;
+    address: string | null;
     gps: { lat: number; lng: number } | null;
     ai_generated: boolean;
     true_event: boolean;
@@ -114,4 +113,3 @@ export interface ImageGenerationResponse {
   status?: "success" | "error";
   error?: string;
 }
-

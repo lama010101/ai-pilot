@@ -218,7 +218,14 @@ async function saveImageMetadata(metadata: Record<string, any>, imageUrl: string
         is_mature_content: metadata.is_mature_content || false,
         image_url: imageUrl,
         description_image_url: imageUrl,
-        source: metadata.source || "dalle"
+        source: metadata.source || "dalle",
+        accuracy_description: metadata.accuracy_description || null,
+        accuracy_date: metadata.accuracy_date || null,
+        accuracy_location: metadata.accuracy_location || null,
+        accuracy_historical: metadata.accuracy_historical || null,
+        accuracy_realness: metadata.accuracy_realness || null,
+        accuracy_maturity: metadata.accuracy_maturity || null,
+        manual_override: metadata.manual_override || false
       })
       .select()
       .single();
@@ -249,8 +256,19 @@ serve(async (req) => {
       throw new Error("OpenAI API key is not configured in the edge function");
     }
     
-    const { manualPrompt, autoMode, source = 'dalle', metadata = null } = await req.json();
+    const parsedBody = await req.json().catch((err) => {
+      logs.push(`${new Date().toISOString()} - ERROR: Invalid request body format - ${err.message}`);
+      throw new Error("Invalid request body format. Expected JSON.");
+    });
+    
+    const { manualPrompt, autoMode, source = 'dalle', metadata = null } = parsedBody;
     logs.push(`${new Date().toISOString()} - Request params: manualPrompt=${!!manualPrompt}, autoMode=${autoMode}, source=${source}`);
+    
+    // Validate request
+    if (!manualPrompt && !autoMode) {
+      logs.push(`${new Date().toISOString()} - ERROR: Missing required parameters. Either manualPrompt or autoMode must be true.`);
+      throw new Error("Missing required parameters. Either manualPrompt or autoMode must be true.");
+    }
     
     let finalPrompt = '';
     let providedMetadata = metadata;
@@ -265,6 +283,7 @@ serve(async (req) => {
     } else {
       // Use manual prompt
       if (!manualPrompt) {
+        logs.push(`${new Date().toISOString()} - ERROR: Manual prompt is required when autoMode is false`);
         throw new Error("Manual prompt is required when autoMode is false");
       }
       finalPrompt = manualPrompt;
@@ -289,20 +308,54 @@ serve(async (req) => {
     
     // Generate image
     logs.push(`${new Date().toISOString()} - Generating image with ${source}`);
-    const { url: generatedImageUrl } = await generateImage(finalPrompt, source);
-    logs.push(`${new Date().toISOString()} - Image generated successfully`);
+    let generatedImageUrl;
+    try {
+      const { url } = await generateImage(finalPrompt, source);
+      generatedImageUrl = url;
+      logs.push(`${new Date().toISOString()} - ✅ Image generated successfully`);
+    } catch (genError) {
+      logs.push(`${new Date().toISOString()} - ❌ Image generation failed: ${genError.message}`);
+      return new Response(JSON.stringify({
+        error: genError.message,
+        status: "error",
+        logs
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
     
     // Upload to Supabase storage
     const timestamp = Date.now();
     const filename = `image_${timestamp}.png`;
     logs.push(`${new Date().toISOString()} - Uploading image to storage as ${filename}`);
-    const storedImageUrl = await uploadImageToStorage(generatedImageUrl, filename);
-    logs.push(`${new Date().toISOString()} - Image uploaded to storage: ${storedImageUrl}`);
+    let storedImageUrl;
+    try {
+      storedImageUrl = await uploadImageToStorage(generatedImageUrl, filename);
+      logs.push(`${new Date().toISOString()} - ✅ Image uploaded to storage: ${storedImageUrl}`);
+    } catch (uploadError) {
+      logs.push(`${new Date().toISOString()} - ❌ Image upload failed: ${uploadError.message}`);
+      return new Response(JSON.stringify({
+        error: uploadError.message,
+        status: "error",
+        imageUrl: generatedImageUrl, // Still return the original URL even if storage failed
+        logs
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
     
     // Save metadata to database
     logs.push(`${new Date().toISOString()} - Saving metadata to database`);
-    const imageId = await saveImageMetadata(extractedMetadata, storedImageUrl);
-    logs.push(`${new Date().toISOString()} - Metadata saved with ID: ${imageId}`);
+    let imageId;
+    try {
+      imageId = await saveImageMetadata(extractedMetadata, storedImageUrl);
+      logs.push(`${new Date().toISOString()} - ✅ Metadata saved with ID: ${imageId}`);
+    } catch (metadataError) {
+      logs.push(`${new Date().toISOString()} - ❌ Metadata save failed: ${metadataError.message}`);
+      // Continue even if metadata save fails - we still have the image
+    }
     
     // Format response according to spec
     const response = {

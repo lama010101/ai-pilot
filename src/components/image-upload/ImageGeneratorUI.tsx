@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -46,6 +45,30 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  const headerAliasMap: Record<string, string[]> = {
+    "title": ["title", "Title", "name", "Name", "event", "Event"],
+    "description": ["description", "Description", "desc", "Desc", "details", "Details", "content", "Content"],
+    "year": ["year", "Year", "yr", "Yr", "year_value", "año", "anno"],
+    "gps.lat": ["lat", "latitude", "Latitude", "latitud", "Latitud", "gps.lat", "gps_lat", "lat_value"],
+    "gps.lng": ["lng", "lon", "long", "longitude", "Longitude", "longitud", "Longitud", "gps.lng", "gps_lng", "lng_value", "lon_value"],
+    "date": ["date", "Date", "full_date", "event_date", "fecha"],
+    "address": ["address", "Address", "location", "Location", "place", "Place", "ciudad", "City", "city"],
+    "mature": ["mature", "Mature", "adult", "Adult", "nsfw", "NSFW", "is_mature", "mature_content"],
+    "true_event": ["true_event", "TrueEvent", "real", "Real", "historical", "Historical", "is_real", "is_historical", "is_true"]
+  };
+
+  const normalizeColumnName = (name: string): string => {
+    const normalized = name.toLowerCase().trim().replace(/\s+/g, '_');
+    
+    for (const [standardName, aliases] of Object.entries(headerAliasMap)) {
+      if (aliases.includes(normalized) || aliases.includes(name)) {
+        return standardName;
+      }
+    }
+    
+    return normalized;
+  };
+
   const generateImage = useCallback(async () => {
     if (!prompt && !isAutoMode) {
       toast({
@@ -70,10 +93,17 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       });
 
       if (response.error) {
+        setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ❌ Error: ${response.error.message || "Edge Function error"}`]);
         throw new Error(response.error.message || "Failed to generate image");
       }
 
       const data = response.data as ImageGenerationResponse;
+      
+      if (data.error) {
+        setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ❌ Error: ${data.error}`]);
+        throw new Error(data.error);
+      }
+      
       setLogs(prev => [...prev, ...data.logs.map(log => {
         const parts = log.split(' - ');
         return parts.length > 1 ? parts[1] : log;
@@ -81,6 +111,8 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       
       setGeneratedImage(data);
       setActiveTab('preview');
+      
+      setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ✅ Image generated successfully: ${data.imageUrl}`]);
       
       toast({
         title: "Image generated",
@@ -92,7 +124,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       }
     } catch (error) {
       console.error("Error generating image:", error);
-      setLogs(prev => [...prev, `ERROR: ${error.message}`]);
+      setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ❌ ERROR: ${error.message}`]);
       
       toast({
         title: "Generation failed",
@@ -138,29 +170,47 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const validateRow = (row: any, index: number): { valid: boolean; data?: ImageGenerationRow; reason?: string } => {
     const issues: string[] = [];
 
-    // Check required fields
-    if (!row.title) issues.push('Missing title');
-    if (!row.description) issues.push('Missing description');
+    const normalizedRow: Record<string, any> = {};
     
-    // Check year is a valid number
-    const year = Number(row.year);
-    if (isNaN(year) || !Number.isInteger(year)) {
-      issues.push('Year must be a valid integer');
+    for (const [originalKey, value] of Object.entries(row)) {
+      const normalizedKey = normalizeColumnName(originalKey);
+      normalizedRow[normalizedKey] = value;
     }
     
-    // Check GPS coordinates
+    let title = normalizedRow.title;
+    let description = normalizedRow.description;
+    let year = normalizedRow.year;
     let lat = null;
     let lng = null;
+    let date = normalizedRow.date;
+    let address = normalizedRow.address;
+    let mature = normalizedRow.mature;
+    let trueEvent = normalizedRow.true_event;
     
-    if (row.gps && typeof row.gps === 'object') {
-      lat = Number(row.gps.lat);
-      lng = Number(row.gps.lng);
-    } else if (row['gps.lat'] !== undefined && row['gps.lng'] !== undefined) {
-      lat = Number(row['gps.lat']);
-      lng = Number(row['gps.lng']);
-    } else if (row.lat !== undefined && row.lng !== undefined) {
-      lat = Number(row.lat);
-      lng = Number(row.lng);
+    if (normalizedRow['gps.lat'] !== undefined && normalizedRow['gps.lng'] !== undefined) {
+      lat = Number(normalizedRow['gps.lat']);
+      lng = Number(normalizedRow['gps.lng']);
+    } else if (normalizedRow.gps && typeof normalizedRow.gps === 'object') {
+      lat = Number(normalizedRow.gps.lat);
+      lng = Number(normalizedRow.gps.lng);
+    } else if (normalizedRow.lat !== undefined && normalizedRow.lng !== undefined) {
+      lat = Number(normalizedRow.lat);
+      lng = Number(normalizedRow.lng);
+    } else if (normalizedRow.latitude !== undefined && normalizedRow.longitude !== undefined) {
+      lat = Number(normalizedRow.latitude);
+      lng = Number(normalizedRow.longitude);
+    }
+    
+    if (!title) issues.push('Missing title');
+    if (!description) issues.push('Missing description');
+    
+    if (year) {
+      year = Number(year);
+      if (isNaN(year) || !Number.isInteger(year)) {
+        issues.push('Year must be a valid integer');
+      }
+    } else {
+      issues.push('Missing year');
     }
     
     if (isNaN(lat) || isNaN(lng)) {
@@ -171,16 +221,15 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       return { valid: false, reason: issues.join(', ') };
     }
     
-    // Construct a valid row
     const validRow: ImageGenerationRow = {
-      title: row.title,
-      description: row.description,
-      year: year,
-      gps: { lat, lng },
-      date: row.date || undefined,
-      address: row.address || undefined,
-      mature: row.mature !== undefined ? Boolean(row.mature) : undefined,
-      true_event: row.true_event !== undefined ? Boolean(row.true_event) : undefined
+      title: String(title),
+      description: String(description),
+      year: Number(year),
+      gps: { lat: Number(lat), lng: Number(lng) },
+      date: date ? String(date) : undefined,
+      address: address ? String(address) : undefined,
+      mature: mature !== undefined ? Boolean(mature) : undefined,
+      true_event: trueEvent !== undefined ? Boolean(trueEvent) : undefined
     };
     
     return { valid: true, data: validRow };
@@ -309,8 +358,11 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
             }
           });
           
-          if (response.error) {
-            throw new Error(response.error.message);
+          if (response.error || (response.data && response.data.error)) {
+            const errorMessage = response.error?.message || 
+                               (response.data && response.data.error) || 
+                               "Unknown error occurred";
+            throw new Error(errorMessage);
           }
           
           successCount++;
@@ -325,7 +377,6 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
           setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ❌ Error: Failed to generate image for "${row.title}" - ${error.message}`]);
         }
         
-        // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       
@@ -640,7 +691,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                 {logs.length > 0 ? (
                   <div className="space-y-1 font-mono text-sm">
                     {logs.map((log, index) => (
-                      <div key={index} className={`py-0.5 ${log.includes('ERROR') ? 'text-red-500' : log.includes('Success') ? 'text-green-500' : ''}`}>
+                      <div key={index} className={`py-0.5 ${log.includes('ERROR') || log.includes('❌') ? 'text-red-500' : log.includes('Success') || log.includes('✅') ? 'text-green-500' : ''}`}>
                         {log}
                       </div>
                     ))}
