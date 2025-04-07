@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ImageIcon, Wand2, Clipboard, Loader2, Save, RefreshCw, Upload, FileSpreadsheet, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ImageGenerationResponse, ImageGenerationRow } from "@/types/supabase";
+import { ImageGenerationResponse, ImageGenerationRow, GPSCoordinates } from "@/types/supabase";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import * as XLSX from 'xlsx';
 import SavedPromptsList from './SavedPromptsList';
@@ -360,7 +360,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                 location: row.address,
                 gps: row.gps ? {
                   lat: row.gps.lat,
-                  lng: row.gps.lng || row.gps.lng
+                  lng: row.gps.lng || row.gps.lon
                 } : null,
                 is_true_event: row.true_event || false,
                 is_ai_generated: true,
@@ -717,7 +717,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                       <div className="col-span-2">
                         <Label>GPS Coordinates</Label>
                         <p className="mt-1 text-sm font-mono">
-                          {generatedImage.metadata.gps.lat}, {generatedImage.metadata.gps.lon || generatedImage.metadata.gps.lng}
+                          {generatedImage.metadata.gps.lat}, {generatedImage.metadata.gps.lng || generatedImage.metadata.gps.lon}
                         </p>
                       </div>
                     )}
