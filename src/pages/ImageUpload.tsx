@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -52,7 +51,7 @@ interface ProjectDb {
 }
 
 const ImageUpload = () => {
-  const [activeTab, setActiveTab] = useState('upload');
+  const [activeTab, setActiveTab] = useState('generate');
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -557,12 +556,26 @@ const ImageUpload = () => {
           </div>
         </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="generate">
           <TabsList>
-            <TabsTrigger value="upload">Upload</TabsTrigger>
             <TabsTrigger value="generate">AI Generate</TabsTrigger>
+            <TabsTrigger value="upload">Upload</TabsTrigger>
             <TabsTrigger value="gallery">Gallery</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="generate" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Image Generator</CardTitle>
+                <CardDescription>
+                  Generate AI images of historical events using DALL-E
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ImageGeneratorUI onImageGenerated={handleGeneratedImage} suppressHeader={true} />
+              </CardContent>
+            </Card>
+          </TabsContent>
           
           <TabsContent value="upload" className="space-y-6">
             <Card>
@@ -662,23 +675,6 @@ const ImageUpload = () => {
                 </CardContent>
               </Card>
             )}
-          </TabsContent>
-          
-          <TabsContent value="generate">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wand2 className="h-5 w-5" />
-                  AI Image Generator
-                </CardTitle>
-                <CardDescription>
-                  Generate AI images of historical events using DALL-E
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ImageGeneratorUI onImageGenerated={handleGeneratedImage} />
-              </CardContent>
-            </Card>
           </TabsContent>
           
           <TabsContent value="gallery">

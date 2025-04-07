@@ -81,6 +81,18 @@ export interface ImageDataDB {
   source?: string | null;
 }
 
+// Interface for batch image generation row from XLSX
+export interface ImageGenerationRow {
+  title: string;
+  description: string;
+  year: number;
+  gps: { lat: number; lng: number };
+  date?: string;
+  address?: string;
+  mature?: boolean;
+  true_event?: boolean;
+}
+
 // Interface for image generation response from the agent
 export interface ImageGenerationResponse {
   imageUrl: string;
@@ -99,4 +111,7 @@ export interface ImageGenerationResponse {
     source: string;
   };
   logs: string[];
+  status?: "success" | "error";
+  error?: string;
 }
+

@@ -1,4 +1,3 @@
-
 // Types representing Supabase database tables
 
 export interface AgentTaskDB {
