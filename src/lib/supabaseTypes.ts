@@ -81,6 +81,33 @@ export interface TaskMemoryDB {
   timestamp: string;
 }
 
+// Define the ImageDB interface to match what's expected in the database
+export interface ImageDB {
+  id: string;
+  title: string | null;
+  description: string | null;
+  date: string | null;
+  year: number | null;
+  location: string | null;
+  gps: any | null;
+  is_true_event: boolean | null;
+  is_ai_generated: boolean | null;
+  ready_for_game: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+  image_url: string | null;
+  description_image_url: string | null;
+  // Extended fields
+  is_mature_content?: boolean | null;
+  accuracy_description?: number | null;
+  accuracy_date?: number | null;
+  accuracy_location?: number | null;
+  accuracy_historical?: number | null;
+  accuracy_realness?: number | null;
+  accuracy_maturity?: number | null;
+  manual_override?: boolean | null;
+}
+
 // Command templates based on agent type
 export const AGENT_COMMAND_TEMPLATES: Record<string, string[]> = {
   'Writer': [

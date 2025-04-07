@@ -53,3 +53,29 @@ export interface AppComponentDB {
   created_at: string;
   updated_at: string;
 }
+
+// Interface for image data coming from the database
+export interface ImageDataDB {
+  id: string;
+  title: string | null;
+  description: string | null;
+  date: string | null;
+  year: number | null;
+  location: string | null;
+  gps: any | null;
+  is_true_event: boolean | null;
+  is_ai_generated: boolean | null;
+  ready_for_game: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+  image_url: string | null;
+  description_image_url: string | null;
+  is_mature_content?: boolean | null;
+  accuracy_description?: number | null;
+  accuracy_date?: number | null;
+  accuracy_location?: number | null;
+  accuracy_historical?: number | null;
+  accuracy_realness?: number | null;
+  accuracy_maturity?: number | null;
+  manual_override?: boolean | null;
+}

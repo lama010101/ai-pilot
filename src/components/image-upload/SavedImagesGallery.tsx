@@ -83,15 +83,15 @@ const SavedImagesGallery = () => {
         ready_for_game: item.ready_for_game,
         image_url: item.image_url,
         description_image_url: item.description_image_url,
-        // Add fields that might not be in the database yet but are in our interface
-        is_mature_content: item.is_mature_content ?? false,
+        // Handle fields that might not be in the database yet
+        is_mature_content: item.is_mature_content ?? null,
         accuracy_description: item.accuracy_description ?? null,
         accuracy_date: item.accuracy_date ?? null,
         accuracy_location: item.accuracy_location ?? null,
         accuracy_historical: item.accuracy_historical ?? null,
         accuracy_realness: item.accuracy_realness ?? null,
         accuracy_maturity: item.accuracy_maturity ?? null,
-        manual_override: item.manual_override ?? false,
+        manual_override: item.manual_override ?? null,
         created_at: item.created_at,
         updated_at: item.updated_at
       })) || [];
