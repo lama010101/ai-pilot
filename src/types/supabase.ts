@@ -151,7 +151,7 @@ export interface ImageGenerationRow {
   title: string;
   description: string;
   year: number;
-  gps: { lat: number; lng: number };
+  gps: GPSCoordinates;
   date?: string;
   address?: string;
   mature?: boolean;

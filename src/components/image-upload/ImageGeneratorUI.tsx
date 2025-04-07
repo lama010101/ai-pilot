@@ -89,7 +89,6 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       setLogs([`${new Date().toLocaleTimeString()} - Starting image generation...`]);
       setActiveTab('logs');
 
-      // Save prompt to history
       if (prompt.trim()) {
         savePrompt(prompt);
       }
@@ -98,7 +97,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
         body: {
           manualPrompt: prompt,
           autoMode: isAutoMode,
-          source: 'dalle', // Currently only supporting DALL-E
+          source: 'dalle',
           mode: 'manual'
         }
       });
@@ -280,7 +279,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
           validRows.push(result.data);
         } else {
           invalidRowsList.push({
-            row: index + 2, // +2 because Excel is 1-indexed and we have a header row
+            row: index + 2,
             reason: result.reason || 'Unknown validation error'
           });
           
@@ -359,9 +358,9 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                 date: row.date,
                 address: row.address,
                 location: row.address,
-                gps: row.gps ? { 
-                  lat: row.gps.lat, 
-                  lng: row.gps.lng || row.gps.lon 
+                gps: row.gps ? {
+                  lat: row.gps.lat,
+                  lng: row.gps.lng || row.gps.lng
                 } : null,
                 is_true_event: row.true_event || false,
                 is_ai_generated: true,
