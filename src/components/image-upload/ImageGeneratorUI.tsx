@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -360,7 +359,10 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                 date: row.date,
                 address: row.address,
                 location: row.address,
-                gps: { lat: row.gps.lat, lon: row.gps.lng },
+                gps: row.gps ? { 
+                  lat: row.gps.lat, 
+                  lng: row.gps.lng || row.gps.lon 
+                } : null,
                 is_true_event: row.true_event || false,
                 is_ai_generated: true,
                 ready_for_game: false,

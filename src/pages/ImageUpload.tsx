@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -26,7 +25,11 @@ export interface ProcessedImage {
     date: string | null;
     year: number | null;
     location: string | null;
-    gps: { lat: number; lng: number } | null;
+    gps: { 
+      lat: number; 
+      lng?: number; 
+      lon?: number; 
+    } | null;
     is_true_event: boolean;
     is_ai_generated: boolean;
     is_mature_content?: boolean;
@@ -215,8 +218,11 @@ const ImageUpload = () => {
               year: matchedMetadata.year ? parseInt(matchedMetadata.year) : metadata.year,
               location: matchedMetadata.location || metadata.location,
               gps: matchedMetadata.gps || (matchedMetadata.latitude && matchedMetadata.longitude 
-                ? { lat: parseFloat(matchedMetadata.latitude), lon: parseFloat(matchedMetadata.longitude) } 
-                : metadata.gps),
+                ? { 
+                    lat: parseFloat(matchedMetadata.latitude), 
+                    lng: parseFloat(matchedMetadata.longitude) 
+                  } 
+                : null),
               is_true_event: matchedMetadata.is_historical !== undefined 
                 ? !!matchedMetadata.is_historical 
                 : metadata.is_true_event,

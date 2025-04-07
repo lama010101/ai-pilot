@@ -1,5 +1,66 @@
+import { Json } from "@/integrations/supabase/types";
 
-// Custom types for tables not yet reflected in the generated Supabase types
+// Modify the GPS type to include both 'lng' and 'lon' to maintain flexibility
+export type GPSCoordinates = { 
+  lat: number; 
+  lng?: number; 
+  lon?: number; 
+};
+
+// Update interfaces to use the new GPS type
+export interface ImageGenerationResponse {
+  imageUrl: string;
+  promptUsed: string;
+  metadata: {
+    title: string;
+    description: string;
+    year: number | null;
+    date: string | null;
+    address: string | null;
+    gps: GPSCoordinates | null;
+    ai_generated: boolean;
+    true_event: boolean;
+    ready: boolean;
+    mature: boolean;
+    source: string;
+  };
+  logs: string[];
+  status?: "success" | "error";
+  error?: string;
+}
+
+// Similar updates for other interfaces that use GPS coordinates
+export interface ProcessedImage {
+  originalFileName: string;
+  descFileName: string;
+  metadata: {
+    title: string | null;
+    description: string | null;
+    date: string | null;
+    year: number | null;
+    location: string | null;
+    gps: GPSCoordinates | null;
+    is_true_event: boolean;
+    is_ai_generated: boolean;
+    is_mature_content?: boolean;
+    manual_override?: boolean;
+    accuracy_description?: number;
+    accuracy_date?: number;
+    accuracy_location?: number;
+    accuracy_historical?: number;
+    accuracy_realness?: number;
+    accuracy_maturity?: number;
+    source?: string;
+    country?: string;
+    short_description?: string;
+    detailed_description?: string;
+    hints?: any;
+  };
+  imageUrl: string;
+  descriptionImageUrl: string;
+  ready_for_game?: boolean;
+  selected?: boolean;
+}
 
 export interface AppBuildDB {
   id: string;
@@ -95,28 +156,6 @@ export interface ImageGenerationRow {
   address?: string;
   mature?: boolean;
   true_event?: boolean;
-}
-
-// Interface for image generation response from the agent
-export interface ImageGenerationResponse {
-  imageUrl: string;
-  promptUsed: string;
-  metadata: {
-    title: string;
-    description: string;
-    year: number | null;
-    date: string | null;
-    address: string | null;
-    gps: { lat: number; lng: number; } | null;
-    ai_generated: boolean;
-    true_event: boolean;
-    ready: boolean;
-    mature: boolean;
-    source: string;
-  };
-  logs: string[];
-  status?: "success" | "error";
-  error?: string;
 }
 
 // Interface for writer prompt entry
