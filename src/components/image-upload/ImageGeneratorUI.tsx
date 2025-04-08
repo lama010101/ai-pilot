@@ -498,10 +498,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
               </div>
               
               <SavedPromptsList 
-                prompts={savedPrompts}
                 onSelectPrompt={(text) => setPrompt(text)}
-                onRemovePrompt={removePrompt}
-                onClearAll={clearAllPrompts}
               />
               
               <div className="space-y-4">
