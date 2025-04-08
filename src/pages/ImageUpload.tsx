@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -49,6 +48,9 @@ export interface ProcessedImage {
   };
   imageUrl: string;
   descriptionImageUrl: string;
+  mobileUrl: string;
+  tabletUrl: string;
+  desktopUrl: string;
   ready_for_game?: boolean;
   selected?: boolean;
 }
@@ -245,6 +247,9 @@ const ImageUpload = () => {
           metadata,
           imageUrl,
           descriptionImageUrl: imageUrl,
+          mobileUrl: imageUrl,
+          tabletUrl: imageUrl,
+          desktopUrl: imageUrl,
           ready_for_game: false,
           selected: true
         });
@@ -369,7 +374,6 @@ const ImageUpload = () => {
         selectedImages.map(async (img) => {
           addToLog(`Saving image "${img.originalFileName}" to database...`);
           
-          // Ensure all required fields are present with default values if needed
           const imageData = {
             title: img.metadata.title,
             description: img.metadata.description,
@@ -565,6 +569,9 @@ const ImageUpload = () => {
       },
       imageUrl: response.imageUrl,
       descriptionImageUrl: response.imageUrl, // Use same image for description
+      mobileUrl: response.imageUrl, // Initialize with original image URL 
+      tabletUrl: response.imageUrl, // Initialize with original image URL
+      desktopUrl: response.imageUrl, // Initialize with original image URL
       ready_for_game: response.metadata.ready,
       selected: true
     };

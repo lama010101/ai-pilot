@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Check, X, Edit, Save, Eye } from "lucide-react";
-import { ProcessedImage } from '@/pages/ImageUpload';
+import { ProcessedImage } from '@/types/supabase';
 import {
   Table,
   TableBody,
@@ -89,9 +89,9 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
   const formatImageForViewer = (image: ProcessedImage) => {
     return {
       url: image.imageUrl || '',
-      mobileUrl: image.mobileUrl,
-      tabletUrl: image.tabletUrl,
-      desktopUrl: image.desktopUrl,
+      mobileUrl: image.mobileUrl || image.imageUrl || '',
+      tabletUrl: image.tabletUrl || image.imageUrl || '',
+      desktopUrl: image.desktopUrl || image.imageUrl || '',
       title: image.metadata.title || '',
       description: image.metadata.description || '',
       date: image.metadata.date || null,
