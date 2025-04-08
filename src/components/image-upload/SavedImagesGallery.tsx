@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +8,15 @@ import { ImageDB } from '@/types/supabase';
 
 interface SavedImagesGalleryProps {
   images: ImageDB[];
-  onImageClick: (image: ImageDB) => void;
+  onImageClick?: (image: ImageDB) => void;
+  isLoading?: boolean;
 }
 
-const SavedImagesGallery: React.FC<SavedImagesGalleryProps> = ({ images, onImageClick }) => {
+const SavedImagesGallery: React.FC<SavedImagesGalleryProps> = ({ 
+  images, 
+  onImageClick,
+  isLoading = false
+}) => {
   const [selectedImage, setSelectedImage] = useState<ImageDB | null>(null);
 
   useEffect(() => {
@@ -21,7 +27,9 @@ const SavedImagesGallery: React.FC<SavedImagesGalleryProps> = ({ images, onImage
 
   const handleImageClick = (image: ImageDB) => {
     setSelectedImage(image);
-    onImageClick(image);
+    if (onImageClick) {
+      onImageClick(image);
+    }
   };
 
   const formatImageForViewer = (image: ImageDB) => {
@@ -60,30 +68,40 @@ const SavedImagesGallery: React.FC<SavedImagesGalleryProps> = ({ images, onImage
       </CardHeader>
       <CardContent className="h-[400px]">
         <ScrollArea className="h-full">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
-            {images.map((image) => (
-              <div
-                key={image.id}
-                className={`relative aspect-square overflow-hidden rounded-md cursor-pointer hover:opacity-75 transition-opacity ${selectedImage?.id === image.id ? 'ring-2 ring-primary ring-offset-1' : ''}`}
-                onClick={() => handleImageClick(image)}
-              >
-                {image.image_url ? (
-                  <img
-                    src={image.image_url}
-                    alt={image.title || 'Image'}
-                    className="object-cover w-full h-full"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center w-full h-full bg-muted">
-                    <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                )}
-                {image.is_ai_generated && (
-                  <Badge className="absolute top-2 left-2">AI</Badge>
-                )}
-              </div>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">Loading images...</p>
+            </div>
+          ) : images.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">No saved images yet</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+              {images.map((image) => (
+                <div
+                  key={image.id}
+                  className={`relative aspect-square overflow-hidden rounded-md cursor-pointer hover:opacity-75 transition-opacity ${selectedImage?.id === image.id ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+                  onClick={() => handleImageClick(image)}
+                >
+                  {image.image_url ? (
+                    <img
+                      src={image.image_url}
+                      alt={image.title || 'Image'}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center w-full h-full bg-muted">
+                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  {image.is_ai_generated && (
+                    <Badge className="absolute top-2 left-2">AI</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </ScrollArea>
       </CardContent>
     </Card>

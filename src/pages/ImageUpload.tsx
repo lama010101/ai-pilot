@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UploadCloud, ImagePlus, CheckCircle, AlertCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -19,6 +19,7 @@ import ImageGeneratorUI from "@/components/image-upload/ImageGeneratorUI";
 import SavedImagesGallery from "@/components/image-upload/SavedImagesGallery";
 import BackfillImagesButton from "@/components/image-upload/BackfillImagesButton";
 import { ProcessedImage, ImageDB } from '@/types/supabase';
+import * as XLSX from 'xlsx';
 
 interface Metadata {
   title?: string;
@@ -58,14 +59,11 @@ const ImageUpload = () => {
   const [isLoadingImages, setIsLoadingImages] = useState(true);
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<any>(null);
-  const { toast } = useToast();
 
-  // Load images on mount
   useEffect(() => {
     fetchImages();
   }, []);
 
-  // Function to fetch images from Supabase
   const fetchImages = async () => {
     setIsLoadingImages(true);
     try {
@@ -78,7 +76,14 @@ const ImageUpload = () => {
         throw new Error(error.message);
       }
 
-      setAllImages(data || []);
+      const processedData = data?.map(img => ({
+        ...img,
+        image_mobile_url: img.image_mobile_url || img.image_url,
+        image_tablet_url: img.image_tablet_url || img.image_url,
+        image_desktop_url: img.image_desktop_url || img.image_url
+      })) as ImageDB[];
+
+      setAllImages(processedData || []);
     } catch (error: any) {
       toast({
         title: "Error fetching images",
@@ -90,12 +95,10 @@ const ImageUpload = () => {
     }
   };
 
-  // Function to handle successful image upload and processing
   const handleUpload = useCallback(async (files: FileList, metadataFile: File | null = null) => {
     setIsUploading(true);
     setUploadProgress(0);
 
-    // Simulate upload progress
     const progressInterval = setInterval(() => {
       setUploadProgress(prevProgress => {
         const newProgress = prevProgress + 10;
@@ -107,7 +110,6 @@ const ImageUpload = () => {
       const uploadPromises = [];
       const uploadedFiles = [];
 
-      // Helper function to upload a single file
       const uploadFile = async (file: File): Promise<{ imageUrl: string; descriptionImageUrl: string }> => {
         const imageName = `${Date.now()}-${file.name}`;
         const imagePath = `images/${imageName}`;
@@ -123,11 +125,14 @@ const ImageUpload = () => {
           throw new Error(`File upload failed: ${error.message}`);
         }
 
-        const imageUrl = `${supabase.storageUrl}/avatars/${imagePath}`;
-        return { imageUrl, descriptionImageUrl: imageUrl }; // Assuming description image is the same
+        const { publicURL } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(imagePath);
+
+        const imageUrl = publicURL || '';
+        return { imageUrl, descriptionImageUrl: imageUrl };
       };
 
-      // Upload each file
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         uploadPromises.push(uploadFile(file));
@@ -136,13 +141,11 @@ const ImageUpload = () => {
 
       const uploadResults = await Promise.all(uploadPromises);
 
-      // Process metadata if a file is provided
       let metadataFromFile: { [key: string]: Metadata } = {};
       if (metadataFile) {
         metadataFromFile = await processMetadataFile(metadataFile);
       }
 
-      // Create ProcessedImage objects
       const newImages = uploadedFiles.map((file, index) => {
         const { imageUrl, descriptionImageUrl } = uploadResults[index];
         const metadata = metadataFromFile[file.name] || {};
@@ -179,7 +182,6 @@ const ImageUpload = () => {
     }
   }, [toast]);
 
-  // Function to process the metadata file (Excel/CSV)
   const processMetadataFile = async (file: File): Promise<{ [key: string]: Metadata }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -191,10 +193,9 @@ const ImageUpload = () => {
           const worksheet = workbook.Sheets[sheetName];
           const jsonMetadata: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-          // Transform the JSON metadata into the desired format
           const metadataMap: { [key: string]: Metadata } = {};
           jsonMetadata.forEach(item => {
-            const fileName = item['file_name'] || item['filename'] || item['name']; // Adjust key as needed
+            const fileName = item['file_name'] || item['filename'] || item['name'];
             if (fileName) {
               metadataMap[fileName] = {
                 title: item['title'],
@@ -237,7 +238,6 @@ const ImageUpload = () => {
     });
   };
 
-  // Function to toggle the selection state of an image
   const handleToggleSelection = (index: number, selected: boolean) => {
     setProcessedImages(prevImages => {
       const newImages = [...prevImages];
@@ -246,7 +246,6 @@ const ImageUpload = () => {
     });
   };
 
-  // Function to toggle the ready_for_game state of an image
   const handleToggleReadyForGame = (index: number, ready_for_game: boolean) => {
     setProcessedImages(prevImages => {
       const newImages = [...prevImages];
@@ -263,12 +262,10 @@ const ImageUpload = () => {
     });
   };
 
-  // Function to handle metadata file selection
   const handleMetadataFileSelect = (file: File | null) => {
     setMetadataFile(file);
   };
 
-  // Function to handle successful image processing
   const handleProcessingComplete = (metadata: any) => {
     setIsProcessing(false);
     setIsVerified(true);
@@ -278,7 +275,6 @@ const ImageUpload = () => {
     });
   };
 
-  // If there's a handleGeneratedImage function, update it too
   const handleGeneratedImage = useCallback((response: any) => {
     const newImage: ProcessedImage = {
       originalFileName: `generated-${Date.now()}.png`,
@@ -313,7 +309,8 @@ const ImageUpload = () => {
     };
 
     setProcessedImages(prevImages => [newImage, ...prevImages]);
-    setAllImages(prevImages => [{
+    
+    const newDbImage: ImageDB = {
       id: `generated-${Date.now()}`,
       title: response.metadata.title,
       description: response.metadata.description,
@@ -344,7 +341,9 @@ const ImageUpload = () => {
       hints: null,
       short_description: null,
       detailed_description: null
-    }, ...prevImages]);
+    };
+
+    setAllImages(prevImages => [newDbImage, ...prevImages]);
 
     toast({
       title: "Image generated",
@@ -431,6 +430,9 @@ const ImageUpload = () => {
             <SavedImagesGallery
               images={allImages}
               isLoading={isLoadingImages}
+              onImageClick={(image) => {
+                console.log("Image clicked:", image);
+              }}
             />
           </CardContent>
         </Card>

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { AppBuildDB } from '@/types/supabase';
 
@@ -58,14 +57,6 @@ export const createAppBuild = async (prompt: string, appName: string, userId: st
  */
 export const getAppBuildById = async (buildId: string) => {
   try {
-    if (!buildId) {
-      console.error('Cannot get app build: build ID is missing');
-      return { 
-        data: null, 
-        error: new Error('Build ID is required to fetch build data') 
-      };
-    }
-
     const { data, error } = await supabase
       .from('app_builds')
       .select('*')
@@ -77,9 +68,28 @@ export const getAppBuildById = async (buildId: string) => {
       return { data: null, error };
     }
     
-    return { data: data as BuildWithLogs };
+    // Convert JSON data to expected type format
+    if (data) {
+      // Handle proper type conversion for build_log
+      const buildLog = data.build_log || [];
+      const formattedData = {
+        ...data,
+        build_log: Array.isArray(buildLog) 
+          ? buildLog.map((log: any) => ({
+              step: log.step || '',
+              status: log.status || '',
+              message: log.message || '',
+              timestamp: log.timestamp || new Date().toISOString()
+            }))
+          : []
+      };
+      
+      return { data: formattedData as unknown as BuildWithLogs, error: null };
+    }
+    
+    return { data: null, error: null };
   } catch (error) {
-    console.error('Error fetching app build:', error);
+    console.error('Error in getAppBuildById:', error);
     return { data: null, error };
   }
 };

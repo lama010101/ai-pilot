@@ -1,3 +1,4 @@
+
 // Types representing Supabase database tables
 
 export interface AgentTaskDB {
@@ -116,9 +117,65 @@ export interface ImageDB {
   detailed_description: string | null;  // Added for writer detailed description
 }
 
-export interface ProcessedImage {
-  id?: string;
-  originalFileName: string;
+// Add missing types for App Builder
+export interface AppBuild {
+  id: string;
+  prompt: string;
+  status: 'processing' | 'complete' | 'failed';
+  timestamp: string;
+  previewUrl?: string;
+  exportUrl?: string;
+  appName?: string;
+  created_at?: string;
+}
+
+export interface AppBuildDB {
+  id: string;
+  prompt: string;
+  status: string;
+  timestamp: string;
+  preview_url?: string;
+  export_url?: string;
+  app_name?: string;
+  user_id?: string;
+  code?: string;
+  spec?: string;
+  build_log?: any[];
+}
+
+export interface BuildWithLogs {
+  id: string;
+  prompt: string;
+  status: string;
+  timestamp: string;
+  preview_url?: string;
+  export_url?: string;
+  app_name?: string;
+  user_id?: string;
+  code?: string;
+  spec?: string;
+  build_log: { step: string; status: string; message: string; timestamp: string; }[];
+}
+
+// Add missing types for image generation
+export interface GPSCoordinates {
+  lat: number;
+  lng: number;
+}
+
+export interface ImageGenerationRow {
+  title: string;
+  description: string;
+  year: number;
+  gps: GPSCoordinates;
+  date?: string;
+  address?: string;
+  mature?: boolean;
+  true_event?: boolean;
+}
+
+export interface ImageGenerationResponse {
+  imageUrl: string;
   metadata: {
     title?: string;
     description?: string;
@@ -126,10 +183,7 @@ export interface ProcessedImage {
     year?: number;
     location?: string;
     country?: string;
-    gps?: {
-      lat: number;
-      lng: number;
-    };
+    gps?: GPSCoordinates;
     is_true_event?: boolean;
     is_ai_generated?: boolean;
     is_mature_content?: boolean;
@@ -140,49 +194,25 @@ export interface ProcessedImage {
     accuracy_historical?: number;
     accuracy_realness?: number;
     accuracy_maturity?: number;
-    manual_override?: boolean;
-    ready?: boolean;
   };
-  imageUrl: string;
-  descriptionImageUrl: string;
-  mobileUrl?: string;
-  tabletUrl?: string;
-  desktopUrl?: string;
-  ready_for_game?: boolean;
-  selected?: boolean;
+  promptUsed?: string;
+  error?: string;
+  logs: string[];
 }
 
-export interface ImageDataDB {
+export interface WriterPromptEntry {
   id: string;
-  title: string | null;
-  description: string | null;
-  date: string | null;
-  year: number | null;
-  location: string | null;
-  gps: any | null;
-  is_true_event: boolean | null;
-  is_ai_generated: boolean | null;
-  ready_for_game: boolean | null;
-  created_at: string | null;
-  updated_at: string | null;
-  image_url: string | null;
-  description_image_url: string | null;
-  image_mobile_url: string | null;
-  image_tablet_url: string | null;
-  image_desktop_url: string | null;
-  is_mature_content: boolean | null;
-  accuracy_description: number | null;
-  accuracy_date: number | null;
-  accuracy_location: number | null;
-  accuracy_historical: number | null;
-  accuracy_realness: number | null;
-  accuracy_maturity: number | null;
-  manual_override: boolean | null;
-  source: string | null;
-  hints: any | null;
-  country: string | null;
-  short_description: string | null;
-  detailed_description: string | null;
+  prompt: string;
+  response: string;
+  created_at: string;
+}
+
+export interface WriterResponse {
+  id: string;
+  title: string;
+  description: string;
+  events: string[];
+  created_at: string;
 }
 
 // Command templates based on agent type
