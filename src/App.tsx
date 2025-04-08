@@ -28,6 +28,7 @@ import Index from "./pages/Index";
 import ImageUpload from "./pages/ImageUpload";
 import Project from "./pages/Project";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
+import { Toaster } from "sonner";
 
 // Create a QueryClient instance outside of the component function
 const queryClient = new QueryClient();
@@ -63,6 +64,7 @@ const App = () => {
         <BrowserRouter>
           <AuthProvider>
             <AppInitializer>
+              <Toaster position="top-right" richColors closeButton />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/greeting" element={<Greeting />} />
