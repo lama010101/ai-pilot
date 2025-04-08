@@ -139,6 +139,87 @@ export interface ImageDataDB {
   // Add other fields as needed
 }
 
+// Define GPSCoordinates interface
+export interface GPSCoordinates {
+  lat: number;
+  lng: number;
+  lon?: number; // Add lon as optional for compatibility
+}
+
+// Define ImageGenerationRow interface
+export interface ImageGenerationRow {
+  title: string;
+  description: string;
+  year: number;
+  gps: GPSCoordinates;
+  date?: string;
+  address?: string;
+  mature?: boolean;
+  true_event?: boolean;
+}
+
+// Define ImageGenerationResponse interface
+export interface ImageGenerationResponse {
+  imageUrl: string;
+  metadata: {
+    title?: string;
+    description?: string;
+    date?: string;
+    year?: number;
+    location?: string;
+    country?: string;
+    gps?: GPSCoordinates;
+    is_true_event?: boolean;
+    is_ai_generated?: boolean;
+    is_mature_content?: boolean;
+    source?: string;
+    accuracy_description?: number;
+    accuracy_date?: number;
+    accuracy_location?: number;
+    accuracy_historical?: number;
+    accuracy_realness?: number;
+    accuracy_maturity?: number;
+    address?: string; // Add address for compatibility
+  };
+  promptUsed?: string;
+  error?: string;
+  logs: string[];
+}
+
+// Define WriterPromptEntry interface
+export interface WriterPromptEntry {
+  id: string;
+  prompt: string;
+  response: string;
+  created_at: string;
+  title: string;
+  description: string;
+  short_description: string;
+  detailed_description: string;
+  year: number;
+  date: string;
+  address?: string;
+  country: string;
+  gps: GPSCoordinates;
+  hints: { 
+    hint_1: string; 
+    hint_2: string; 
+  };
+  selected?: boolean; // Add selected flag for UI state
+}
+
+// Define WriterResponse interface
+export interface WriterResponse {
+  id: string;
+  title: string;
+  description: string;
+  events: string[];
+  created_at: string;
+  entries: WriterPromptEntry[];
+  status?: string; // Add status for error handling
+  error?: string;  // Add error for error handling
+}
+
 // Add missing types for App Builder
 export interface AppBuild {
   id: string;

@@ -77,6 +77,8 @@ const ImageUpload = () => {
         throw new Error(error.message);
       }
 
+      // Convert the database response to our ImageDB type
+      // adding responsive image URLs if they don't exist
       const processedData = data?.map(img => ({
         ...img,
         image_mobile_url: img.image_mobile_url || img.image_url,
