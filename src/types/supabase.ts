@@ -1,87 +1,5 @@
+import { Json } from '@/integrations/supabase/types';
 
-// Types representing Supabase database tables
-
-export interface AgentTaskDB {
-  id: string;
-  agent_id: string;
-  command: string;
-  result: string;
-  confidence: number;
-  status: 'success' | 'failure' | 'processing';
-  cost?: number; // Field for cost tracking
-  parent_task_id?: string; // New field for agent-to-agent linking
-  mission_score?: number; // New field for mission compliance
-  timestamp: string;
-}
-
-export interface ActivityLogDB {
-  id: string;
-  agent_id: string;
-  action: string;
-  summary: string;
-  status: string;
-  timestamp: string;
-}
-
-export interface AgentDB {
-  id: string;
-  name: string;
-  role: string;
-  phase: number;
-  is_ephemeral: boolean;
-  last_updated: string;
-}
-
-export interface SystemStatusDB {
-  id: string;
-  type: string;
-  message: string;
-  severity: 'info' | 'warning' | 'error';
-  timestamp: string;
-}
-
-export interface AgentFeedbackDB {
-  id: string;
-  agent_id: string;
-  task_id: string;
-  rating: number;
-  comment: string;
-  timestamp: string;
-}
-
-export interface CostLogDB {
-  id: string;
-  agent_id: string;
-  task_id: string;
-  cost: number;
-  reason: string;
-  timestamp: string;
-}
-
-export interface BudgetSettingsDB {
-  monthly_limit: number;
-  kill_threshold: number;
-}
-
-export interface AppSpecDB {
-  id: string;
-  name: string;
-  description: string;
-  status: 'draft' | 'in_progress' | 'completed' | 'deployed';
-  content: string;
-  author_id: string;
-  created_at: string;
-}
-
-export interface TaskMemoryDB {
-  id: string;
-  task_id: string;
-  prompt: string;
-  result: string;
-  timestamp: string;
-}
-
-// Define the ImageDB interface to match what's expected in the database
 export interface ImageDB {
   id: string;
   title: string | null;
@@ -89,7 +7,7 @@ export interface ImageDB {
   date: string | null;
   year: number | null;
   location: string | null;
-  gps: any | null;
+  gps: Json | null;
   is_true_event: boolean | null;
   is_ai_generated: boolean | null;
   ready_for_game: boolean | null;
@@ -97,10 +15,12 @@ export interface ImageDB {
   updated_at: string | null;
   image_url: string | null;
   description_image_url: string | null;
-  // Added responsive image URL properties
+  
+  // Add these new properties for responsive images
   image_mobile_url: string | null;
   image_tablet_url: string | null;
   image_desktop_url: string | null;
+
   // Extended fields
   is_mature_content: boolean | null;
   accuracy_description: number | null;
