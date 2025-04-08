@@ -1,3 +1,4 @@
+
 import { Json } from "@/integrations/supabase/types";
 
 // Modify the GPS type to include both 'lng' and 'lon' to maintain flexibility
@@ -184,4 +185,5 @@ export interface WriterResponse {
   entries: WriterPromptEntry[];
   status: "success" | "error";
   error?: string;
+  count?: number; // Add count field to track how many prompts were requested
 }

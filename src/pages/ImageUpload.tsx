@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -60,7 +61,7 @@ interface ProjectDb {
 }
 
 const ImageUpload = () => {
-  const [activeTab, setActiveTab] = useState('generate');
+  const [activeTab, setActiveTab] = useState('writer');
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -197,12 +198,13 @@ const ImageUpload = () => {
           is_ai_generated: false,
           is_mature_content: false,
           manual_override: false,
-          accuracy_description: 0,
-          accuracy_date: 0,
-          accuracy_location: 0,
-          accuracy_historical: 0,
-          accuracy_realness: 0,
-          accuracy_maturity: 0,
+          accuracy_description: 1.0,
+          accuracy_date: 1.0,
+          accuracy_location: 1.0,
+          accuracy_historical: 1.0,
+          accuracy_realness: 1.0,
+          accuracy_maturity: 1.0,
+          source: 'manual'
         };
         
         if (metadataEntries.length > 0) {
@@ -216,22 +218,23 @@ const ImageUpload = () => {
               description: matchedMetadata.description || metadata.description,
               date: matchedMetadata.date || metadata.date,
               year: matchedMetadata.year ? parseInt(matchedMetadata.year) : metadata.year,
-              location: matchedMetadata.location || metadata.location,
+              location: matchedMetadata.location || matchedMetadata.address || metadata.location,
               gps: matchedMetadata.gps || (matchedMetadata.latitude && matchedMetadata.longitude 
                 ? { 
                     lat: parseFloat(matchedMetadata.latitude), 
                     lng: parseFloat(matchedMetadata.longitude) 
                   } 
                 : null),
+              country: matchedMetadata.country,
               is_true_event: matchedMetadata.is_historical !== undefined 
                 ? !!matchedMetadata.is_historical 
-                : metadata.is_true_event,
+                : (matchedMetadata.true_event !== undefined ? !!matchedMetadata.true_event : metadata.is_true_event),
               is_ai_generated: matchedMetadata.is_ai_generated !== undefined 
                 ? !!matchedMetadata.is_ai_generated 
                 : metadata.is_ai_generated,
               is_mature_content: matchedMetadata.is_mature_content !== undefined 
                 ? !!matchedMetadata.is_mature_content 
-                : metadata.is_mature_content,
+                : (matchedMetadata.mature !== undefined ? !!matchedMetadata.mature : metadata.is_mature_content),
             };
           }
         }
@@ -249,7 +252,8 @@ const ImageUpload = () => {
         addToLog(`Successfully processed image: ${file.name}`);
       }
       
-      setProcessedImages(processedImagesData);
+      setProcessedImages(prevImages => [...prevImages, ...processedImagesData]);
+      setActiveTab('review');
       
       toast({
         title: "Processing complete",
@@ -315,16 +319,21 @@ const ImageUpload = () => {
               year: metadata.year || img.metadata.year,
               location: metadata.address || metadata.location || img.metadata.location,
               gps: metadata.gps || img.metadata.gps,
-              is_true_event: metadata.is_historical ?? img.metadata.is_true_event,
+              country: metadata.country || img.metadata.country,
+              is_true_event: metadata.is_true_event ?? img.metadata.is_true_event,
               is_ai_generated: metadata.is_ai_generated ?? img.metadata.is_ai_generated,
               is_mature_content: metadata.is_mature_content ?? false,
-              manual_override: metadata.manual_override ?? img.metadata.manual_override ?? false,
-              accuracy_description: metadata.accuracy_description,
-              accuracy_date: metadata.accuracy_date,
-              accuracy_location: metadata.accuracy_location,
-              accuracy_historical: metadata.accuracy_historical,
-              accuracy_realness: metadata.accuracy_realness,
-              accuracy_maturity: metadata.accuracy_maturity
+              manual_override: true,
+              accuracy_description: metadata.accuracy_description ?? 1.0,
+              accuracy_date: metadata.accuracy_date ?? 1.0,
+              accuracy_location: metadata.accuracy_location ?? 1.0,
+              accuracy_historical: metadata.accuracy_historical ?? 1.0,
+              accuracy_realness: metadata.accuracy_realness ?? 1.0,
+              accuracy_maturity: metadata.accuracy_maturity ?? 1.0,
+              source: metadata.source || img.metadata.source || 'manual',
+              short_description: metadata.short_description || img.metadata.short_description,
+              detailed_description: metadata.detailed_description || img.metadata.detailed_description,
+              hints: metadata.hints || img.metadata.hints
             }
           };
         }
@@ -334,7 +343,7 @@ const ImageUpload = () => {
     
     toast({
       title: "Image metadata updated",
-      description: "The image metadata has been verified and updated",
+      description: "The image metadata has been updated",
     });
   }, [toast, addToLog]);
 
@@ -360,29 +369,37 @@ const ImageUpload = () => {
         selectedImages.map(async (img) => {
           addToLog(`Saving image "${img.originalFileName}" to database...`);
           
+          // Ensure all required fields are present with default values if needed
+          const imageData = {
+            title: img.metadata.title,
+            description: img.metadata.description,
+            date: img.metadata.date,
+            year: img.metadata.year,
+            location: img.metadata.location,
+            gps: img.metadata.gps,
+            is_true_event: img.metadata.is_true_event,
+            is_ai_generated: img.metadata.is_ai_generated,
+            ready_for_game: img.ready_for_game,
+            image_url: img.imageUrl,
+            description_image_url: img.descriptionImageUrl,
+            is_mature_content: img.metadata.is_mature_content ?? false,
+            accuracy_description: img.metadata.accuracy_description ?? 1.0,
+            accuracy_date: img.metadata.accuracy_date ?? 1.0,
+            accuracy_location: img.metadata.accuracy_location ?? 1.0,
+            accuracy_historical: img.metadata.accuracy_historical ?? 1.0,
+            accuracy_realness: img.metadata.accuracy_realness ?? 1.0,
+            accuracy_maturity: img.metadata.accuracy_maturity ?? 1.0,
+            manual_override: img.metadata.manual_override ?? true,
+            source: img.metadata.source ?? 'manual',
+            country: img.metadata.country,
+            short_description: img.metadata.short_description,
+            detailed_description: img.metadata.detailed_description,
+            hints: img.metadata.hints
+          };
+            
           const { data, error } = await supabase
             .from('images')
-            .insert({
-              title: img.metadata.title,
-              description: img.metadata.description,
-              date: img.metadata.date,
-              year: img.metadata.year,
-              location: img.metadata.location,
-              gps: img.metadata.gps,
-              is_true_event: img.metadata.is_true_event,
-              is_ai_generated: img.metadata.is_ai_generated,
-              ready_for_game: img.ready_for_game,
-              image_url: img.imageUrl,
-              description_image_url: img.descriptionImageUrl,
-              is_mature_content: img.metadata.is_mature_content,
-              accuracy_description: img.metadata.accuracy_description,
-              accuracy_date: img.metadata.accuracy_date,
-              accuracy_location: img.metadata.accuracy_location,
-              accuracy_historical: img.metadata.accuracy_historical,
-              accuracy_realness: img.metadata.accuracy_realness,
-              accuracy_maturity: img.metadata.accuracy_maturity,
-              manual_override: img.metadata.manual_override
-            } as any)
+            .insert(imageData)
             .select();
             
           if (error) {
@@ -403,7 +420,7 @@ const ImageUpload = () => {
                   body: { 
                     imageUrl: img.imageUrl,
                     imageId: img.originalFileName,
-                    metadata: img.metadata,
+                    metadata: imageData,
                     saveToGameDb: true,
                     projectId: project.supabaseId
                   }
@@ -531,13 +548,20 @@ const ImageUpload = () => {
         location: response.metadata.address,
         gps: response.metadata.gps ? {
           lat: response.metadata.gps.lat,
-          lon: response.metadata.gps.lng
+          lng: response.metadata.gps.lng || response.metadata.gps.lon
         } : null,
+        country: response.metadata.address?.split(',').pop()?.trim() || null,
         is_true_event: response.metadata.true_event,
         is_ai_generated: response.metadata.ai_generated,
         is_mature_content: response.metadata.mature,
-        manual_override: true, // Mark as manually verified
-        source: response.metadata.source
+        manual_override: true,
+        source: response.metadata.source || 'manual',
+        accuracy_description: 1.0,
+        accuracy_date: 1.0,
+        accuracy_location: 1.0,
+        accuracy_historical: 1.0,
+        accuracy_realness: 1.0,
+        accuracy_maturity: 1.0
       },
       imageUrl: response.imageUrl,
       descriptionImageUrl: response.imageUrl, // Use same image for description
@@ -546,7 +570,7 @@ const ImageUpload = () => {
     };
     
     setProcessedImages(prev => [...prev, newProcessedImage]);
-    setActiveTab('upload'); // Switch to upload tab to show review grid
+    setActiveTab('review'); // Switch to review tab to show the grid
     
     toast({
       title: "Image added to collection",
@@ -555,9 +579,9 @@ const ImageUpload = () => {
   }, [toast, addToLog]);
 
   const handlePromptsGenerated = useCallback((prompts: WriterPromptEntry[]) => {
-    console.log("Prompts generated:", prompts);
+    addToLog(`${prompts.length} prompts generated through Writer agent`);
     // This is just for tracking purposes, the actual handling happens in WriterPromptGenerator
-  }, []);
+  }, [addToLog]);
 
   return (
     <>
@@ -575,39 +599,29 @@ const ImageUpload = () => {
           </div>
         </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="generate">
+        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="writer">
           <TabsList>
-            <TabsTrigger value="generate">
-              <Wand2 className="h-4 w-4 mr-2" />
-              AI Generate
-            </TabsTrigger>
             <TabsTrigger value="writer">
               <Feather className="h-4 w-4 mr-2" />
               Writer
             </TabsTrigger>
+            <TabsTrigger value="manual">
+              <Wand2 className="h-4 w-4 mr-2" />
+              Manual
+            </TabsTrigger>
             <TabsTrigger value="upload">
               <Upload className="h-4 w-4 mr-2" />
               Upload
+            </TabsTrigger>
+            <TabsTrigger value="review">
+              <Check className="h-4 w-4 mr-2" />
+              Review Images
             </TabsTrigger>
             <TabsTrigger value="gallery">
               <Image className="h-4 w-4 mr-2" />
               Gallery
             </TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="generate" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Image Generator</CardTitle>
-                <CardDescription>
-                  Generate AI images of historical events using DALL-E
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ImageGeneratorUI onImageGenerated={handleGeneratedImage} suppressHeader={true} />
-              </CardContent>
-            </Card>
-          </TabsContent>
           
           <TabsContent value="writer" className="space-y-6">
             <Card>
@@ -645,12 +659,26 @@ const ImageUpload = () => {
             )}
           </TabsContent>
           
+          <TabsContent value="manual" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Image Generator</CardTitle>
+                <CardDescription>
+                  Generate AI images of historical events using DALL-E
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ImageGeneratorUI onImageGenerated={handleGeneratedImage} suppressHeader={true} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
           <TabsContent value="upload" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Upload Image Files</CardTitle>
+                <CardTitle>Upload Excel Spreadsheet</CardTitle>
                 <CardDescription>
-                  Drag & drop images directly or upload ZIP files with images and their descriptions
+                  Upload an Excel or CSV file with event data to generate multiple images
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -680,8 +708,10 @@ const ImageUpload = () => {
                 </CardContent>
               </Card>
             )}
-            
-            {processedImages.length > 0 && (
+          </TabsContent>
+          
+          <TabsContent value="review" className="space-y-6">
+            {processedImages.length > 0 ? (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div>
@@ -740,6 +770,34 @@ const ImageUpload = () => {
                     onToggleReadyForGame={toggleReadyForGame}
                     onImageMetadataUpdate={handleImageMetadataUpdate}
                   />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <div className="mb-4 flex justify-center">
+                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                      <Image className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">No Images to Review</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Generate images using the Writer or Manual tabs, or upload spreadsheet data through the Upload tab.
+                  </p>
+                  <div className="mt-6 flex flex-wrap justify-center gap-4">
+                    <Button onClick={() => setActiveTab('writer')}>
+                      <Feather className="mr-2 h-4 w-4" />
+                      Use Writer
+                    </Button>
+                    <Button onClick={() => setActiveTab('manual')}>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Manual Generation
+                    </Button>
+                    <Button onClick={() => setActiveTab('upload')} variant="outline">
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload Spreadsheet
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}

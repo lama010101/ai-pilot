@@ -55,9 +55,17 @@ export const useSavedPrompts = () => {
   const clearAllPrompts = () => {
     setSavedPrompts([]);
   };
+
+  // Get sorted prompts (latest first)
+  const getSortedPrompts = () => {
+    return [...savedPrompts].sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  };
   
   return {
     savedPrompts,
+    getSortedPrompts,
     savePrompt,
     removePrompt,
     clearAllPrompts
