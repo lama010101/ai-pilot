@@ -2,248 +2,153 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Image, Check, X, Save, FileSpreadsheet, Database, Wand2, Feather } from "lucide-react";
+import { UploadCloud, ImagePlus, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import ImageUploader from '@/components/image-upload/ImageUploader';
-import ImageReviewGrid from '@/components/image-upload/ImageReviewGrid';
-import SavedImagesGallery from '@/components/image-upload/SavedImagesGallery';
-import ImageGeneratorUI from '@/components/image-upload/ImageGeneratorUI';
-import WriterPromptGenerator from '@/components/image-upload/WriterPromptGenerator';
-import * as XLSX from 'xlsx';
-import { Json } from "@/integrations/supabase/types";
-import { ImageGenerationResponse, WriterPromptEntry } from '@/types/supabase';
+import ImageUploader from "@/components/image-upload/ImageUploader";
+import ImageReviewGrid from "@/components/image-upload/ImageReviewGrid";
+import ImageProcessingButton from "@/components/image-upload/ImageProcessingButton";
+import ImageGeneratorUI from "@/components/image-upload/ImageGeneratorUI";
+import SavedImagesGallery from "@/components/image-upload/SavedImagesGallery";
+import BackfillImagesButton from "@/components/image-upload/BackfillImagesButton";
+import { ProcessedImage, ImageDB } from '@/types/supabase';
 
-export interface ProcessedImage {
-  originalFileName: string;
-  descFileName: string;
-  metadata: {
-    title: string | null;
-    description: string | null;
-    date: string | null;
-    year: number | null;
-    location: string | null;
-    gps: { 
-      lat: number; 
-      lng?: number; 
-      lon?: number; 
-    } | null;
-    is_true_event: boolean;
-    is_ai_generated: boolean;
-    is_mature_content?: boolean;
-    manual_override?: boolean;
-    accuracy_description?: number;
-    accuracy_date?: number;
-    accuracy_location?: number;
-    accuracy_historical?: number;
-    accuracy_realness?: number;
-    accuracy_maturity?: number;
-    source?: string;
-    country?: string;
-    short_description?: string;
-    detailed_description?: string;
-    hints?: any;
+interface Metadata {
+  title?: string;
+  description?: string;
+  date?: string;
+  year?: number;
+  location?: string;
+  country?: string;
+  gps?: {
+    lat: number;
+    lng: number;
   };
-  imageUrl: string;
-  descriptionImageUrl: string;
-  mobileUrl: string;
-  tabletUrl: string;
-  desktopUrl: string;
-  ready_for_game?: boolean;
-  selected?: boolean;
-}
-
-interface ProjectDb {
-  id: string;
-  name: string;
-  supabaseId: string;
-  isConnected: boolean;
+  is_true_event?: boolean;
+  is_ai_generated?: boolean;
+  is_mature_content?: boolean;
+  source?: string;
+  accuracy_description?: number;
+  accuracy_date?: number;
+  accuracy_location?: number;
+  accuracy_historical?: number;
+  accuracy_realness?: number;
+  accuracy_maturity?: number;
+  manual_override?: boolean;
+  ready?: boolean;
 }
 
 const ImageUpload = () => {
-  const [activeTab, setActiveTab] = useState('writer');
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
-  const [processLog, setProcessLog] = useState<string[]>([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [metadataFile, setMetadataFile] = useState<File | null>(null);
-  const [availableProjects, setAvailableProjects] = useState<ProjectDb[]>([
-    {
-      id: 'guess-history',
-      name: 'Guess History',
-      supabaseId: 'pbpcegbobdnqqkloousm',
-      isConnected: true
-    }
-  ]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
+  const [allImages, setAllImages] = useState<ImageDB[]>([]);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [isAutoMode, setIsAutoMode] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [isLoadingImages, setIsLoadingImages] = useState(true);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<any>(null);
   const { toast } = useToast();
 
+  // Load images on mount
   useEffect(() => {
-    try {
-      const savedImages = localStorage.getItem('processedImages');
-      if (savedImages) {
-        const parsedImages = JSON.parse(savedImages);
-        setProcessedImages(parsedImages);
-        
-        addToLog("Restored previously processed images from localStorage");
-      }
-      
-      const savedLog = localStorage.getItem('processLog');
-      if (savedLog) {
-        const parsedLog = JSON.parse(savedLog);
-        setProcessLog(parsedLog);
-      }
-    } catch (e) {
-      console.warn("Could not load state from localStorage", e);
-    }
-  }, []);
-  
-  useEffect(() => {
-    if (processedImages.length > 0) {
-      try {
-        localStorage.setItem('processedImages', JSON.stringify(processedImages));
-      } catch (e) {
-        console.warn("Could not save processed images to localStorage", e);
-      }
-    }
-  }, [processedImages]);
-  
-  useEffect(() => {
-    if (processLog.length > 0) {
-      try {
-        localStorage.setItem('processLog', JSON.stringify(processLog));
-      } catch (e) {
-        console.warn("Could not save process log to localStorage", e);
-      }
-    }
-  }, [processLog]);
-  
-  const addToLog = useCallback((message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setProcessLog(prevLog => [...prevLog, `[${timestamp}] ${message}`]);
-    
-    console.log(`[${timestamp}] ${message}`);
+    fetchImages();
   }, []);
 
-  const processMetadataFile = useCallback(async (file: File) => {
+  // Function to fetch images from Supabase
+  const fetchImages = async () => {
+    setIsLoadingImages(true);
     try {
-      addToLog(`Processing metadata file: ${file.name}`);
-      
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
-      
-      addToLog(`Found ${jsonData.length} metadata entries in Excel file`);
-      
-      return jsonData;
-    } catch (error) {
-      console.error("Error processing Excel file:", error);
-      addToLog(`ERROR: Failed to process Excel file - ${error.message}`);
-      return [];
-    }
-  }, [addToLog]);
-  
-  const findMetadataForImage = useCallback((filename: string, metadataArray: any[]) => {
-    const baseName = filename.split('.')[0];
-    return metadataArray.find(item => {
-      return (item.filename && item.filename.includes(baseName)) || 
-             (item.id && item.id.includes(baseName)) ||
-             (item.file && item.file.includes(baseName));
-    });
-  }, []);
+      const { data, error } = await supabase
+        .from('images')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const handleUpload = useCallback(async (files: FileList, metadataFile: File | null = null) => {
-    if (!files || files.length === 0) {
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setAllImages(data || []);
+    } catch (error: any) {
       toast({
-        title: "No files selected",
-        description: "Please select at least one image file to upload",
+        title: "Error fetching images",
+        description: error.message,
         variant: "destructive"
       });
-      return;
+    } finally {
+      setIsLoadingImages(false);
     }
+  };
+
+  // Function to handle successful image upload and processing
+  const handleUpload = useCallback(async (files: FileList, metadataFile: File | null = null) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    // Simulate upload progress
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prevProgress => {
+        const newProgress = prevProgress + 10;
+        return Math.min(newProgress, 95);
+      });
+    }, 300);
 
     try {
-      setIsUploading(true);
-      setIsProcessing(true);
-      addToLog(`Starting upload process for ${files.length} files`);
-      
-      let metadataEntries: any[] = [];
-      if (metadataFile) {
-        metadataEntries = await processMetadataFile(metadataFile);
-      }
-      
-      const processedImagesData: ProcessedImage[] = [];
-      
+      const uploadPromises = [];
+      const uploadedFiles = [];
+
+      // Helper function to upload a single file
+      const uploadFile = async (file: File): Promise<{ imageUrl: string; descriptionImageUrl: string }> => {
+        const imageName = `${Date.now()}-${file.name}`;
+        const imagePath = `images/${imageName}`;
+
+        const { data, error } = await supabase.storage
+          .from('avatars')
+          .upload(imagePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (error) {
+          throw new Error(`File upload failed: ${error.message}`);
+        }
+
+        const imageUrl = `${supabase.storageUrl}/avatars/${imagePath}`;
+        return { imageUrl, descriptionImageUrl: imageUrl }; // Assuming description image is the same
+      };
+
+      // Upload each file
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (!file.type.startsWith('image/')) {
-          addToLog(`Skipping non-image file: ${file.name}`);
-          continue;
-        }
-        
-        addToLog(`Processing image: ${file.name}`);
-        
-        const imageUrl = URL.createObjectURL(file);
-        
-        let metadata: ProcessedImage['metadata'] = {
-          title: file.name.split('.')[0],
-          description: null,
-          date: null,
-          year: null,
-          location: null,
-          gps: null,
-          is_true_event: false,
-          is_ai_generated: false,
-          is_mature_content: false,
-          manual_override: false,
-          accuracy_description: 1.0,
-          accuracy_date: 1.0,
-          accuracy_location: 1.0,
-          accuracy_historical: 1.0,
-          accuracy_realness: 1.0,
-          accuracy_maturity: 1.0,
-          source: 'manual'
-        };
-        
-        if (metadataEntries.length > 0) {
-          const matchedMetadata = findMetadataForImage(file.name, metadataEntries);
-          if (matchedMetadata) {
-            addToLog(`Found metadata match for ${file.name} in Excel file`);
-            
-            metadata = {
-              ...metadata,
-              title: matchedMetadata.title || metadata.title,
-              description: matchedMetadata.description || metadata.description,
-              date: matchedMetadata.date || metadata.date,
-              year: matchedMetadata.year ? parseInt(matchedMetadata.year) : metadata.year,
-              location: matchedMetadata.location || matchedMetadata.address || metadata.location,
-              gps: matchedMetadata.gps || (matchedMetadata.latitude && matchedMetadata.longitude 
-                ? { 
-                    lat: parseFloat(matchedMetadata.latitude), 
-                    lng: parseFloat(matchedMetadata.longitude) 
-                  } 
-                : null),
-              country: matchedMetadata.country,
-              is_true_event: matchedMetadata.is_historical !== undefined 
-                ? !!matchedMetadata.is_historical 
-                : (matchedMetadata.true_event !== undefined ? !!matchedMetadata.true_event : metadata.is_true_event),
-              is_ai_generated: matchedMetadata.is_ai_generated !== undefined 
-                ? !!matchedMetadata.is_ai_generated 
-                : metadata.is_ai_generated,
-              is_mature_content: matchedMetadata.is_mature_content !== undefined 
-                ? !!matchedMetadata.is_mature_content 
-                : (matchedMetadata.mature !== undefined ? !!matchedMetadata.mature : metadata.is_mature_content),
-            };
-          }
-        }
-        
-        processedImagesData.push({
+        uploadPromises.push(uploadFile(file));
+        uploadedFiles.push(file);
+      }
+
+      const uploadResults = await Promise.all(uploadPromises);
+
+      // Process metadata if a file is provided
+      let metadataFromFile: { [key: string]: Metadata } = {};
+      if (metadataFile) {
+        metadataFromFile = await processMetadataFile(metadataFile);
+      }
+
+      // Create ProcessedImage objects
+      const newImages = uploadedFiles.map((file, index) => {
+        const { imageUrl, descriptionImageUrl } = uploadResults[index];
+        const metadata = metadataFromFile[file.name] || {};
+
+        return {
           originalFileName: file.name,
-          descFileName: `desc_${file.name}`,
           metadata,
           imageUrl,
           descriptionImageUrl: imageUrl,
@@ -252,572 +157,310 @@ const ImageUpload = () => {
           desktopUrl: imageUrl,
           ready_for_game: false,
           selected: true
-        });
-        
-        addToLog(`Successfully processed image: ${file.name}`);
-      }
-      
-      setProcessedImages(prevImages => [...prevImages, ...processedImagesData]);
-      setActiveTab('review');
-      
-      toast({
-        title: "Processing complete",
-        description: `Successfully processed ${processedImagesData.length} images`,
+        };
       });
-    } catch (error) {
-      console.error("Upload error:", error);
-      addToLog(`ERROR: ${error.message || "Unknown upload error"}`);
-      
+
+      setProcessedImages(prevImages => [...prevImages, ...newImages]);
+      toast({
+        title: "Upload complete",
+        description: `Successfully uploaded ${files.length} images`,
+      });
+    } catch (error: any) {
       toast({
         title: "Upload failed",
-        description: error.message || "There was an error processing your images",
+        description: error.message,
         variant: "destructive"
       });
     } finally {
+      clearInterval(progressInterval);
+      setUploadProgress(100);
       setIsUploading(false);
-      setIsProcessing(false);
+      fetchImages();
     }
-  }, [toast, addToLog, processMetadataFile, findMetadataForImage]);
+  }, [toast]);
 
+  // Function to process the metadata file (Excel/CSV)
+  const processMetadataFile = async (file: File): Promise<{ [key: string]: Metadata }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = (e: any) => {
+        try {
+          const workbook = XLSX.read(e.target.result, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonMetadata: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+          // Transform the JSON metadata into the desired format
+          const metadataMap: { [key: string]: Metadata } = {};
+          jsonMetadata.forEach(item => {
+            const fileName = item['file_name'] || item['filename'] || item['name']; // Adjust key as needed
+            if (fileName) {
+              metadataMap[fileName] = {
+                title: item['title'],
+                description: item['description'],
+                date: item['date'],
+                year: item['year'],
+                location: item['location'],
+                country: item['country'],
+                gps: {
+                  lat: item['gps_lat'],
+                  lng: item['gps_lng']
+                },
+                is_true_event: item['is_true_event'],
+                is_ai_generated: item['is_ai_generated'],
+                is_mature_content: item['is_mature_content'],
+                source: item['source'],
+                accuracy_description: item['accuracy_description'],
+                accuracy_date: item['accuracy_date'],
+                accuracy_location: item['accuracy_location'],
+                accuracy_historical: item['accuracy_historical'],
+                accuracy_realness: item['accuracy_realness'],
+                accuracy_maturity: item['accuracy_maturity'],
+                manual_override: item['manual_override'],
+                ready: item['ready']
+              };
+            }
+          });
+
+          resolve(metadataMap);
+        } catch (error: any) {
+          reject(new Error(`Metadata processing failed: ${error.message}`));
+        }
+      };
+
+      reader.onerror = () => {
+        reject(new Error("Failed to read the metadata file."));
+      };
+
+      reader.readAsBinaryString(file);
+    });
+  };
+
+  // Function to toggle the selection state of an image
+  const handleToggleSelection = (index: number, selected: boolean) => {
+    setProcessedImages(prevImages => {
+      const newImages = [...prevImages];
+      newImages[index] = { ...newImages[index], selected };
+      return newImages;
+    });
+  };
+
+  // Function to toggle the ready_for_game state of an image
+  const handleToggleReadyForGame = (index: number, ready_for_game: boolean) => {
+    setProcessedImages(prevImages => {
+      const newImages = [...prevImages];
+      newImages[index] = { ...newImages[index], ready_for_game };
+      return newImages;
+    });
+  };
+
+  const handleImageMetadataUpdate = (index: number, metadata: any) => {
+    setProcessedImages(prevImages => {
+      const newImages = [...prevImages];
+      newImages[index] = { ...newImages[index], metadata };
+      return newImages;
+    });
+  };
+
+  // Function to handle metadata file selection
   const handleMetadataFileSelect = (file: File | null) => {
     setMetadataFile(file);
-    if (file) {
-      addToLog(`Selected metadata file: ${file.name}`);
-    }
   };
 
-  const toggleSelectAll = useCallback((selected: boolean) => {
-    setProcessedImages(prev => 
-      prev.map(img => ({ ...img, selected }))
-    );
-    addToLog(`${selected ? 'Selected' : 'Deselected'} all images`);
-  }, [addToLog]);
-
-  const toggleImageSelection = useCallback((index: number, selected: boolean) => {
-    setProcessedImages(prev => 
-      prev.map((img, i) => i === index ? { ...img, selected } : img)
-    );
-  }, []);
-
-  const toggleReadyForGame = useCallback((index: number, ready: boolean) => {
-    setProcessedImages(prev => 
-      prev.map((img, i) => i === index ? { ...img, ready_for_game: ready } : img)
-    );
-    const imageFileName = processedImages[index]?.originalFileName || `image-${index}`;
-    addToLog(`Set image "${imageFileName}" as ${ready ? 'ready' : 'not ready'} for game`);
-  }, [processedImages, addToLog]);
-
-  const handleImageMetadataUpdate = useCallback((index: number, metadata: any) => {
-    setProcessedImages(prev => 
-      prev.map((img, i) => {
-        if (i === index) {
-          const imageFileName = img.originalFileName || `image-${index}`;
-          addToLog(`Updated metadata for "${imageFileName}"`);
-          
-          return {
-            ...img,
-            metadata: {
-              ...img.metadata,
-              title: metadata.title || img.metadata.title,
-              description: metadata.description || img.metadata.description,
-              date: metadata.date || img.metadata.date,
-              year: metadata.year || img.metadata.year,
-              location: metadata.address || metadata.location || img.metadata.location,
-              gps: metadata.gps || img.metadata.gps,
-              country: metadata.country || img.metadata.country,
-              is_true_event: metadata.is_true_event ?? img.metadata.is_true_event,
-              is_ai_generated: metadata.is_ai_generated ?? img.metadata.is_ai_generated,
-              is_mature_content: metadata.is_mature_content ?? false,
-              manual_override: true,
-              accuracy_description: metadata.accuracy_description ?? 1.0,
-              accuracy_date: metadata.accuracy_date ?? 1.0,
-              accuracy_location: metadata.accuracy_location ?? 1.0,
-              accuracy_historical: metadata.accuracy_historical ?? 1.0,
-              accuracy_realness: metadata.accuracy_realness ?? 1.0,
-              accuracy_maturity: metadata.accuracy_maturity ?? 1.0,
-              source: metadata.source || img.metadata.source || 'manual',
-              short_description: metadata.short_description || img.metadata.short_description,
-              detailed_description: metadata.detailed_description || img.metadata.detailed_description,
-              hints: metadata.hints || img.metadata.hints
-            }
-          };
-        }
-        return img;
-      })
-    );
-    
+  // Function to handle successful image processing
+  const handleProcessingComplete = (metadata: any) => {
+    setIsProcessing(false);
+    setIsVerified(true);
     toast({
-      title: "Image metadata updated",
-      description: "The image metadata has been updated",
+      title: "Image processing complete",
+      description: "Successfully processed image metadata",
     });
-  }, [toast, addToLog]);
-
-  const saveToDatabase = useCallback(async () => {
-    const selectedImages = processedImages.filter(img => img.selected);
-    
-    if (selectedImages.length === 0) {
-      toast({
-        title: "No images selected",
-        description: "Please select at least one image to save",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      setIsSaving(true);
-      addToLog(`Starting database save for ${selectedImages.length} images`);
-      
-      const readyImages = selectedImages.filter(img => img.ready_for_game);
-      
-      const savedImages = await Promise.all(
-        selectedImages.map(async (img) => {
-          addToLog(`Saving image "${img.originalFileName}" to database...`);
-          
-          const imageData = {
-            title: img.metadata.title,
-            description: img.metadata.description,
-            date: img.metadata.date,
-            year: img.metadata.year,
-            location: img.metadata.location,
-            gps: img.metadata.gps,
-            is_true_event: img.metadata.is_true_event,
-            is_ai_generated: img.metadata.is_ai_generated,
-            ready_for_game: img.ready_for_game,
-            image_url: img.imageUrl,
-            description_image_url: img.descriptionImageUrl,
-            is_mature_content: img.metadata.is_mature_content ?? false,
-            accuracy_description: img.metadata.accuracy_description ?? 1.0,
-            accuracy_date: img.metadata.accuracy_date ?? 1.0,
-            accuracy_location: img.metadata.accuracy_location ?? 1.0,
-            accuracy_historical: img.metadata.accuracy_historical ?? 1.0,
-            accuracy_realness: img.metadata.accuracy_realness ?? 1.0,
-            accuracy_maturity: img.metadata.accuracy_maturity ?? 1.0,
-            manual_override: img.metadata.manual_override ?? true,
-            source: img.metadata.source ?? 'manual',
-            country: img.metadata.country,
-            short_description: img.metadata.short_description,
-            detailed_description: img.metadata.detailed_description,
-            hints: img.metadata.hints
-          };
-            
-          const { data, error } = await supabase
-            .from('images')
-            .insert(imageData)
-            .select();
-            
-          if (error) {
-            addToLog(`ERROR: Failed to save "${img.originalFileName}" - ${error.message}`);
-            throw error;
-          }
-          
-          addToLog(`Successfully saved "${img.originalFileName}" to AI Pilot DB`);
-          
-          if (img.ready_for_game && selectedProjectId) {
-            try {
-              const project = availableProjects.find(p => p.id === selectedProjectId);
-              
-              if (project && project.isConnected) {
-                addToLog(`Saving "${img.originalFileName}" to project '${project.name}'...`);
-                
-                const response = await supabase.functions.invoke('image-metadata-verification', {
-                  body: { 
-                    imageUrl: img.imageUrl,
-                    imageId: img.originalFileName,
-                    metadata: imageData,
-                    saveToGameDb: true,
-                    projectId: project.supabaseId
-                  }
-                });
-                
-                if (response.error) {
-                  addToLog(`WARNING: Could not save to project '${project.name}' - ${response.error.message}`);
-                } else {
-                  addToLog(`Successfully saved "${img.originalFileName}" to ${project.name}`);
-                }
-              } else {
-                addToLog(`WARNING: Project ${selectedProjectId} not found or not connected`);
-              }
-            } catch (projectSaveError) {
-              addToLog(`WARNING: Project save failed - ${projectSaveError.message}`);
-              console.error("Project save error:", projectSaveError);
-            }
-          }
-          
-          return data;
-        })
-      );
-      
-      let totalAccuracy = 0;
-      let accuracyCount = 0;
-      
-      selectedImages.forEach(img => {
-        const accuracies = [
-          img.metadata.accuracy_description,
-          img.metadata.accuracy_date,
-          img.metadata.accuracy_location,
-          img.metadata.accuracy_historical,
-          img.metadata.accuracy_realness,
-          img.metadata.accuracy_maturity
-        ].filter(score => score !== undefined && score !== null) as number[];
-        
-        if (accuracies.length > 0) {
-          totalAccuracy += accuracies.reduce((sum, score) => sum + score, 0) / accuracies.length;
-          accuracyCount++;
-        }
-      });
-      
-      const averageAccuracy = accuracyCount > 0 ? totalAccuracy / accuracyCount : 0;
-      
-      let summaryMessage = `${selectedImages.length} images processed.`;
-      
-      if (accuracyCount > 0) {
-        summaryMessage += ` Metadata saved with average accuracy ${averageAccuracy.toFixed(2)}.`;
-      }
-      
-      if (selectedProjectId && readyImages.length > 0) {
-        const project = availableProjects.find(p => p.id === selectedProjectId);
-        summaryMessage += ` ${readyImages.length} saved to ${project?.name || selectedProjectId}.`;
-      }
-      
-      toast({
-        title: "Images saved successfully",
-        description: summaryMessage,
-      });
-      
-      try {
-        localStorage.removeItem('processedImages');
-        localStorage.removeItem('processLog');
-      } catch (e) {
-        console.warn("Could not clear localStorage", e);
-      }
-      
-      setActiveTab('gallery');
-      
-      setProcessedImages([]);
-      setProcessLog([]);
-    } catch (error) {
-      console.error("Save error:", error);
-      toast({
-        title: "Save failed",
-        description: error.message || "Failed to save images to the database",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  }, [processedImages, toast, addToLog, selectedProjectId, availableProjects]);
-
-  const clearAllData = () => {
-    if (confirm("Are you sure you want to clear all data? This will remove all images and logs.")) {
-      setProcessedImages([]);
-      setProcessLog([]);
-      
-      try {
-        localStorage.removeItem('processedImages');
-        localStorage.removeItem('processLog');
-        localStorage.removeItem('verifiedImagesMetadata');
-        localStorage.removeItem('verifiedImageIds');
-      } catch (e) {
-        console.warn("Could not clear localStorage", e);
-      }
-      
-      toast({
-        title: "Data cleared",
-        description: "All images and logs have been cleared",
-      });
-    }
   };
 
-  const handleGeneratedImage = useCallback((response: ImageGenerationResponse) => {
-    if (!response || !response.imageUrl) {
-      toast({
-        title: "Invalid image data",
-        description: "The generated image data is incomplete",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    addToLog(`Adding AI-generated image to processed images: ${response.metadata.title}`);
-    
-    const newProcessedImage: ProcessedImage = {
-      originalFileName: `ai_generated_${Date.now()}.png`,
-      descFileName: `desc_ai_generated_${Date.now()}.png`,
+  // If there's a handleGeneratedImage function, update it too
+  const handleGeneratedImage = useCallback((response: any) => {
+    const newImage: ProcessedImage = {
+      originalFileName: `generated-${Date.now()}.png`,
       metadata: {
         title: response.metadata.title,
         description: response.metadata.description,
         date: response.metadata.date,
         year: response.metadata.year,
-        location: response.metadata.address,
-        gps: response.metadata.gps ? {
-          lat: response.metadata.gps.lat,
-          lng: response.metadata.gps.lng || response.metadata.gps.lon
-        } : null,
-        country: response.metadata.address?.split(',').pop()?.trim() || null,
-        is_true_event: response.metadata.true_event,
-        is_ai_generated: response.metadata.ai_generated,
-        is_mature_content: response.metadata.mature,
+        location: response.metadata.location,
+        country: response.metadata.country,
+        gps: response.metadata.gps,
+        is_true_event: response.metadata.is_true_event,
+        is_ai_generated: true,
+        is_mature_content: response.metadata.is_mature_content,
+        source: 'dalle',
+        accuracy_description: response.metadata.accuracy_description,
+        accuracy_date: response.metadata.accuracy_date,
+        accuracy_location: response.metadata.accuracy_location,
+        accuracy_historical: response.metadata.accuracy_historical,
+        accuracy_realness: response.metadata.accuracy_realness,
+        accuracy_maturity: response.metadata.accuracy_maturity,
         manual_override: true,
-        source: response.metadata.source || 'manual',
-        accuracy_description: 1.0,
-        accuracy_date: 1.0,
-        accuracy_location: 1.0,
-        accuracy_historical: 1.0,
-        accuracy_realness: 1.0,
-        accuracy_maturity: 1.0
+        ready: true
       },
       imageUrl: response.imageUrl,
-      descriptionImageUrl: response.imageUrl, // Use same image for description
-      mobileUrl: response.imageUrl, // Initialize with original image URL 
-      tabletUrl: response.imageUrl, // Initialize with original image URL
-      desktopUrl: response.imageUrl, // Initialize with original image URL
+      descriptionImageUrl: response.imageUrl,
+      mobileUrl: response.imageUrl,
+      tabletUrl: response.imageUrl,
+      desktopUrl: response.imageUrl,
       ready_for_game: response.metadata.ready,
       selected: true
     };
-    
-    setProcessedImages(prev => [...prev, newProcessedImage]);
-    setActiveTab('review'); // Switch to review tab to show the grid
-    
-    toast({
-      title: "Image added to collection",
-      description: "The AI-generated image has been added to your collection for review",
-    });
-  }, [toast, addToLog]);
 
-  const handlePromptsGenerated = useCallback((prompts: WriterPromptEntry[]) => {
-    addToLog(`${prompts.length} prompts generated through Writer agent`);
-    // This is just for tracking purposes, the actual handling happens in WriterPromptGenerator
-  }, [addToLog]);
+    setProcessedImages(prevImages => [newImage, ...prevImages]);
+    setAllImages(prevImages => [{
+      id: `generated-${Date.now()}`,
+      title: response.metadata.title,
+      description: response.metadata.description,
+      date: response.metadata.date,
+      year: response.metadata.year,
+      location: response.metadata.location,
+      gps: response.metadata.gps,
+      is_true_event: response.metadata.is_true_event,
+      is_ai_generated: true,
+      is_mature_content: response.metadata.is_mature_content,
+      image_url: response.imageUrl,
+      description_image_url: response.imageUrl,
+      image_mobile_url: response.imageUrl,
+      image_tablet_url: response.imageUrl,
+      image_desktop_url: response.imageUrl,
+      ready_for_game: response.metadata.ready,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      accuracy_description: response.metadata.accuracy_description,
+      accuracy_date: response.metadata.accuracy_date,
+      accuracy_location: response.metadata.accuracy_location,
+      accuracy_historical: response.metadata.accuracy_historical,
+      accuracy_realness: response.metadata.accuracy_realness,
+      accuracy_maturity: response.metadata.accuracy_maturity,
+      manual_override: true,
+      source: 'dalle',
+      country: response.metadata.country,
+      hints: null,
+      short_description: null,
+      detailed_description: null
+    }, ...prevImages]);
+
+    toast({
+      title: "Image generated",
+      description: "Successfully generated image from prompt",
+    });
+  }, [toast]);
 
   return (
     <>
       <Helmet>
-        <title>Image Upload | EventGuess</title>
+        <title>Image Upload | AI Pilot</title>
       </Helmet>
-      
+
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Image Collector</h1>
-            <p className="text-muted-foreground">
-              Upload, manage and verify images for AI Pilot projects
-            </p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold">Image Upload</h1>
+          <p className="text-muted-foreground">
+            Upload images, process metadata, and generate new images
+          </p>
         </div>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="writer">
-          <TabsList>
-            <TabsTrigger value="writer">
-              <Feather className="h-4 w-4 mr-2" />
-              Writer
-            </TabsTrigger>
-            <TabsTrigger value="manual">
-              <Wand2 className="h-4 w-4 mr-2" />
-              Manual
-            </TabsTrigger>
-            <TabsTrigger value="upload">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload
-            </TabsTrigger>
-            <TabsTrigger value="review">
-              <Check className="h-4 w-4 mr-2" />
-              Review Images
-            </TabsTrigger>
-            <TabsTrigger value="gallery">
-              <Image className="h-4 w-4 mr-2" />
-              Gallery
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="writer" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Writer Prompt Generator</CardTitle>
-                <CardDescription>
-                  Create structured prompts with metadata for historical events
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <WriterPromptGenerator 
-                  onPromptsGenerated={handlePromptsGenerated} 
-                  onImageGenerated={handleGeneratedImage}
-                  addToLog={addToLog}
-                />
-              </CardContent>
-            </Card>
-            
-            {processLog.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Processing Log</CardTitle>
-                  <CardDescription>
-                    Activity log for prompt and image generation
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-muted p-4 rounded-md max-h-40 overflow-y-auto text-sm font-mono">
-                    {processLog.map((log, index) => (
-                      <div key={index} className="py-0.5">{log}</div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="manual" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Image Generator</CardTitle>
-                <CardDescription>
-                  Generate AI images of historical events using DALL-E
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ImageGeneratorUI onImageGenerated={handleGeneratedImage} suppressHeader={true} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="upload" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upload Excel Spreadsheet</CardTitle>
-                <CardDescription>
-                  Upload an Excel or CSV file with event data to generate multiple images
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ImageUploader 
-                  onUpload={handleUpload} 
-                  isUploading={isUploading} 
-                  isProcessing={isProcessing}
-                  onMetadataFileSelect={handleMetadataFileSelect}
-                />
-              </CardContent>
-            </Card>
-            
-            {processLog.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Processing Log</CardTitle>
-                  <CardDescription>
-                    Activity log for image processing operations
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-muted p-4 rounded-md max-h-40 overflow-y-auto text-sm font-mono">
-                    {processLog.map((log, index) => (
-                      <div key={index} className="py-0.5">{log}</div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="review" className="space-y-6">
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Upload Images</CardTitle>
+            <CardDescription>
+              Upload image files and an optional metadata file to process
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ImageUploader
+              onUpload={handleUpload}
+              onMetadataFileSelect={handleMetadataFileSelect}
+              isUploading={isUploading}
+              isProcessing={isProcessing}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Image Review</CardTitle>
+            <CardDescription>
+              Review uploaded images, update metadata, and set ready status
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             {processedImages.length > 0 ? (
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div>
-                    <CardTitle>Review Images ({processedImages.length})</CardTitle>
-                    <CardDescription>
-                      Review and select images before saving to the database
-                    </CardDescription>
-                  </div>
-                  <div className="flex flex-col md:flex-row items-end md:items-center gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="select-all" 
-                        checked={processedImages.every(img => img.selected)}
-                        onCheckedChange={(checked) => toggleSelectAll(!!checked)}
-                      />
-                      <label htmlFor="select-all" className="text-sm font-medium">
-                        Select All
-                      </label>
-                    </div>
-                    
-                    <select 
-                      className="px-3 py-2 rounded-md border border-input bg-background text-sm"
-                      value={selectedProjectId}
-                      onChange={(e) => setSelectedProjectId(e.target.value)}
-                    >
-                      <option value="">Save to Pilot DB Only</option>
-                      {availableProjects.map(project => (
-                        <option key={project.id} value={project.id} disabled={!project.isConnected}>
-                          {project.name} {!project.isConnected && "(Disconnected)"}
-                        </option>
-                      ))}
-                    </select>
-                    
-                    <Button 
-                      onClick={saveToDatabase} 
-                      disabled={isSaving || !processedImages.some(img => img.selected)}
-                      className="flex items-center space-x-2"
-                    >
-                      <Save className="h-4 w-4" />
-                      <span>{isSaving ? "Saving..." : "Save to Database"}</span>
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      onClick={clearAllData}
-                      className="ml-auto md:ml-0"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ImageReviewGrid 
-                    images={processedImages}
-                    onToggleSelection={toggleImageSelection}
-                    onToggleReadyForGame={toggleReadyForGame}
-                    onImageMetadataUpdate={handleImageMetadataUpdate}
-                  />
-                </CardContent>
-              </Card>
+              <ImageReviewGrid
+                images={processedImages}
+                onToggleSelection={handleToggleSelection}
+                onToggleReadyForGame={handleToggleReadyForGame}
+                onImageMetadataUpdate={handleImageMetadataUpdate}
+              />
             ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <div className="mb-4 flex justify-center">
-                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                      <Image className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-medium mb-2">No Images to Review</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto">
-                    Generate images using the Writer or Manual tabs, or upload spreadsheet data through the Upload tab.
-                  </p>
-                  <div className="mt-6 flex flex-wrap justify-center gap-4">
-                    <Button onClick={() => setActiveTab('writer')}>
-                      <Feather className="mr-2 h-4 w-4" />
-                      Use Writer
-                    </Button>
-                    <Button onClick={() => setActiveTab('manual')}>
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Manual Generation
-                    </Button>
-                    <Button onClick={() => setActiveTab('upload')} variant="outline">
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload Spreadsheet
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex items-center justify-center h-32 text-muted-foreground">
+                No images uploaded yet
+              </div>
             )}
-          </TabsContent>
-          
-          <TabsContent value="gallery">
-            <Card>
-              <CardContent className="pt-6">
-                <SavedImagesGallery />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>AI Image Generation</CardTitle>
+            <CardDescription>
+              Generate new images using AI based on a prompt
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ImageGeneratorUI
+              onImageGenerated={handleGeneratedImage}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Saved Images</CardTitle>
+            <CardDescription>
+              View and manage previously uploaded and generated images
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SavedImagesGallery
+              images={allImages}
+              isLoading={isLoadingImages}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Backfill Images</CardTitle>
+            <CardDescription>
+              Process existing images to generate responsive versions and extract metadata
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BackfillImagesButton
+              onComplete={(result) => {
+                setBackfillResult(result);
+                setIsBackfilling(false);
+                fetchImages();
+              }}
+            />
+            {backfillResult && (
+              <div className="mt-4">
+                <h3 className="text-lg font-medium">Backfill Result</h3>
+                <p>Processed: {backfillResult.processed}</p>
+                <p>Metadata Updated: {backfillResult.metadata_updated}</p>
+                <p>Images Updated: {backfillResult.images_updated}</p>
+                <p>Failures: {backfillResult.failures}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </>
   );
