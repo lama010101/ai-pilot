@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -82,7 +81,8 @@ export function useAppBuilder() {
         timestamp: updatedBuild.timestamp,
         previewUrl: updatedBuild.preview_url,
         exportUrl: updatedBuild.export_url,
-        appName: updatedBuild.app_name
+        appName: updatedBuild.app_name,
+        created_at: updatedBuild.timestamp // Use timestamp as created_at
       };
       
       setSelectedBuild(completedBuild);

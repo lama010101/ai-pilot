@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { toast } from "sonner";
 import { getAppBuildById } from '@/lib/buildService';
@@ -59,7 +58,8 @@ export function useAppBuilderEffects(
             timestamp: updatedBuild.timestamp,
             previewUrl: updatedBuild.preview_url,
             exportUrl: updatedBuild.export_url,
-            appName: updatedBuild.app_name
+            appName: updatedBuild.app_name,
+            created_at: updatedBuild.timestamp // Use timestamp as created_at
           };
           
           // Safety: Save to localStorage with proper validation

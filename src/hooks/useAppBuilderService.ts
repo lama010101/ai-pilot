@@ -85,7 +85,8 @@ export function useAppBuilderService() {
           timestamp: buildData.timestamp,
           previewUrl: buildData.preview_url,
           exportUrl: buildData.export_url,
-          appName: buildData.app_name
+          appName: buildData.app_name,
+          created_at: buildData.timestamp // Use timestamp as created_at
         };
         
         return {

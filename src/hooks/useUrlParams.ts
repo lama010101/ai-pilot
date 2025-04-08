@@ -34,7 +34,8 @@ export function useUrlParams(
               status: buildData.status as 'processing' | 'complete' | 'failed',
               timestamp: buildData.timestamp,
               previewUrl: buildData.preview_url,
-              appName: buildData.app_name
+              appName: buildData.app_name,
+              created_at: buildData.timestamp // Use timestamp as created_at
             };
             
             onLoadBuild(build);
