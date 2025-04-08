@@ -59,6 +59,9 @@ export interface ProcessedImage {
   };
   imageUrl: string;
   descriptionImageUrl: string;
+  mobileUrl?: string;  // Added property for mobile-optimized image
+  tabletUrl?: string;  // Added property for tablet-optimized image
+  desktopUrl?: string; // Added property for desktop-optimized image
   ready_for_game?: boolean;
   selected?: boolean;
 }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -30,9 +31,9 @@ interface SavedImage {
   ready_for_game: boolean | null;
   image_url: string | null;
   description_image_url: string | null;
-  image_mobile_url?: string | null;
-  image_tablet_url?: string | null;
-  image_desktop_url?: string | null;
+  image_mobile_url: string | null;
+  image_tablet_url: string | null;
+  image_desktop_url: string | null;
   accuracy_description: number | null;
   accuracy_date: number | null;
   accuracy_location: number | null;

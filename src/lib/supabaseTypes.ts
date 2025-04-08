@@ -97,6 +97,10 @@ export interface ImageDB {
   updated_at: string | null;
   image_url: string | null;
   description_image_url: string | null;
+  // Added responsive image URL properties
+  image_mobile_url: string | null;
+  image_tablet_url: string | null;
+  image_desktop_url: string | null;
   // Extended fields
   is_mature_content: boolean | null;
   accuracy_description: number | null;
