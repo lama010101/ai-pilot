@@ -84,7 +84,7 @@ const ImageUpload = () => {
         image_mobile_url: img.image_mobile_url || img.image_url,
         image_tablet_url: img.image_tablet_url || img.image_url,
         image_desktop_url: img.image_desktop_url || img.image_url
-      })) as ImageDB[];
+      } as ImageDB));
 
       setAllImages(processedData || []);
     } catch (error: any) {
