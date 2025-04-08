@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -85,11 +86,7 @@ const ImageUpload = () => {
 
       setAllImages(processedData || []);
     } catch (error: any) {
-      toast({
-        title: "Error fetching images",
-        description: error.message,
-        variant: "destructive"
-      });
+      toast.error("Error fetching images: " + error.message);
     } finally {
       setIsLoadingImages(false);
     }
@@ -125,11 +122,11 @@ const ImageUpload = () => {
           throw new Error(`File upload failed: ${error.message}`);
         }
 
-        const { publicURL } = supabase.storage
+        const { data: urlData } = supabase.storage
           .from('avatars')
           .getPublicUrl(imagePath);
 
-        const imageUrl = publicURL || '';
+        const imageUrl = urlData.publicUrl || '';
         return { imageUrl, descriptionImageUrl: imageUrl };
       };
 
@@ -164,23 +161,16 @@ const ImageUpload = () => {
       });
 
       setProcessedImages(prevImages => [...prevImages, ...newImages]);
-      toast({
-        title: "Upload complete",
-        description: `Successfully uploaded ${files.length} images`,
-      });
+      toast.success("Successfully uploaded " + files.length + " images");
     } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      toast.error("Upload failed: " + error.message);
     } finally {
       clearInterval(progressInterval);
       setUploadProgress(100);
       setIsUploading(false);
       fetchImages();
     }
-  }, [toast]);
+  }, []);
 
   const processMetadataFile = async (file: File): Promise<{ [key: string]: Metadata }> => {
     return new Promise((resolve, reject) => {
@@ -269,10 +259,7 @@ const ImageUpload = () => {
   const handleProcessingComplete = (metadata: any) => {
     setIsProcessing(false);
     setIsVerified(true);
-    toast({
-      title: "Image processing complete",
-      description: "Successfully processed image metadata",
-    });
+    toast.success("Successfully processed image metadata");
   };
 
   const handleGeneratedImage = useCallback((response: any) => {
@@ -345,11 +332,8 @@ const ImageUpload = () => {
 
     setAllImages(prevImages => [newDbImage, ...prevImages]);
 
-    toast({
-      title: "Image generated",
-      description: "Successfully generated image from prompt",
-    });
-  }, [toast]);
+    toast.success("Successfully generated image from prompt");
+  }, []);
 
   return (
     <>

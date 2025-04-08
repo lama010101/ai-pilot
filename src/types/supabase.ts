@@ -117,6 +117,28 @@ export interface ImageDB {
   detailed_description: string | null;  // Added for writer detailed description
 }
 
+// Define the ProcessedImage interface for image handling
+export interface ProcessedImage {
+  originalFileName: string;
+  metadata: any;
+  imageUrl: string;
+  descriptionImageUrl: string;
+  mobileUrl: string;
+  tabletUrl: string;
+  desktopUrl: string;
+  ready_for_game: boolean;
+  selected: boolean;
+}
+
+// Define ImageDataDB interface
+export interface ImageDataDB {
+  id: string;
+  title: string | null;
+  description: string | null;
+  image_url: string | null;
+  // Add other fields as needed
+}
+
 // Add missing types for App Builder
 export interface AppBuild {
   id: string;
@@ -161,6 +183,7 @@ export interface BuildWithLogs {
 export interface GPSCoordinates {
   lat: number;
   lng: number;
+  lon?: number; // Add lon as optional for compatibility
 }
 
 export interface ImageGenerationRow {
@@ -194,6 +217,7 @@ export interface ImageGenerationResponse {
     accuracy_historical?: number;
     accuracy_realness?: number;
     accuracy_maturity?: number;
+    address?: string; // Add address for compatibility
   };
   promptUsed?: string;
   error?: string;
@@ -205,6 +229,20 @@ export interface WriterPromptEntry {
   prompt: string;
   response: string;
   created_at: string;
+  title: string;
+  description: string;
+  short_description: string;
+  detailed_description: string;
+  year: number;
+  date: string;
+  address?: string;
+  country: string;
+  gps: GPSCoordinates;
+  hints: { 
+    hint_1: string; 
+    hint_2: string; 
+  };
+  selected?: boolean; // Add selected flag for UI state
 }
 
 export interface WriterResponse {
@@ -213,6 +251,9 @@ export interface WriterResponse {
   description: string;
   events: string[];
   created_at: string;
+  entries: WriterPromptEntry[];
+  status?: string; // Add status for error handling
+  error?: string;  // Add error for error handling
 }
 
 // Command templates based on agent type

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ImageIcon, Wand2, Clipboard, Loader2, Save, RefreshCw, Upload, FileSpreadsheet, Info } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ImageGenerationResponse, ImageGenerationRow, GPSCoordinates } from "@/types/supabase";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -48,7 +49,6 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const { savedPrompts, savePrompt, removePrompt, clearAllPrompts } = useSavedPrompts();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
   const headerAliasMap: Record<string, string[]> = {
     "title": ["title", "Title", "name", "Name", "event", "Event"],
@@ -76,11 +76,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
 
   const generateImage = useCallback(async () => {
     if (!prompt && !isAutoMode) {
-      toast({
-        title: "Prompt required",
-        description: "Please enter a prompt or enable auto-generation mode",
-        variant: "destructive"
-      });
+      toast.error("Please enter a prompt or enable auto-generation mode");
       return;
     }
 
@@ -124,37 +120,27 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       
       setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ✅ Image generated successfully: ${data.imageUrl}`]);
       
-      toast({
-        title: "Image generated",
-        description: "Successfully generated image from prompt",
-      });
+      toast.success("Successfully generated image from prompt");
       
       if (onImageGenerated) {
         onImageGenerated(data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating image:", error);
       setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ❌ ERROR: ${error.message}`]);
       
-      toast({
-        title: "Generation failed",
-        description: error.message || "There was an error generating the image",
-        variant: "destructive"
-      });
+      toast.error(error.message || "There was an error generating the image");
     } finally {
       setIsGenerating(false);
     }
-  }, [prompt, isAutoMode, toast, onImageGenerated, savePrompt]);
+  }, [prompt, isAutoMode, savePrompt, onImageGenerated]);
 
   const copyPrompt = useCallback(() => {
     if (generatedImage?.promptUsed) {
       navigator.clipboard.writeText(generatedImage.promptUsed);
-      toast({
-        title: "Prompt copied",
-        description: "The prompt has been copied to your clipboard",
-      });
+      toast.success("The prompt has been copied to your clipboard");
     }
-  }, [generatedImage, toast]);
+  }, [generatedImage]);
 
   const refreshPrompt = useCallback(() => {
     setPrompt('');
@@ -165,11 +151,8 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     setXlsxRows([]);
     setInvalidRows([]);
     
-    toast({
-      title: "Reset",
-      description: "Prompt and generated image have been cleared",
-    });
-  }, [toast]);
+    toast.success("Prompt and generated image have been cleared");
+  }, []);
 
   const triggerFileSelect = () => {
     if (fileInputRef.current) {
@@ -251,11 +234,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     if (!file) return;
     
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-      toast({
-        title: "Invalid file format",
-        description: "Please upload an Excel file (.xlsx or .xls)",
-        variant: "destructive"
-      });
+      toast.error("Please upload an Excel file (.xlsx or .xls)");
       return;
     }
     
@@ -291,39 +270,21 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       setInvalidRows(invalidRowsList);
       
       if (validRows.length === 0) {
-        toast({
-          title: "No valid rows found",
-          description: "The Excel file doesn't contain any valid rows with required fields",
-          variant: "destructive"
-        });
+        toast.error("The Excel file doesn't contain any valid rows with required fields");
       } else {
-        toast({
-          title: "Excel file processed",
-          description: `Found ${validRows.length} valid rows${invalidRowsList.length > 0 ? ` (${invalidRowsList.length} invalid)` : ''}`,
-        });
-        
+        toast.success(`Found ${validRows.length} valid rows${invalidRowsList.length > 0 ? ` (${invalidRowsList.length} invalid)` : ''}`);
         setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - Excel processing complete. Found ${validRows.length} valid rows, ${invalidRowsList.length} invalid rows.`]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error processing Excel file:", error);
-      
-      toast({
-        title: "File processing error",
-        description: error.message || "Failed to process the Excel file",
-        variant: "destructive"
-      });
-      
+      toast.error(error.message || "Failed to process the Excel file");
       setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - Error processing Excel file: ${error.message}`]);
     }
   };
 
   const generateBatchImages = async () => {
     if (xlsxRows.length === 0) {
-      toast({
-        title: "No data to process",
-        description: "Please upload an Excel file with valid data first",
-        variant: "destructive"
-      });
+      toast.error("Please upload an Excel file with valid data first");
       return;
     }
     
@@ -360,7 +321,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                 location: row.address,
                 gps: row.gps ? {
                   lat: row.gps.lat,
-                  lng: row.gps.lng || row.gps.lon
+                  lng: row.gps.lng
                 } : null,
                 is_true_event: row.true_event || false,
                 is_ai_generated: true,
@@ -381,7 +342,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
           setBatchResults(prev => ({ ...prev, success: successCount }));
           
           setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ✅ Success: Generated image for "${row.title}"`]);
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Error generating image for row ${i}:`, error);
           failCount++;
           setBatchResults(prev => ({ ...prev, failed: failCount }));
@@ -397,19 +358,10 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       const summary = `${successCount}/${xlsxRows.length} images generated successfully${failCount > 0 ? `, ${failCount} failed` : ''}`;
       setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - Batch generation complete. ${summary}`]);
       
-      toast({
-        title: "Batch generation complete",
-        description: summary,
-      });
-    } catch (error) {
+      toast.success("Batch generation complete: " + summary);
+    } catch (error: any) {
       console.error("Batch generation error:", error);
-      
-      toast({
-        title: "Batch generation failed",
-        description: error.message || "There was an error during batch generation",
-        variant: "destructive"
-      });
-      
+      toast.error(error.message || "There was an error during batch generation");
       setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ERROR: Batch generation failed - ${error.message}`]);
     } finally {
       setIsBatchGenerating(false);
@@ -699,7 +651,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                     <div>
                       <Label>Location</Label>
                       <p className="mt-1 text-sm">
-                        {generatedImage.metadata.address || 'Unknown'}
+                        {generatedImage.metadata.location || generatedImage.metadata.address || 'Unknown'}
                       </p>
                     </div>
                     
@@ -714,7 +666,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                       <div className="col-span-2">
                         <Label>GPS Coordinates</Label>
                         <p className="mt-1 text-sm font-mono">
-                          {generatedImage.metadata.gps.lat}, {generatedImage.metadata.gps.lng || generatedImage.metadata.gps.lon}
+                          {generatedImage.metadata.gps.lat}, {generatedImage.metadata.gps.lng}
                         </p>
                       </div>
                     )}

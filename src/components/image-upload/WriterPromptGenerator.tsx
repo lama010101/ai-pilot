@@ -70,7 +70,7 @@ const WriterPromptGenerator: React.FC<WriterPromptGeneratorProps> = ({
         onPromptsGenerated(promptsWithSelection);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating prompts:', error);
       addToLog(`❌ Failed to generate prompts: ${error.message}`);
     } finally {
@@ -145,7 +145,7 @@ const WriterPromptGenerator: React.FC<WriterPromptGeneratorProps> = ({
           onImageGenerated(response);
         }
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error generating image:', error);
         addToLog(`❌ Failed to generate image: ${error.message}`);
         failureCount++;
