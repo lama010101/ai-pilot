@@ -24,17 +24,41 @@ interface ImageMetadata {
   accuracy_historical?: number;
   accuracy_realness?: number;
   accuracy_maturity?: number;
+  location?: string;
 }
 
 interface FullscreenImageViewerProps {
   isOpen: boolean;
   onClose: () => void;
   image: {
-    url: string;
+    url?: string;
     mobileUrl?: string;
     tabletUrl?: string;
     desktopUrl?: string;
-    metadata: ImageMetadata;
+    metadata?: ImageMetadata;
+    // Support for direct DB objects
+    image_url?: string;
+    description_image_url?: string;
+    image_mobile_url?: string;
+    image_tablet_url?: string;
+    image_desktop_url?: string;
+    title?: string;
+    description?: string;
+    date?: string;
+    year?: number;
+    location?: string;
+    country?: string;
+    is_true_event?: boolean;
+    is_ai_generated?: boolean;
+    is_mature_content?: boolean;
+    source?: string;
+    gps?: any;
+    accuracy_description?: number;
+    accuracy_date?: number;
+    accuracy_location?: number;
+    accuracy_historical?: number;
+    accuracy_realness?: number;
+    accuracy_maturity?: number;
   } | null;
 }
 
@@ -44,6 +68,34 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
   image
 }) => {
   if (!image) return null;
+
+  // Normalize image data structure
+  const imageUrl = image.url || image.image_url || '';
+  const mobileUrl = image.mobileUrl || image.image_mobile_url;
+  const tabletUrl = image.tabletUrl || image.image_tablet_url;
+  const desktopUrl = image.desktopUrl || image.image_desktop_url;
+
+  // Extract metadata from either nested metadata object or direct properties
+  const metadata = {
+    title: image.metadata?.title || image.title || 'Untitled',
+    description: image.metadata?.description || image.description || '',
+    date: image.metadata?.date || image.date,
+    year: image.metadata?.year || image.year,
+    address: image.metadata?.address || image.location,
+    country: image.metadata?.country || image.country,
+    latitude: image.metadata?.latitude || (image.gps?.lat),
+    longitude: image.metadata?.longitude || (image.gps?.lng || image.gps?.lon),
+    is_true_event: image.metadata?.is_true_event || image.is_true_event,
+    is_ai_generated: image.metadata?.is_ai_generated || image.is_ai_generated,
+    is_mature_content: image.metadata?.is_mature_content || image.is_mature_content,
+    source: image.metadata?.source || image.source,
+    accuracy_description: image.metadata?.accuracy_description || image.accuracy_description,
+    accuracy_date: image.metadata?.accuracy_date || image.accuracy_date,
+    accuracy_location: image.metadata?.accuracy_location || image.accuracy_location,
+    accuracy_historical: image.metadata?.accuracy_historical || image.accuracy_historical,
+    accuracy_realness: image.metadata?.accuracy_realness || image.accuracy_realness,
+    accuracy_maturity: image.metadata?.accuracy_maturity || image.accuracy_maturity
+  };
 
   const formatCoordinates = (lat?: number, lng?: number) => {
     if (!lat || !lng) return 'Not available';
@@ -61,10 +113,10 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{image.metadata.title || 'Image Details'}</DialogTitle>
+          <DialogTitle>{metadata.title || 'Image Details'}</DialogTitle>
           <DialogDescription>
-            {image.metadata.description?.substring(0, 100)}
-            {image.metadata.description && image.metadata.description.length > 100 ? '...' : ''}
+            {metadata.description?.substring(0, 100)}
+            {metadata.description && metadata.description.length > 100 ? '...' : ''}
           </DialogDescription>
         </DialogHeader>
 
@@ -73,18 +125,18 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
           <div className="md:col-span-3 space-y-4">
             <div className="aspect-square bg-muted rounded-md overflow-hidden relative">
               <img 
-                src={image.url} 
-                alt={image.metadata.title || 'Image'} 
+                src={imageUrl} 
+                alt={metadata.title || 'Image'} 
                 className="w-full h-full object-contain"
               />
               
-              {image.metadata.is_ai_generated && (
+              {metadata.is_ai_generated && (
                 <Badge variant="secondary" className="absolute top-2 right-2">
                   AI Generated
                 </Badge>
               )}
               
-              {image.metadata.is_mature_content && (
+              {metadata.is_mature_content && (
                 <Badge variant="destructive" className="absolute top-2 left-2">
                   Mature Content
                 </Badge>
@@ -92,15 +144,15 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
             </div>
             
             {/* Responsive Versions */}
-            {(image.mobileUrl || image.tabletUrl || image.desktopUrl) && (
+            {(mobileUrl || tabletUrl || desktopUrl) && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">Responsive Versions</h4>
                 <div className="grid grid-cols-3 gap-2">
-                  {image.mobileUrl && (
+                  {mobileUrl && (
                     <div className="space-y-1">
                       <div className="aspect-[9/16] bg-muted rounded-md overflow-hidden">
                         <img 
-                          src={image.mobileUrl} 
+                          src={mobileUrl} 
                           alt="Mobile" 
                           className="w-full h-full object-cover"
                         />
@@ -109,11 +161,11 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
                     </div>
                   )}
                   
-                  {image.tabletUrl && (
+                  {tabletUrl && (
                     <div className="space-y-1">
                       <div className="aspect-square bg-muted rounded-md overflow-hidden">
                         <img 
-                          src={image.tabletUrl} 
+                          src={tabletUrl} 
                           alt="Tablet" 
                           className="w-full h-full object-cover"
                         />
@@ -122,11 +174,11 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
                     </div>
                   )}
                   
-                  {image.desktopUrl && (
+                  {desktopUrl && (
                     <div className="space-y-1">
                       <div className="aspect-video bg-muted rounded-md overflow-hidden">
                         <img 
-                          src={image.desktopUrl} 
+                          src={desktopUrl} 
                           alt="Desktop" 
                           className="w-full h-full object-cover"
                         />
@@ -151,7 +203,7 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
                   <div>
                     <p className="text-sm font-medium">Date</p>
                     <p className="text-sm text-muted-foreground">
-                      {image.metadata.date || (image.metadata.year ? `Year ${image.metadata.year}` : 'Unknown')}
+                      {metadata.date || (metadata.year ? `Year ${metadata.year}` : 'Unknown')}
                     </p>
                   </div>
                 </div>
@@ -161,15 +213,15 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
                   <div>
                     <p className="text-sm font-medium">Location</p>
                     <p className="text-sm text-muted-foreground">
-                      {image.metadata.address || 'Unknown location'}
+                      {metadata.address || 'Unknown location'}
                     </p>
-                    {image.metadata.country && (
+                    {metadata.country && (
                       <p className="text-sm text-muted-foreground mt-1">
-                        Country: {image.metadata.country}
+                        Country: {metadata.country}
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
-                      GPS: {formatCoordinates(image.metadata.latitude, image.metadata.longitude)}
+                      GPS: {formatCoordinates(metadata.latitude, metadata.longitude)}
                     </p>
                   </div>
                 </div>
@@ -179,7 +231,7 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
                   <div>
                     <p className="text-sm font-medium">Source</p>
                     <p className="text-sm text-muted-foreground">
-                      {image.metadata.source || 'Unknown source'}
+                      {metadata.source || 'Unknown source'}
                     </p>
                   </div>
                 </div>
@@ -195,7 +247,7 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 flex items-center justify-center">
-                    {image.metadata.is_true_event ? 
+                    {metadata.is_true_event ? 
                       <Check className="h-4 w-4 text-green-500" /> : 
                       <X className="h-4 w-4 text-red-500" />}
                   </div>
@@ -204,7 +256,7 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
                 
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 flex items-center justify-center">
-                    {image.metadata.is_ai_generated ? 
+                    {metadata.is_ai_generated ? 
                       <Check className="h-4 w-4 text-blue-500" /> : 
                       <X className="h-4 w-4 text-gray-500" />}
                   </div>
@@ -213,7 +265,7 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
                 
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 flex items-center justify-center">
-                    {image.metadata.is_mature_content ? 
+                    {metadata.is_mature_content ? 
                       <Check className="h-4 w-4 text-amber-500" /> : 
                       <X className="h-4 w-4 text-gray-500" />}
                   </div>
@@ -225,9 +277,9 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
             <Separator />
             
             {/* Accuracy Scores */}
-            {(image.metadata.accuracy_description !== undefined || 
-              image.metadata.accuracy_date !== undefined || 
-              image.metadata.accuracy_location !== undefined) && (
+            {(metadata.accuracy_description !== undefined || 
+              metadata.accuracy_date !== undefined || 
+              metadata.accuracy_location !== undefined) && (
               <div className="space-y-3">
                 <div className="flex items-center">
                   <h3 className="text-lg font-medium">Accuracy Scores</h3>
@@ -236,12 +288,12 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
                 
                 <div className="space-y-2">
                   {[
-                    { label: 'Description', value: image.metadata.accuracy_description },
-                    { label: 'Date', value: image.metadata.accuracy_date },
-                    { label: 'Location', value: image.metadata.accuracy_location },
-                    { label: 'Historical', value: image.metadata.accuracy_historical },
-                    { label: 'Realness', value: image.metadata.accuracy_realness },
-                    { label: 'Maturity', value: image.metadata.accuracy_maturity }
+                    { label: 'Description', value: metadata.accuracy_description },
+                    { label: 'Date', value: metadata.accuracy_date },
+                    { label: 'Location', value: metadata.accuracy_location },
+                    { label: 'Historical', value: metadata.accuracy_historical },
+                    { label: 'Realness', value: metadata.accuracy_realness },
+                    { label: 'Maturity', value: metadata.accuracy_maturity }
                   ].map((accuracy, index) => {
                     if (accuracy.value === undefined) return null;
                     const { label, color } = formatAccuracyScore(accuracy.value);
@@ -258,13 +310,13 @@ const FullscreenImageViewer: React.FC<FullscreenImageViewerProps> = ({
               </div>
             )}
             
-            {image.metadata.description && (
+            {metadata.description && (
               <>
                 <Separator />
                 
                 <div className="space-y-2">
                   <h3 className="text-lg font-medium">Full Description</h3>
-                  <p className="text-sm whitespace-pre-line">{image.metadata.description}</p>
+                  <p className="text-sm whitespace-pre-line">{metadata.description}</p>
                 </div>
               </>
             )}

@@ -63,7 +63,6 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
   
   const saveEdits = (index: number) => {
     if (onImageMetadataUpdate) {
-      // Create updated metadata with manual_override flag
       const updatedMetadata = {
         ...images[index].metadata,
         ...editValues,
@@ -87,35 +86,29 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
   
   const selectedImage = selectedImageIndex !== null ? images[selectedImageIndex] : null;
 
-  const formatAsImageDB = (image: ProcessedImage): ImageDataDB => {
+  const formatImageForViewer = (image: ProcessedImage) => {
     return {
-      id: image.originalFileName || '',
-      title: image.metadata.title || null,
-      description: image.metadata.description || null,
+      url: image.imageUrl || '',
+      mobileUrl: image.mobileUrl,
+      tabletUrl: image.tabletUrl,
+      desktopUrl: image.desktopUrl,
+      title: image.metadata.title || '',
+      description: image.metadata.description || '',
       date: image.metadata.date || null,
       year: image.metadata.year || null,
       location: image.metadata.location || null,
-      gps: image.metadata.gps || null,
-      is_true_event: image.metadata.is_true_event || false,
-      is_ai_generated: image.metadata.is_ai_generated || true,
-      ready_for_game: image.ready_for_game || false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      image_url: image.imageUrl || null,
-      description_image_url: image.descriptionImageUrl || null,
-      is_mature_content: image.metadata.is_mature_content || false,
-      accuracy_description: image.metadata.accuracy_description || 1.0,
-      accuracy_date: image.metadata.accuracy_date || 1.0,
-      accuracy_location: image.metadata.accuracy_location || 1.0,
-      accuracy_historical: image.metadata.accuracy_historical || 1.0,
-      accuracy_realness: image.metadata.accuracy_realness || 1.0,
-      accuracy_maturity: image.metadata.accuracy_maturity || 1.0,
-      manual_override: image.metadata.manual_override || false,
-      source: image.metadata.source || 'manual',
-      hints: image.metadata.hints || null,
       country: image.metadata.country || null,
-      short_description: image.metadata.short_description || null,
-      detailed_description: image.metadata.detailed_description || null
+      is_true_event: image.metadata.is_true_event || false,
+      is_ai_generated: image.metadata.is_ai_generated || false,
+      is_mature_content: image.metadata.is_mature_content || false,
+      source: image.metadata.source || '',
+      gps: image.metadata.gps,
+      accuracy_description: image.metadata.accuracy_description,
+      accuracy_date: image.metadata.accuracy_date,
+      accuracy_location: image.metadata.accuracy_location,
+      accuracy_historical: image.metadata.accuracy_historical,
+      accuracy_realness: image.metadata.accuracy_realness,
+      accuracy_maturity: image.metadata.accuracy_maturity
     };
   };
 
@@ -315,7 +308,7 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
         <FullscreenImageViewer 
           isOpen={viewerOpen}
           onClose={() => setViewerOpen(false)}
-          image={formatAsImageDB(selectedImage)}
+          image={formatImageForViewer(selectedImage)}
         />
       )}
     </div>

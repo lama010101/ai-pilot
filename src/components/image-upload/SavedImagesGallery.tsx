@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -31,6 +30,9 @@ interface SavedImage {
   ready_for_game: boolean | null;
   image_url: string | null;
   description_image_url: string | null;
+  image_mobile_url?: string | null;
+  image_tablet_url?: string | null;
+  image_desktop_url?: string | null;
   accuracy_description: number | null;
   accuracy_date: number | null;
   accuracy_location: number | null;
@@ -62,7 +64,6 @@ const SavedImagesGallery = () => {
   const fetchSavedImages = async () => {
     setIsLoading(true);
     try {
-      // Fetch images from the Supabase 'images' table
       const { data, error } = await supabase
         .from('images')
         .select('*')
@@ -72,7 +73,6 @@ const SavedImagesGallery = () => {
         throw error;
       }
       
-      // Convert the data to match the SavedImage interface
       const typedImages: SavedImage[] = (data as ImageDB[]).map(item => ({
         id: item.id,
         title: item.title,
@@ -86,6 +86,9 @@ const SavedImagesGallery = () => {
         ready_for_game: item.ready_for_game,
         image_url: item.image_url,
         description_image_url: item.description_image_url,
+        image_mobile_url: item.image_mobile_url,
+        image_tablet_url: item.image_tablet_url,
+        image_desktop_url: item.image_desktop_url,
         is_mature_content: item.is_mature_content ?? null,
         accuracy_description: item.accuracy_description ?? null,
         accuracy_date: item.accuracy_date ?? null,
@@ -154,24 +157,67 @@ const SavedImagesGallery = () => {
     if (!gps) return "N/A";
     
     try {
-      // Handle GPS being an object with lat/lon properties
       if (typeof gps === 'object' && gps !== null) {
         const gpsObj = gps as Record<string, any>;
         if (gpsObj.lat !== undefined && (gpsObj.lon !== undefined || gpsObj.lng !== undefined)) {
           const lon = gpsObj.lon !== undefined ? gpsObj.lon : gpsObj.lng;
           return `${gpsObj.lat}, ${lon}`;
         }
-        // Handle GPS being an array [lat, lng]
         if (Array.isArray(gps) && gps.length >= 2) {
           return `${gps[0]}, ${gps[1]}`;
         }
       }
-      // If we can't determine the format, just stringify it
       return JSON.stringify(gps);
     } catch (e) {
       console.error("Error parsing GPS data:", e);
       return "Invalid GPS data";
     }
+  };
+
+  const formatImageForViewer = (image: SavedImage) => {
+    let latitude = null;
+    let longitude = null;
+    
+    if (image.gps) {
+      try {
+        const gpsObj = typeof image.gps === 'object' ? image.gps : JSON.parse(image.gps as string);
+        if (gpsObj.lat !== undefined) {
+          latitude = gpsObj.lat;
+          longitude = gpsObj.lng || gpsObj.lon;
+        } else if (Array.isArray(gpsObj) && gpsObj.length >= 2) {
+          latitude = gpsObj[0];
+          longitude = gpsObj[1];
+        }
+      } catch (e) {
+        console.error("Error parsing GPS data:", e);
+      }
+    }
+    
+    return {
+      url: image.image_url || '',
+      mobileUrl: image.image_mobile_url || undefined,
+      tabletUrl: image.image_tablet_url || undefined,
+      desktopUrl: image.image_desktop_url || undefined,
+      title: image.title || '',
+      description: image.description || '',
+      date: image.date || null,
+      year: image.year || null,
+      location: image.location || null,
+      country: image.country || null,
+      is_true_event: image.is_true_event || false,
+      is_ai_generated: image.is_ai_generated || false,
+      is_mature_content: image.is_mature_content || false,
+      source: image.source || '',
+      gps: image.gps,
+      latitude: latitude,
+      longitude: longitude,
+      accuracy_description: image.accuracy_description,
+      accuracy_date: image.accuracy_date,
+      accuracy_location: image.accuracy_location,
+      accuracy_historical: image.accuracy_historical,
+      accuracy_realness: image.accuracy_realness,
+      accuracy_maturity: image.accuracy_maturity
+    };
   };
 
   return (
@@ -310,7 +356,7 @@ const SavedImagesGallery = () => {
       <FullscreenImageViewer
         isOpen={viewerOpen}
         onClose={() => setViewerOpen(false)}
-        image={selectedImage}
+        image={selectedImage ? formatImageForViewer(selectedImage) : null}
       />
     </div>
   );
