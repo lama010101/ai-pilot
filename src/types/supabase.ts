@@ -146,6 +146,7 @@ export interface AppBuild {
   exportUrl?: string;
   productionUrl?: string;
   appName: string;
+  created_at: string;
 }
 
 export interface AppBuildDB {
