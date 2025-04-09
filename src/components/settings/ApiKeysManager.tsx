@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { AlertCircle, EyeIcon, EyeOffIcon, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -27,7 +26,6 @@ interface Provider {
   fields: ProviderField[];
 }
 
-// Define providers with their required fields
 const providers: Provider[] = [
   {
     id: 'dalle',
@@ -89,7 +87,6 @@ const ApiKeysManager: React.FC = () => {
   const [fieldVisibility, setFieldVisibility] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, boolean | null>>({});
   
-  // Check if user is authorized (Leader email)
   useEffect(() => {
     const leaderEmail = import.meta.env.VITE_LEADER_EMAIL;
     if (isAuthenticated && user) {
@@ -100,7 +97,6 @@ const ApiKeysManager: React.FC = () => {
     setIsLoading(false);
   }, [isAuthenticated, user]);
   
-  // Initialize field values and load existing keys
   useEffect(() => {
     if (!isAuthorized) return;
     
@@ -118,7 +114,6 @@ const ApiKeysManager: React.FC = () => {
     setFieldValues(initialValues);
     setFieldVisibility(initialVisibility);
     
-    // Load existing keys
     const loadKeys = async () => {
       const loadedValues = { ...initialValues };
       
@@ -141,7 +136,6 @@ const ApiKeysManager: React.FC = () => {
     loadKeys();
   }, [isAuthorized]);
   
-  // Handle field change
   const handleFieldChange = (providerId: string, fieldId: string, value: string) => {
     setFieldValues(prev => ({
       ...prev,
@@ -152,7 +146,6 @@ const ApiKeysManager: React.FC = () => {
     }));
   };
   
-  // Toggle field visibility
   const toggleFieldVisibility = (fieldId: string) => {
     setFieldVisibility(prev => ({
       ...prev,
@@ -160,7 +153,6 @@ const ApiKeysManager: React.FC = () => {
     }));
   };
   
-  // Save API keys for a provider
   const handleSave = async (providerId: string) => {
     try {
       setIsLoading(true);
@@ -171,11 +163,7 @@ const ApiKeysManager: React.FC = () => {
       for (const field of provider.fields) {
         const value = fieldValues[providerId][field.id];
         if (field.required && !value) {
-          toast({
-            title: "Validation Error",
-            description: `${field.label} is required for ${provider.name}`,
-            duration: 3000
-          });
+          toast.error(`${field.label} is required for ${provider.name}`);
           setIsLoading(false);
           return;
         }
@@ -183,30 +171,20 @@ const ApiKeysManager: React.FC = () => {
         await saveApiKey(field.id, value);
       }
       
-      toast({
-        title: "API Keys Saved",
-        description: `${provider.name} API keys have been securely saved`,
-        duration: 3000
-      });
+      toast.success(`${provider.name} API keys have been securely saved`);
       
-      // Reset test results for this provider
       setTestResults(prev => ({
         ...prev,
         [providerId]: null
       }));
     } catch (error) {
       console.error('Error saving API keys:', error);
-      toast({
-        title: "Error Saving Keys",
-        description: "There was an error saving your API keys. Please try again.",
-        duration: 3000
-      });
+      toast.error('There was an error saving your API keys. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
   
-  // Test API connection
   const testConnection = async (providerId: string) => {
     try {
       setIsLoading(true);
@@ -218,14 +196,9 @@ const ApiKeysManager: React.FC = () => {
       const provider = providers.find(p => p.id === providerId);
       if (!provider) return;
       
-      // Make sure all required fields are saved first
       for (const field of provider.fields) {
         if (field.required && !fieldValues[providerId][field.id]) {
-          toast({
-            title: "Missing Required Fields",
-            description: `Please save ${provider.name} API keys before testing`,
-            duration: 3000
-          });
+          toast.error(`Please save ${provider.name} API keys before testing`);
           setIsLoading(false);
           return;
         }
@@ -238,24 +211,18 @@ const ApiKeysManager: React.FC = () => {
         [providerId]: result
       }));
       
-      toast({
-        title: result ? "Connection Successful" : "Connection Failed",
-        description: result 
-          ? `Successfully connected to ${provider.name} API` 
-          : `Failed to connect to ${provider.name} API. Please check your credentials`,
-        duration: 3000
-      });
+      if (result) {
+        toast.success(`Successfully connected to ${provider.name} API`);
+      } else {
+        toast.error(`Failed to connect to ${provider.name} API. Please check your credentials`);
+      }
     } catch (error) {
       console.error('Error testing API connection:', error);
       setTestResults(prev => ({
         ...prev,
         [providerId]: false
       }));
-      toast({
-        title: "Connection Test Error",
-        description: "There was an error testing the API connection. Please try again.",
-        duration: 3000
-      });
+      toast.error('There was an error testing the API connection. Please try again.');
     } finally {
       setIsLoading(false);
     }
