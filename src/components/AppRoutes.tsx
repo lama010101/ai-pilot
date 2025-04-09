@@ -1,5 +1,5 @@
 
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
 import Chat from '@/pages/Chat';
@@ -27,9 +27,12 @@ import ApiSettings from '@/pages/ApiSettings';
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
+      {/* Default route - redirect to dashboard or image-upload */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      
       <Route path="/features" element={<Features />} />
       <Route path="/login" element={<Login />} />
+      
       <Route 
         path="/dashboard" 
         element={
@@ -186,6 +189,8 @@ const AppRoutes = () => {
           </AuthGuard>
         } 
       />
+      
+      {/* Fallback for any other route */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
