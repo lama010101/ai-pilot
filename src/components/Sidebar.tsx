@@ -1,211 +1,148 @@
 
-import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  Rocket, 
-  FileText, 
-  Users, 
-  Database, 
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  LayoutGrid,
-  MessageSquare,
-  Sparkles,
-  MemoryStick,
-  Image,
-  Key
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLocation, Link } from "react-router-dom";
+import { data } from "@/data/agents";
+import { LEADER_EMAIL } from "@/lib/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface SidebarItemProps {
-  icon: React.ReactNode;
-  label: string;
-  to: string;
-  isCollapsed: boolean;
-}
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-// Regular sidebar item
-const SidebarItem = ({ icon, label, to, isCollapsed }: SidebarItemProps) => (
-  <NavLink 
-    to={to} 
-    className={({ isActive }) => 
-      `sidebar-item ${isActive ? 'active' : ''} ${isCollapsed ? 'justify-center' : ''}`
-    }
-  >
-    {icon}
-    {!isCollapsed && <span>{label}</span>}
-  </NavLink>
-);
-
-const Sidebar = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
+export default function Sidebar({ className }: SidebarProps) {
   const location = useLocation();
-  const isDev = location.pathname.startsWith('/dashboard-dev');
-  const baseUrl = isDev ? '/dashboard-dev' : '/dashboard';
   const { user } = useAuth();
-  
-  // Check if user is leader
-  const isLeader = user?.email === import.meta.env.VITE_LEADER_EMAIL;
-
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
-  };
-  
-  const toggleSettings = () => {
-    if (!isCollapsed) {
-      setIsSettingsExpanded(!isSettingsExpanded);
-    }
-  };
+  const isLeader = user?.email === LEADER_EMAIL;
 
   return (
-    <aside 
-      className={`bg-sidebar h-screen transition-all duration-300 flex flex-col ${
-        isCollapsed ? 'w-16' : 'w-64'
-      }`}
-    >
-      <div className={`p-4 flex ${isCollapsed ? 'justify-center' : 'justify-between'} items-center border-b border-sidebar-border`}>
-        {!isCollapsed && <span className="text-lg font-semibold text-white">Pilot {isDev && "(DEV)"}</span>}
-        <button 
-          onClick={toggleSidebar} 
-          className="p-1 rounded-md hover:bg-sidebar-accent transition-colors"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-        </button>
-      </div>
-      
-      <nav className="flex-1 p-3 space-y-2">
-        <SidebarItem 
-          icon={<Rocket size={20} />} 
-          label="Pilot" 
-          to={`${baseUrl}/pilot`} 
-          isCollapsed={isCollapsed} 
-        />
-        <SidebarItem 
-          icon={<Users size={20} />} 
-          label="Agents" 
-          to={`${baseUrl}/agents`} 
-          isCollapsed={isCollapsed} 
-        />
-        <SidebarItem 
-          icon={<LayoutGrid size={20} />} 
-          label="Apps" 
-          to={`${baseUrl}/apps`} 
-          isCollapsed={isCollapsed} 
-        />
-        <SidebarItem 
-          icon={<FileText size={20} />} 
-          label="Builder" 
-          to={`${baseUrl}/builder`} 
-          isCollapsed={isCollapsed} 
-        />
-        <SidebarItem 
-          icon={<Image size={20} />} 
-          label="Images" 
-          to={`${baseUrl}/images`} 
-          isCollapsed={isCollapsed} 
-        />
-        <SidebarItem 
-          icon={<MemoryStick size={20} />} 
-          label="Memory" 
-          to={`${baseUrl}/memory`} 
-          isCollapsed={isCollapsed} 
-        />
-        <SidebarItem 
-          icon={<MessageSquare size={20} />} 
-          label="Chat" 
-          to={`${baseUrl}/chat`} 
-          isCollapsed={isCollapsed} 
-        />
-        <SidebarItem 
-          icon={<Sparkles size={20} />} 
-          label="Features" 
-          to={`${baseUrl}/features`}
-          isCollapsed={isCollapsed} 
-        />
-        
-        <div className="pt-2">
-          {isCollapsed ? (
-            <SidebarItem
-              icon={<Settings size={20} />}
-              label="Settings"
-              to={`${baseUrl}/settings`}
-              isCollapsed={isCollapsed}
-            />
-          ) : (
-            <div className="space-y-1">
-              <button
-                onClick={toggleSettings}
-                className={`sidebar-item w-full ${
-                  location.pathname.includes('/settings') ? 'active' : ''
-                }`}
+    <div className={cn("pb-12", className)}>
+      <div className="space-y-4 py-4">
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+            Dashboard
+          </h2>
+          <div className="space-y-1">
+            <Button
+              variant={location.pathname === "/dashboard" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/dashboard">Overview</Link>
+            </Button>
+            <Button
+              variant={location.pathname === "/apps" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/apps">Apps</Link>
+            </Button>
+            <Button
+              variant={location.pathname === "/memory" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/memory">Memory</Link>
+            </Button>
+            <Button
+              variant={location.pathname === "/image-upload" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/image-upload">Image Upload</Link>
+            </Button>
+          </div>
+        </div>
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+            Builder
+          </h2>
+          <div className="space-y-1">
+            <Button
+              variant={location.pathname === "/builder" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/builder">App Builder</Link>
+            </Button>
+            <Button
+              variant={location.pathname === "/chat" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/chat">Chat Builder</Link>
+            </Button>
+          </div>
+        </div>
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+            AI Agents
+          </h2>
+          <div className="space-y-1">
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-1">
+                {data.map((agent) => (
+                  <Button
+                    key={agent.id}
+                    variant={
+                      location.pathname === `/${agent.route}`
+                        ? "default"
+                        : "ghost"
+                    }
+                    className="w-full justify-start"
+                    asChild
+                  >
+                    <Link to={`/${agent.route}`}>{agent.name}</Link>
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+            Settings
+          </h2>
+          <div className="space-y-1">
+            <Button
+              variant={location.pathname === "/project" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/project">Project</Link>
+            </Button>
+            <Button
+              variant={location.pathname === "/settings/api-keys" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/settings/api-keys">API Keys</Link>
+            </Button>
+            {isLeader && (
+              <Button
+                variant={location.pathname === "/settings/api" ? "default" : "ghost"}
+                className="w-full justify-start"
+                asChild
               >
-                <Settings size={20} />
-                <span className="flex-1 text-left">Settings</span>
-                <ChevronRight
-                  size={16}
-                  className={`transition-transform duration-200 ${
-                    isSettingsExpanded ? 'rotate-90' : ''
-                  }`}
-                />
-              </button>
-              
-              {isSettingsExpanded && (
-                <div className="pl-8 space-y-1">
-                  <NavLink
-                    to={`${baseUrl}/settings`}
-                    className={({ isActive }) =>
-                      `sidebar-item ${isActive && location.pathname === `${baseUrl}/settings` ? 'active' : ''}`
-                    }
-                  >
-                    <span>General</span>
-                  </NavLink>
-                  
-                  <NavLink
-                    to={`${baseUrl}/settings/budget`}
-                    className={({ isActive }) =>
-                      `sidebar-item ${isActive ? 'active' : ''}`
-                    }
-                  >
-                    <span>Budget</span>
-                  </NavLink>
-                  
-                  {isLeader && (
-                    <NavLink
-                      to={`${baseUrl}/settings/api-keys`}
-                      className={({ isActive }) =>
-                        `sidebar-item ${isActive ? 'active' : ''}`
-                      }
-                    >
-                      <Key size={16} className="mr-2" />
-                      <span>API Keys</span>
-                    </NavLink>
-                  )}
-                  
-                  <NavLink
-                    to={`${baseUrl}/settings/developer`}
-                    className={({ isActive }) =>
-                      `sidebar-item ${isActive ? 'active' : ''}`
-                    }
-                  >
-                    <span>Developer</span>
-                  </NavLink>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </nav>
-      
-      <div className="p-3 border-t border-sidebar-border">
-        <div className={`text-xs text-muted-foreground ${isCollapsed ? 'text-center' : ''}`}>
-          {!isCollapsed && 'AI Pilot Control'}
+                <Link to="/settings/api">API Settings</Link>
+              </Button>
+            )}
+            <Button
+              variant={location.pathname === "/settings/budget" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/settings/budget">Budget</Link>
+            </Button>
+            <Button
+              variant={location.pathname === "/settings/developer" ? "default" : "ghost"}
+              className="w-full justify-start"
+              asChild
+            >
+              <Link to="/settings/developer">Developer</Link>
+            </Button>
+          </div>
         </div>
       </div>
-    </aside>
+    </div>
   );
-};
-
-export default Sidebar;
+}

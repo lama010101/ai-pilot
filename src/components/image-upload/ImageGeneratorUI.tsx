@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,13 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ImageIcon, Wand2, Clipboard, Loader2, RefreshCw } from "lucide-react";
+import { ImageIcon, Wand2, Clipboard, Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ImageGenerationResponse } from "@/types/supabase";
 import SavedPromptsList from './SavedPromptsList';
 import useSavedPrompts from '@/hooks/useSavedPrompts';
 import { useImageProviderStore, ImageProvider } from '@/stores/imageProviderStore';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getApiKey, isVertexAIConfigured } from '@/lib/apiKeyService';
 
 interface ImageGeneratorUIProps {
   onImageGenerated?: (response: ImageGenerationResponse) => void;
@@ -36,9 +38,50 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const [generatedImage, setGeneratedImage] = useState<ImageGenerationResponse | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('manual');
+  const [providerStatus, setProviderStatus] = useState<{
+    dalle: boolean;
+    vertex: boolean;
+    midjourney: boolean;
+  }>({
+    dalle: false,
+    vertex: false,
+    midjourney: false
+  });
+  const [isCheckingProviders, setIsCheckingProviders] = useState(true);
   
   const { savedPrompts, savePrompt } = useSavedPrompts();
-  const { provider, setProvider } = useImageProviderStore();
+  const { provider, setProvider, checkProviderStatus } = useImageProviderStore();
+  
+  // Check which providers are configured
+  useEffect(() => {
+    const checkProviders = async () => {
+      setIsCheckingProviders(true);
+      await checkProviderStatus();
+      setIsCheckingProviders(false);
+    };
+    
+    checkProviders();
+  }, [checkProviderStatus]);
+  
+  // Get provider status from store for UI display
+  useEffect(() => {
+    const getStatus = async () => {
+      // For DALL-E
+      const openAiKey = await getApiKey('OPENAI_API_KEY');
+      // For Vertex AI
+      const vertexConfigured = await isVertexAIConfigured();
+      // For Midjourney
+      const midjourneyKey = await getApiKey('MIDJOURNEY_API_KEY');
+      
+      setProviderStatus({
+        dalle: !!openAiKey,
+        vertex: !!vertexConfigured,
+        midjourney: !!midjourneyKey
+      });
+    };
+    
+    getStatus();
+  }, []);
   
   const addLogMessage = (message: string) => {
     const logEntry = `${new Date().toLocaleTimeString()} - ${message}`;
@@ -65,7 +108,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
         body: {
           manualPrompt: prompt,
           autoMode: isAutoMode,
-          source: provider,
+          provider: provider,
           mode: 'manual'
         }
       });
@@ -126,10 +169,23 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     toast.success("Prompt and generated image have been cleared");
   }, []);
 
+  const getProviderLabel = (providerKey: string): string => {
+    switch(providerKey) {
+      case 'dalle':
+        return 'DALL·E';
+      case 'midjourney':
+        return 'Midjourney';
+      case 'vertex':
+        return 'Vertex AI';
+      default:
+        return providerKey.charAt(0).toUpperCase() + providerKey.slice(1);
+    }
+  };
+
   const providerOptions: { value: ImageProvider; label: string }[] = [
     { value: 'dalle', label: 'DALL·E' },
-    { value: 'midjourney', label: 'Midjourney' },
-    { value: 'vertex', label: 'Vertex AI' }
+    { value: 'vertex', label: 'Vertex AI' },
+    { value: 'midjourney', label: 'Midjourney' }
   ];
 
   return (
@@ -154,8 +210,17 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   {providerOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                    <SelectItem 
+                      key={option.value} 
+                      value={option.value}
+                      disabled={isCheckingProviders || !providerStatus[option.value]}
+                    >
+                      <div className="flex items-center">
+                        {option.label}
+                        {!isCheckingProviders && !providerStatus[option.value] && (
+                          <span className="ml-2 text-xs text-muted-foreground">(Not configured)</span>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -163,6 +228,15 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
               <p className="text-xs text-muted-foreground">
                 Select which AI provider to use for image generation
               </p>
+              
+              {!isCheckingProviders && !providerStatus[provider] && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {`${getProviderLabel(provider)} is not properly configured. Please set up API keys in Settings.`}
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
             
             <div className="flex items-center space-x-2">
@@ -185,7 +259,8 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                 className="min-h-[120px] resize-y"
               />
               <p className="text-sm text-muted-foreground">
-                Be specific about the event, date, and location for best results
+                For best results, add details like date, location, and persons involved.
+                We automatically enhance your prompt with "photorealistic, ultra-detailed, 50 mm lens, natural lighting".
               </p>
             </div>
             
@@ -196,18 +271,18 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
             <div className="space-y-4">
               <Button
                 onClick={generateImage}
-                disabled={isGenerating || (!prompt && !isAutoMode)}
+                disabled={isGenerating || (!prompt && !isAutoMode) || !providerStatus[provider]}
                 className="w-full"
               >
                 {isGenerating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating with {providerOptions.find(p => p.value === provider)?.label}...
+                    Generating with {getProviderLabel(provider)}...
                   </>
                 ) : (
                   <>
                     <Wand2 className="mr-2 h-4 w-4" />
-                    Generate Image with {providerOptions.find(p => p.value === provider)?.label}
+                    Generate Image with {getProviderLabel(provider)}
                   </>
                 )}
               </Button>

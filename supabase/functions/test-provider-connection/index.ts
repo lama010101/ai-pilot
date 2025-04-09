@@ -1,174 +1,130 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { corsHeaders } from '../_shared/cors.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
-interface ProviderConfig {
-  name: string;
-  endpointUrl: string;
-  keyRequired: boolean;
-  keyName: string;
-  defaultModel: string;
-  maxPromptLength: number;
-  models: string[];
-}
-
-const providerConfigs: Record<string, ProviderConfig> = {
-  dalle: {
-    name: 'DALL·E',
-    endpointUrl: 'https://api.openai.com/v1/models',
-    keyRequired: true,
-    keyName: 'OPENAI_API_KEY',
-    defaultModel: 'dall-e-3',
-    maxPromptLength: 4000,
-    models: ['dall-e-3', 'dall-e-2']
-  },
-  midjourney: {
-    name: 'Midjourney',
-    endpointUrl: 'https://api.midjourney.com/v1/models',
-    keyRequired: true,
-    keyName: 'MIDJOURNEY_API_KEY',
-    defaultModel: 'midjourney-5',
-    maxPromptLength: 6000,
-    models: ['midjourney-5', 'midjourney-4']
-  },
-  vertex: {
-    name: 'Vertex AI',
-    endpointUrl: 'https://us-central1-aiplatform.googleapis.com/v1/models',
-    keyRequired: true,
-    keyName: 'VERTEX_AI_API_KEY',
-    defaultModel: 'imagegeneration',
-    maxPromptLength: 4000,
-    models: ['imagegeneration']
-  }
+// CORS headers for cross-origin requests
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Supabase client
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Test OpenAI/DALL-E connection
+async function testDallEConnection(apiKey: string): Promise<boolean> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/models', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+    
+    return response.ok;
+  } catch (error) {
+    console.error('Error testing DALL-E connection:', error);
+    return false;
+  }
+}
+
+// Test Vertex AI connection
+async function testVertexConnection(apiKey: string, projectId: string): Promise<boolean> {
+  try {
+    // For Vertex, we'll test if we can list models or access their API
+    const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/models`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+    
+    return response.ok;
+  } catch (error) {
+    console.error('Error testing Vertex AI connection:', error);
+    return false;
+  }
+}
+
+// Test Midjourney connection (placeholder)
+async function testMidjourneyConnection(apiKey: string): Promise<boolean> {
+  // Midjourney doesn't have a public API yet, so this is a placeholder
+  console.log('Testing Midjourney connection is not implemented yet');
+  return false;
+}
+
 serve(async (req) => {
+  console.log(`Received ${req.method} request to test-provider-connection`);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
   
   try {
     const { provider } = await req.json();
     
-    if (!provider || !providerConfigs[provider]) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid provider' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+    if (!provider) {
+      throw new Error('Provider is required');
     }
     
-    // Create Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    let success = false;
     
-    const config = providerConfigs[provider];
-    
-    // Get API key from database
-    const { data: keyData, error: keyError } = await supabaseClient
-      .from('api_keys')
-      .select('key_value')
-      .eq('key_name', config.keyName)
-      .maybeSingle();
-      
-    if (keyError) {
-      throw keyError;
-    }
-    
-    if (!keyData?.key_value) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'API key not found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-    
-    // Test the API connection (implementation varies by provider)
-    let testResult = false;
-    
+    // Get the appropriate API key from Supabase
     switch (provider) {
       case 'dalle':
-        // Test OpenAI connection
-        const openaiResponse = await fetch(config.endpointUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${keyData.key_value}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        testResult = openaiResponse.status === 200;
-        break;
-        
-      case 'midjourney':
-        // Test Midjourney connection (simplified for this example)
-        // In reality, we'd need to use the actual Midjourney API endpoints
-        const mjResponse = await fetch(config.endpointUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${keyData.key_value}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        testResult = mjResponse.status === 200;
+        const openaiKey = Deno.env.get('OPENAI_API_KEY') || '';
+        if (!openaiKey) {
+          throw new Error('OpenAI API key is not configured');
+        }
+        success = await testDallEConnection(openaiKey);
         break;
         
       case 'vertex':
-        // Get project ID from database
-        const { data: projectData, error: projectError } = await supabaseClient
-          .from('api_keys')
-          .select('key_value')
-          .eq('key_name', 'VERTEX_PROJECT_ID')
-          .maybeSingle();
-          
-        if (projectError) {
-          throw projectError;
+        const vertexKey = Deno.env.get('VERTEX_AI_API_KEY') || '';
+        const projectId = Deno.env.get('VERTEX_PROJECT_ID') || '';
+        
+        if (!vertexKey) {
+          throw new Error('Vertex AI API key is not configured');
         }
         
-        if (!projectData?.key_value) {
-          return new Response(
-            JSON.stringify({ success: false, error: 'Project ID not found' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-          );
+        if (!projectId) {
+          throw new Error('Vertex AI Project ID is not configured');
         }
         
-        // Test Vertex AI connection
-        const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectData.key_value}/locations/us-central1/publishers/google/models`;
-        const vertexResponse = await fetch(vertexUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${keyData.key_value}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        testResult = vertexResponse.status === 200;
+        success = await testVertexConnection(vertexKey, projectId);
+        break;
+        
+      case 'midjourney':
+        const midjourneyKey = Deno.env.get('MIDJOURNEY_API_KEY') || '';
+        if (!midjourneyKey) {
+          throw new Error('Midjourney API key is not configured');
+        }
+        success = await testMidjourneyConnection(midjourneyKey);
         break;
         
       default:
-        testResult = false;
+        throw new Error(`Unknown provider: ${provider}`);
     }
     
-    // Log the test result
-    await supabaseClient
-      .from('api_key_logs')
-      .insert({
-        key_name: config.keyName,
-        action: 'test',
-        success: testResult,
-        created_at: new Date().toISOString(),
-      });
-    
     return new Response(
-      JSON.stringify({ success: testResult }),
+      JSON.stringify({ success }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error testing provider connection:', error);
+    console.error('Error in test-provider-connection:', error);
     
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ 
+        success: false, 
+        error: error.message || 'An unexpected error occurred' 
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      }
     );
   }
 });
