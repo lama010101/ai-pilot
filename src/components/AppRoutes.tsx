@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
@@ -27,12 +26,13 @@ import ApiSettings from '@/pages/ApiSettings';
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* Default route - redirect to dashboard or image-upload */}
+      {/* Default route - explicitly redirect to dashboard */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       
       <Route path="/features" element={<Features />} />
       <Route path="/login" element={<Login />} />
       
+      {/* Dashboard page - render Dashboard component directly */}
       <Route 
         path="/dashboard" 
         element={
@@ -73,6 +73,7 @@ const AppRoutes = () => {
           </AuthGuard>
         } 
       />
+      
       <Route 
         path="/security" 
         element={

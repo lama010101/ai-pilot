@@ -31,7 +31,6 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
       } else {
         console.log("AuthGuard: User is authenticated, allowing access");
         setHasVerifiedAuth(true);
-        toast.success("Authentication verified");
       }
     }
   }, [isAuthenticated, isLoading, navigate, location, redirectAttempted]);
