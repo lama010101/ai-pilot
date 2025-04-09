@@ -32,8 +32,8 @@ function App() {
   const [systemPrompt, setSystemPrompt] = useState('');
 
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/features" element={<Features />} />
@@ -196,9 +196,9 @@ function App() {
           />
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </Router>
-      <Toaster position="top-right" />
-    </AuthProvider>
+        <Toaster position="top-right" />
+      </AuthProvider>
+    </Router>
   );
 }
 
