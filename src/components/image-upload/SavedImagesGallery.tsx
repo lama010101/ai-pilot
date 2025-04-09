@@ -1,32 +1,35 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import React, { useState } from 'react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Check, X, RefreshCcw, Eye, Trash2 } from "lucide-react";
 import { ImageDB } from '@/types/supabase';
+import { ScrollArea } from "@/components/ui/scroll-area";
+import FullscreenImageViewer from './FullscreenImageViewer';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SavedImagesGalleryProps {
   images: ImageDB[];
+  isLoading: boolean;
   onImageClick?: (image: ImageDB) => void;
-  isLoading?: boolean;
+  onRefresh?: () => void;
 }
 
 const SavedImagesGallery: React.FC<SavedImagesGalleryProps> = ({ 
   images, 
+  isLoading,
   onImageClick,
-  isLoading = false
+  onRefresh
 }) => {
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ImageDB | null>(null);
+  const [isDeleting, setIsDeleting] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    if (images.length > 0) {
-      setSelectedImage(images[0]);
-    }
-  }, [images]);
-
-  const handleImageClick = (image: ImageDB) => {
+  const handleViewImage = (image: ImageDB) => {
     setSelectedImage(image);
+    setViewerOpen(true);
     if (onImageClick) {
       onImageClick(image);
     }
@@ -58,53 +61,198 @@ const SavedImagesGallery: React.FC<SavedImagesGalleryProps> = ({
     };
   };
 
+  const deleteImage = async (imageId: string) => {
+    if (!imageId) return;
+
+    setIsDeleting(prev => ({ ...prev, [imageId]: true }));
+    
+    try {
+      const { error } = await supabase
+        .from('images')
+        .delete()
+        .eq('id', imageId);
+        
+      if (error) throw error;
+      
+      toast.success('Image deleted successfully');
+      if (onRefresh) onRefresh();
+    } catch (error: any) {
+      console.error('Error deleting image:', error);
+      toast.error(`Failed to delete image: ${error.message}`);
+    } finally {
+      setIsDeleting(prev => ({ ...prev, [imageId]: false }));
+    }
+  };
+
+  const getProviderLabel = (source?: string) => {
+    if (!source) return 'Unknown';
+    
+    switch(source.toLowerCase()) {
+      case 'dalle':
+        return 'DALL·E';
+      case 'midjourney':
+        return 'Midjourney';
+      case 'vertex':
+        return 'Vertex AI';
+      default:
+        return source.charAt(0).toUpperCase() + source.slice(1);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin h-8 w-8 mx-auto mb-4">
+          <RefreshCcw className="h-8 w-8 text-primary" />
+        </div>
+        <p className="text-muted-foreground">Loading images...</p>
+      </div>
+    );
+  }
+
+  if (images.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">No images found</p>
+        {onRefresh && (
+          <Button 
+            variant="outline" 
+            onClick={onRefresh} 
+            className="mt-4"
+          >
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Saved Images</CardTitle>
-        <CardDescription>
-          Click an image to view details
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="h-[400px]">
-        <ScrollArea className="h-full">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">Loading images...</p>
-            </div>
-          ) : images.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">No saved images yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
-              {images.map((image) => (
-                <div
-                  key={image.id}
-                  className={`relative aspect-square overflow-hidden rounded-md cursor-pointer hover:opacity-75 transition-opacity ${selectedImage?.id === image.id ? 'ring-2 ring-primary ring-offset-1' : ''}`}
-                  onClick={() => handleImageClick(image)}
-                >
-                  {image.image_url ? (
-                    <img
-                      src={image.image_url}
-                      alt={image.title || 'Image'}
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center w-full h-full bg-muted">
-                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
+    <div className="space-y-4">
+      {onRefresh && (
+        <div className="flex justify-end">
+          <Button 
+            variant="outline" 
+            onClick={onRefresh}
+            size="sm"
+          >
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
+      )}
+      
+      <ScrollArea className="h-[600px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+          {images.map((image) => (
+            <Card key={image.id} className="overflow-hidden">
+              <div className="aspect-video relative cursor-pointer" onClick={() => handleViewImage(image)}>
+                <img 
+                  src={image.image_url || ''} 
+                  alt={image.title || 'Image'} 
+                  className="h-full w-full object-cover"
+                />
+                {image.ready_for_game && (
+                  <div className="absolute top-2 right-2">
+                    <Badge className="bg-green-500">Ready</Badge>
+                  </div>
+                )}
+              </div>
+              <CardContent className="p-4">
+                <div className="space-y-2">
+                  <div className="font-medium line-clamp-1">{image.title || 'Untitled'}</div>
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {image.description || 'No description'}
+                  </p>
+                  
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {image.year && (
+                      <Badge variant="outline" className="text-xs">
+                        {image.year}
+                      </Badge>
+                    )}
+                    
+                    {image.location && (
+                      <Badge variant="outline" className="text-xs">
+                        {image.location}
+                      </Badge>
+                    )}
+                    
+                    {image.is_ai_generated && (
+                      <Badge variant="secondary" className="text-xs">
+                        AI Generated
+                      </Badge>
+                    )}
+                    
+                    {image.source && (
+                      <Badge variant="outline" className="text-xs">
+                        {getProviderLabel(image.source)}
+                      </Badge>
+                    )}
+                    
+                    {image.is_mature_content && (
+                      <Badge variant="destructive" className="text-xs">
+                        Mature
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-2">
+                    <div 
+                      className={`flex items-center justify-center h-8 w-8 rounded-full ${
+                        image.ready_for_game 
+                          ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300' 
+                          : 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300'
+                      }`}
+                    >
+                      {image.ready_for_game ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
                     </div>
-                  )}
-                  {image.is_ai_generated && (
-                    <Badge className="absolute top-2 left-2">AI</Badge>
-                  )}
+                    
+                    <div className="flex space-x-1">
+                      <Button size="icon" variant="outline" onClick={() => handleViewImage(image)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button 
+                        size="icon" 
+                        variant="outline" 
+                        className="text-red-500 hover:bg-red-100 hover:text-red-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Are you sure you want to delete this image?')) {
+                            deleteImage(image.id);
+                          }
+                        }}
+                        disabled={isDeleting[image.id]}
+                      >
+                        {isDeleting[image.id] ? (
+                          <RefreshCcw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </CardContent>
-    </Card>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </ScrollArea>
+      
+      {selectedImage && (
+        <FullscreenImageViewer 
+          isOpen={viewerOpen}
+          onClose={() => setViewerOpen(false)}
+          image={formatImageForViewer(selectedImage)}
+        />
+      )}
+    </div>
   );
 };
 

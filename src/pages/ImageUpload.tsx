@@ -1,27 +1,19 @@
-
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, ImagePlus, CheckCircle, AlertCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { ProcessedImage, ImageDB } from '@/types/supabase';
+import { v4 as uuidv4 } from 'uuid';
 import ImageUploader from "@/components/image-upload/ImageUploader";
 import ImageReviewGrid from "@/components/image-upload/ImageReviewGrid";
-import ImageProcessingButton from "@/components/image-upload/ImageProcessingButton";
-import ImageGeneratorUI from "@/components/image-upload/ImageGeneratorUI";
 import SavedImagesGallery from "@/components/image-upload/SavedImagesGallery";
-import BackfillImagesButton from "@/components/image-upload/BackfillImagesButton";
-import { ProcessedImage, ImageDB, Json } from '@/types/supabase';
+import WriterPromptGenerator from "@/components/image-upload/WriterPromptGenerator";
+import ImageGeneratorUI from "@/components/image-upload/ImageGeneratorUI";
+import { useImageProviderStore } from '@/stores/imageProviderStore';
 import * as XLSX from 'xlsx';
-import { v4 as uuidv4 } from 'uuid';
 
 interface Metadata {
   title?: string;
@@ -49,6 +41,7 @@ interface Metadata {
 }
 
 const ImageUpload = () => {
+  const [activeTab, setActiveTab] = useState<string>("gallery");
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -56,11 +49,9 @@ const ImageUpload = () => {
   const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const [allImages, setAllImages] = useState<ImageDB[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  const [isAutoMode, setIsAutoMode] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [isLoadingImages, setIsLoadingImages] = useState(true);
-  const [isBackfilling, setIsBackfilling] = useState(false);
-  const [backfillResult, setBackfillResult] = useState<any>(null);
+  const [logs, setLogs] = useState<string[]>([]);
 
   useEffect(() => {
     fetchImages();
@@ -95,6 +86,10 @@ const ImageUpload = () => {
     } finally {
       setIsLoadingImages(false);
     }
+  };
+
+  const addToLog = (message: string) => {
+    setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ${message}`]);
   };
 
   const handleUpload = useCallback(async (files: FileList, metadataFile: File | null = null) => {
@@ -270,191 +265,129 @@ const ImageUpload = () => {
   };
 
   const handleGeneratedImage = useCallback((response: any) => {
-    const newImage: ProcessedImage = {
-      id: `generated-${Date.now()}`,
-      originalFileName: `generated-${Date.now()}.png`,
-      metadata: {
-        title: response.metadata.title,
-        description: response.metadata.description,
-        date: response.metadata.date,
-        year: response.metadata.year,
-        location: response.metadata.location,
-        country: response.metadata.country,
-        gps: response.metadata.gps,
-        is_true_event: response.metadata.is_true_event,
-        is_ai_generated: true,
-        is_mature_content: response.metadata.is_mature_content,
-        source: 'dalle',
-        accuracy_description: response.metadata.accuracy_description,
-        accuracy_date: response.metadata.accuracy_date,
-        accuracy_location: response.metadata.accuracy_location,
-        accuracy_historical: response.metadata.accuracy_historical,
-        accuracy_realness: response.metadata.accuracy_realness,
-        accuracy_maturity: response.metadata.accuracy_maturity,
-        manual_override: true,
-        ready: true
-      },
-      imageUrl: response.imageUrl,
-      descriptionImageUrl: response.imageUrl,
-      mobileUrl: response.imageUrl,
-      tabletUrl: response.imageUrl,
-      desktopUrl: response.imageUrl,
-      ready_for_game: response.metadata.ready,
-      selected: true
-    };
-
-    setProcessedImages(prevImages => [newImage, ...prevImages]);
-    
-    const newDbImage: ImageDB = {
-      id: `generated-${Date.now()}`,
-      title: response.metadata.title,
-      description: response.metadata.description,
-      date: response.metadata.date,
-      year: response.metadata.year,
-      location: response.metadata.location,
-      gps: response.metadata.gps as Json,
-      is_true_event: response.metadata.is_true_event,
-      is_ai_generated: true,
-      is_mature_content: response.metadata.is_mature_content,
-      image_url: response.imageUrl,
-      description_image_url: response.imageUrl,
-      image_mobile_url: response.imageUrl,
-      image_tablet_url: response.imageUrl,
-      image_desktop_url: response.imageUrl,
-      ready_for_game: response.metadata.ready,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      accuracy_description: response.metadata.accuracy_description,
-      accuracy_date: response.metadata.accuracy_date,
-      accuracy_location: response.metadata.accuracy_location,
-      accuracy_historical: response.metadata.accuracy_historical,
-      accuracy_realness: response.metadata.accuracy_realness,
-      accuracy_maturity: response.metadata.accuracy_maturity,
-      manual_override: true,
-      source: 'dalle',
-      country: response.metadata.country,
-      hints: null,
-      short_description: null,
-      detailed_description: null
-    };
-
-    setAllImages(prevImages => [newDbImage, ...prevImages]);
-
+    fetchImages(); // Refresh the image gallery when a new image is generated
     toast.success("Successfully generated image from prompt");
   }, []);
 
   return (
     <>
       <Helmet>
-        <title>Image Upload | AI Pilot</title>
+        <title>Image Collector – Upload, manage and verify images for AI Pilot projects</title>
       </Helmet>
 
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Image Upload</h1>
+          <h1 className="text-3xl font-bold">Image Collector</h1>
           <p className="text-muted-foreground">
-            Upload images, process metadata, and generate new images
+            Upload, manage and verify images for AI Pilot projects
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload Images</CardTitle>
-            <CardDescription>
-              Upload image files and an optional metadata file to process
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ImageUploader
-              onUpload={handleUpload}
-              onMetadataFileSelect={handleMetadataFileSelect}
-              isUploading={isUploading}
-              isProcessing={isProcessing}
-            />
-          </CardContent>
-        </Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="gallery">Gallery</TabsTrigger>
+            <TabsTrigger value="upload">Upload</TabsTrigger>
+            <TabsTrigger value="manual">Manual</TabsTrigger>
+            <TabsTrigger value="writer">Writer</TabsTrigger>
+          </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Image Review</CardTitle>
-            <CardDescription>
-              Review uploaded images, update metadata, and set ready status
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {processedImages.length > 0 ? (
-              <ImageReviewGrid
-                images={processedImages}
-                onToggleSelection={handleToggleSelection}
-                onToggleReadyForGame={handleToggleReadyForGame}
-                onImageMetadataUpdate={handleImageMetadataUpdate}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                No images uploaded yet
-              </div>
+          <TabsContent value="gallery" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Image Gallery</CardTitle>
+                <CardDescription>
+                  Browse and manage all saved images
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SavedImagesGallery
+                  images={allImages}
+                  isLoading={isLoadingImages}
+                  onImageClick={(image) => {
+                    console.log("Image clicked:", image);
+                  }}
+                  onRefresh={fetchImages}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="upload" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Upload Images</CardTitle>
+                <CardDescription>
+                  Upload image files and an optional metadata file to process
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ImageUploader
+                  onUpload={handleUpload}
+                  onMetadataFileSelect={handleMetadataFileSelect}
+                  isUploading={isUploading}
+                  isProcessing={isProcessing}
+                />
+              </CardContent>
+            </Card>
+
+            {processedImages.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Image Review</CardTitle>
+                  <CardDescription>
+                    Review uploaded images, update metadata, and set ready status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ImageReviewGrid
+                    images={processedImages}
+                    onToggleSelection={handleToggleSelection}
+                    onToggleReadyForGame={handleToggleReadyForGame}
+                    onImageMetadataUpdate={handleImageMetadataUpdate}
+                  />
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
+          </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>AI Image Generation</CardTitle>
-            <CardDescription>
-              Generate new images using AI based on a prompt
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ImageGeneratorUI
-              onImageGenerated={handleGeneratedImage}
-            />
-          </CardContent>
-        </Card>
+          <TabsContent value="manual" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Manual Image Generation</CardTitle>
+                <CardDescription>
+                  Generate images using AI based on a prompt
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ImageGeneratorUI
+                  onImageGenerated={handleGeneratedImage}
+                  addToLog={addToLog}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Saved Images</CardTitle>
-            <CardDescription>
-              View and manage previously uploaded and generated images
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SavedImagesGallery
-              images={allImages}
-              isLoading={isLoadingImages}
-              onImageClick={(image) => {
-                console.log("Image clicked:", image);
-              }}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Backfill Images</CardTitle>
-            <CardDescription>
-              Process existing images to generate responsive versions and extract metadata
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BackfillImagesButton
-              onComplete={(result) => {
-                setBackfillResult(result);
-                setIsBackfilling(false);
-                fetchImages();
-              }}
-            />
-            {backfillResult && (
-              <div className="mt-4">
-                <h3 className="text-lg font-medium">Backfill Result</h3>
-                <p>Processed: {backfillResult.processed}</p>
-                <p>Metadata Updated: {backfillResult.metadata_updated}</p>
-                <p>Images Updated: {backfillResult.images_updated}</p>
-                <p>Failures: {backfillResult.failures}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          <TabsContent value="writer" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Writer Image Generation</CardTitle>
+                <CardDescription>
+                  Use the Writer agent to generate structured image prompts
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <WriterPromptGenerator
+                  onPromptsGenerated={(prompts) => {
+                    console.log("Generated prompts:", prompts);
+                    addToLog(`✅ Generated ${prompts.length} prompts successfully`);
+                  }}
+                  onImageGenerated={handleGeneratedImage}
+                  addToLog={addToLog}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );
