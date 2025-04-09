@@ -367,7 +367,7 @@ const ApiKeysManager: React.FC = () => {
                 {testResults[provider.id] === true && (
                   <Alert className="bg-green-50 border-green-200">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <AlertTitle className="text-green-800">Connection Successful</AlertTitle>
+                    <AlertTitle>Connection Successful</AlertTitle>
                     <AlertDescription className="text-green-700">
                       Successfully connected to the {provider.name} API service.
                     </AlertDescription>
