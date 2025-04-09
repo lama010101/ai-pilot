@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { USE_FAKE_AUTH } from '@/lib/supabaseClient';
 import { ArrowRight, Key } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Login = () => {
   const { signInWithGoogle, signInWithEmail, isAuthenticated, isLoading } = useAuth();
@@ -38,6 +39,7 @@ const Login = () => {
       console.log("Login: User is authenticated, redirecting to:", redirectPath);
       setDebugInfo(prev => ({ ...prev, redirectAttempted: true }));
       navigate(redirectPath, { replace: true });
+      toast.success("Successfully logged in");
     }
   }, [isAuthenticated, isLoading, navigate, redirectPath, from, debugInfo.redirectAttempted]);
 
@@ -46,28 +48,45 @@ const Login = () => {
     const timeout = setTimeout(() => {
       if (isAuthenticated && !debugInfo.redirectAttempted) {
         console.log("Emergency redirect to dashboard");
+        toast.info("Emergency redirect activated");
         navigate('/dashboard/builder', { replace: true });
+      } else if (!isAuthenticated && !isLoading && !debugInfo.redirectAttempted) {
+        // If we're not authenticated and not loading after timeout, show toast
+        toast.error("Login session expired or failed. Please try again.");
       }
     }, 3000);
     
     return () => clearTimeout(timeout);
-  }, [navigate, isAuthenticated, debugInfo.redirectAttempted]);
+  }, [navigate, isAuthenticated, isLoading, debugInfo.redirectAttempted]);
 
   const handleSignIn = () => {
     console.log("Sign in button clicked");
-    signInWithGoogle();
+    try {
+      signInWithGoogle();
+      toast.info("Signing in with Google...");
+    } catch (error) {
+      console.error("Google sign-in error:", error);
+      toast.error("Failed to sign in with Google. Please try again.");
+    }
   };
   
   // Temp login handler - automatically logs in as emartin6867@gmail.com
   const handleTempLogin = () => {
     console.log("Temp login clicked");
-    // If we're using fake auth, we can just pretend to log in
-    if (USE_FAKE_AUTH) {
-      signInWithEmail('emartin6867@gmail.com', 'dummy-password');
-    } else {
-      // In production, we'd use a more secure method
-      console.log("Attempting temp login with emartin6867@gmail.com");
-      signInWithEmail('emartin6867@gmail.com', 'dummy-password');
+    try {
+      // If we're using fake auth, we can just pretend to log in
+      if (USE_FAKE_AUTH) {
+        signInWithEmail('emartin6867@gmail.com', 'dummy-password');
+        toast.info("Using temporary developer credentials");
+      } else {
+        // In production, we'd use a more secure method
+        console.log("Attempting temp login with emartin6867@gmail.com");
+        signInWithEmail('emartin6867@gmail.com', 'dummy-password');
+        toast.info("Signing in with temporary credentials...");
+      }
+    } catch (error) {
+      console.error("Temp login error:", error);
+      toast.error("Failed to use temporary login. Please try again or use Google Sign-In.");
     }
   };
 
