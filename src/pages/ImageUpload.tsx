@@ -76,14 +76,14 @@ const ImageUpload = () => {
         throw new Error(error.message);
       }
 
-      // Convert the database response to our ImageDB type
-      // adding responsive image URLs if they don't exist
-      const processedData = data?.map(img => ({
-        ...img,
-        image_mobile_url: img.image_mobile_url || img.image_url,
-        image_tablet_url: img.image_tablet_url || img.image_url,
-        image_desktop_url: img.image_desktop_url || img.image_url
-      } as ImageDB));
+      const processedData = data?.map(img => {
+        return {
+          ...img,
+          image_mobile_url: img.image_mobile_url || img.image_url,
+          image_tablet_url: img.image_tablet_url || img.image_url,
+          image_desktop_url: img.image_desktop_url || img.image_url
+        } as ImageDB;
+      });
 
       setAllImages(processedData || []);
     } catch (error: any) {
@@ -265,6 +265,7 @@ const ImageUpload = () => {
 
   const handleGeneratedImage = useCallback((response: any) => {
     const newImage: ProcessedImage = {
+      id: `generated-${Date.now()}`,
       originalFileName: `generated-${Date.now()}.png`,
       metadata: {
         title: response.metadata.title,

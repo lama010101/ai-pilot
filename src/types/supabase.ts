@@ -27,8 +27,6 @@ export interface ImageDB {
   accuracy_location?: number;
   accuracy_maturity?: number;
   accuracy_realness?: number;
-  
-  // Add these missing properties
   image_mobile_url?: string;
   image_tablet_url?: string;
   image_desktop_url?: string;
@@ -60,27 +58,78 @@ export interface AppBuildDB {
 
 export interface ProcessedImage {
   id: string;
+  originalFileName?: string;
+  selected?: boolean;
+  ready_for_game?: boolean;
+  imageUrl?: string;
+  mobileUrl?: string;
+  tabletUrl?: string;
+  desktopUrl?: string;
+  descriptionImageUrl?: string;
+  image_url?: string;
   title?: string;
   description?: string;
-  image_url?: string;
   date?: string;
   location?: string;
   accuracy?: number;
   verified?: boolean;
+  metadata: {
+    title?: string;
+    description?: string;
+    date?: string;
+    year?: number;
+    location?: string;
+    country?: string;
+    gps?: {
+      lat: number;
+      lng: number;
+    };
+    is_true_event?: boolean;
+    is_ai_generated?: boolean;
+    is_mature_content?: boolean;
+    source?: string;
+    accuracy_description?: number;
+    accuracy_date?: number;
+    accuracy_location?: number;
+    accuracy_historical?: number;
+    accuracy_realness?: number;
+    accuracy_maturity?: number;
+    manual_override?: boolean;
+    address?: string;
+    ready?: boolean;
+  };
 }
 
 export interface ImageGenerationResponse {
   status: string;
   message: string;
   data?: any;
+  imageUrl?: string;
+  metadata?: any;
+  promptUsed?: string;
+  logs?: string[];
+  error?: string;
 }
 
 export interface ImageGenerationRow {
-  id: string;
-  prompt: string;
-  status: string;
+  id?: string;
+  prompt?: string;
+  status?: string;
   image_url?: string;
-  created_at: string;
+  created_at?: string;
+  title?: string;
+  description?: string;
+  year?: number;
+  date?: string;
+  address?: string;
+  location?: string;
+  country?: string;
+  gps?: {
+    lat: number;
+    lng: number;
+  };
+  mature?: boolean;
+  true_event?: boolean;
 }
 
 export interface GPSCoordinates {
@@ -94,10 +143,26 @@ export interface WriterPromptEntry {
   result?: string;
   status: string;
   created_at: string;
+  title?: string;
+  short_description?: string;
+  detailed_description?: string;
+  year?: number;
+  date?: string;
+  address?: string;
+  country?: string;
+  gps?: {
+    lat: number;
+    lng: number;
+  };
+  hints?: any;
+  selected?: boolean;
 }
 
 export interface WriterResponse {
   id: string;
   content: string;
   metadata?: any;
+  status?: string;
+  error?: string;
+  entries?: WriterPromptEntry[];
 }

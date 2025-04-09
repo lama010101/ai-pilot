@@ -200,14 +200,14 @@ export const AGENT_CHAIN = [
   { role: 'Admin', description: 'Deploys and manages applications' }
 ];
 
-// Export AppBuild interface used by Builder components
-export interface AppBuild {
-  id: string;
-  prompt: string;
-  status: 'processing' | 'complete' | 'failed';
-  timestamp: string;
-  previewUrl?: string;
-  exportUrl?: string;
-  appName: string;
-  created_at: string;
-}
+// Export the types from src/types/supabase.ts for backward compatibility
+export type {
+  AppBuild,
+  AppBuildDB,
+  ProcessedImage,
+  ImageGenerationResponse,
+  ImageGenerationRow,
+  GPSCoordinates,
+  WriterPromptEntry,
+  WriterResponse
+} from '@/types/supabase';
