@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -246,6 +245,122 @@ const ApiKeysManager: React.FC = () => {
           Only the system Leader can access the API Keys Management. Please log in with the Leader account.
         </AlertDescription>
       </Alert>
+    );
+  }
+  
+  const noKeysConfigured = Object.values(fieldValues).every(providerValues => 
+    Object.values(providerValues).every(value => !value)
+  );
+  
+  if (noKeysConfigured) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Provider API Keys</CardTitle>
+          <CardDescription>
+            Configure API keys for external services used by the AI Pilot system
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="py-6">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>No API Keys Configured</AlertTitle>
+            <AlertDescription>
+              No API Keys configured yet. Enter your credentials to begin.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="mt-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-4">
+                {providers.map(provider => (
+                  <TabsTrigger key={provider.id} value={provider.id}>
+                    {provider.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              
+              {providers.map(provider => (
+                <TabsContent key={provider.id} value={provider.id} className="space-y-4">
+                  <div className="grid gap-4">
+                    <div className="text-sm text-muted-foreground mb-2">
+                      {provider.description}
+                    </div>
+                    
+                    {provider.fields.map(field => (
+                      <div key={field.id} className="space-y-2">
+                        <Label htmlFor={field.id}>
+                          {field.label} {field.required && <span className="text-red-500">*</span>}
+                        </Label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Input
+                              id={field.id}
+                              type={fieldVisibility[field.id] ? 'text' : 'password'}
+                              value={fieldValues[provider.id][field.id]}
+                              onChange={(e) => handleFieldChange(provider.id, field.id, e.target.value)}
+                              placeholder={field.placeholder}
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => toggleFieldVisibility(field.id)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            >
+                              {fieldVisibility[field.id] ? (
+                                <EyeOffIcon size={16} />
+                              ) : (
+                                <EyeIcon size={16} />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <div className="flex justify-between pt-4">
+                      <Button
+                        variant="default"
+                        onClick={() => handleSave(provider.id)}
+                        disabled={isLoading}
+                      >
+                        Save {provider.name} Keys
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => testConnection(provider.id)}
+                        disabled={isLoading}
+                      >
+                        Test Connection
+                      </Button>
+                    </div>
+                    
+                    {testResults[provider.id] === true && (
+                      <Alert className="bg-green-50 border-green-200">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <AlertTitle>Connection Successful</AlertTitle>
+                        <AlertDescription className="text-green-700">
+                          Successfully connected to the {provider.name} API service.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    {testResults[provider.id] === false && (
+                      <Alert variant="destructive">
+                        <XCircle className="h-4 w-4" />
+                        <AlertTitle>Connection Failed</AlertTitle>
+                        <AlertDescription>
+                          Failed to connect to the {provider.name} API. Please check your credentials and try again.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
   

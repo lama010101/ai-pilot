@@ -13,6 +13,9 @@ const Project: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const isLeader = isAuthenticated && user?.email === import.meta.env.VITE_LEADER_EMAIL;
+  const location = window.location.pathname;
+  const isDev = location.includes('dashboard-dev');
+  const baseUrl = isDev ? '/dashboard-dev' : '/dashboard';
   
   return (
     <>
@@ -33,7 +36,7 @@ const Project: React.FC = () => {
             <Button 
               variant="outline" 
               className="flex items-center gap-2"
-              onClick={() => navigate('/dashboard/settings/api-keys')}
+              onClick={() => navigate(`${baseUrl}/settings/api-keys`)}
             >
               <Key size={16} />
               Manage API Keys
@@ -74,7 +77,7 @@ const Project: React.FC = () => {
                         </div>
                         <Button 
                           variant="outline" 
-                          onClick={() => navigate('/dashboard/settings/api-keys')}
+                          onClick={() => navigate(`${baseUrl}/settings/api-keys`)}
                           className="flex items-center gap-2"
                         >
                           <Key size={16} />

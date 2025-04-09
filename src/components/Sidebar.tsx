@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
@@ -126,7 +125,6 @@ const Sidebar = () => {
           isCollapsed={isCollapsed} 
         />
         
-        {/* Settings section with dropdown */}
         <div className="pt-2">
           {isCollapsed ? (
             <SidebarItem

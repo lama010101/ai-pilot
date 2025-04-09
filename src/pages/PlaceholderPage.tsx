@@ -3,7 +3,8 @@ import React from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Key } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PlaceholderPageProps {
   title: string;
@@ -17,15 +18,22 @@ const PlaceholderPage: React.FC<PlaceholderPageProps> = ({
   const location = useLocation();
   const isDev = location.pathname.includes('dashboard-dev');
   const baseUrl = isDev ? '/dashboard-dev' : '/dashboard';
+  const { user, isAuthenticated } = useAuth();
+  const isLeader = isAuthenticated && user?.email === import.meta.env.VITE_LEADER_EMAIL;
 
   // Check if this is the settings page
   const isSettingsPage = location.pathname.endsWith('/settings');
   
   const settingsLinks = [
-    { title: 'General Settings', path: `/settings`, description: 'Configure general system settings' },
-    { title: 'Budget Management', path: `/settings/budget`, description: 'Manage system costs and budget limits' },
-    { title: 'API Keys', path: `/settings/api-keys`, description: 'Configure API keys for external services' },
-    { title: 'Developer Options', path: `/settings/developer`, description: 'Advanced configuration for developers' },
+    { title: 'General Settings', path: `/settings`, description: 'Configure general system settings', icon: null },
+    { title: 'Budget Management', path: `/settings/budget`, description: 'Manage system costs and budget limits', icon: null },
+    ...(isLeader ? [{ 
+      title: 'API Keys', 
+      path: `/settings/api-keys`, 
+      description: 'Configure API keys for external services',
+      icon: <Key size={18} className="text-muted-foreground" />
+    }] : []),
+    { title: 'Developer Options', path: `/settings/developer`, description: 'Advanced configuration for developers', icon: null },
   ];
 
   return (
@@ -47,7 +55,10 @@ const PlaceholderPage: React.FC<PlaceholderPageProps> = ({
                 <Card className="h-full transition-colors hover:bg-muted/50">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xl flex justify-between items-center">
-                      {link.title}
+                      <div className="flex items-center gap-2">
+                        {link.icon}
+                        {link.title}
+                      </div>
                       <ChevronRight size={18} className="text-muted-foreground" />
                     </CardTitle>
                     <CardDescription>
