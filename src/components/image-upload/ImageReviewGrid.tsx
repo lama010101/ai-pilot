@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Check, X, Edit, Save, Eye } from "lucide-react";
+import { Check, X, Edit, Save, Eye, Trash2, CheckSquare } from "lucide-react";
 import { ProcessedImage } from '@/types/supabase';
 import {
   Table,
@@ -15,6 +16,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import FullscreenImageViewer from './FullscreenImageViewer';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ImageReviewGridProps {
   images: ProcessedImage[];
@@ -40,6 +43,8 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
   }>({});
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<number[]>([]);
+  const [isUpdating, setIsUpdating] = useState<Record<number, boolean>>({});
   
   const handleMetadataUpdate = (index: number, metadata: any) => {
     if (onImageMetadataUpdate) {
@@ -83,6 +88,49 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
     setViewerOpen(true);
   };
   
+  const toggleRowSelection = (index: number) => {
+    setSelectedRows(prev => {
+      if (prev.includes(index)) {
+        return prev.filter(i => i !== index);
+      } else {
+        return [...prev, index];
+      }
+    });
+  };
+  
+  const bulkToggleReadyStatus = async (readyStatus: boolean) => {
+    if (selectedRows.length === 0) {
+      toast.error('No images selected');
+      return;
+    }
+    
+    // Mark selected rows as updating
+    const updating = { ...isUpdating };
+    selectedRows.forEach(index => {
+      updating[index] = true;
+    });
+    setIsUpdating(updating);
+    
+    try {
+      // Update each selected image
+      for (const index of selectedRows) {
+        onToggleReadyForGame(index, readyStatus);
+      }
+      
+      toast.success(`Successfully ${readyStatus ? 'marked' : 'unmarked'} ${selectedRows.length} images`);
+    } catch (error) {
+      toast.error('Failed to update images');
+      console.error('Error updating ready status:', error);
+    } finally {
+      // Clear updating state
+      const newUpdating = { ...isUpdating };
+      selectedRows.forEach(index => {
+        newUpdating[index] = false;
+      });
+      setIsUpdating(newUpdating);
+    }
+  };
+  
   const selectedImage = selectedImageIndex !== null ? images[selectedImageIndex] : null;
 
   const formatImageForViewer = (image: ProcessedImage) => {
@@ -113,6 +161,30 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
 
   return (
     <div className="space-y-4">
+      {selectedRows.length > 0 && (
+        <div className="flex justify-between items-center bg-muted p-2 rounded-md">
+          <span>{selectedRows.length} images selected</span>
+          <div className="flex space-x-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => bulkToggleReadyStatus(true)}
+            >
+              <Check className="mr-2 h-4 w-4" />
+              Mark Ready
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => bulkToggleReadyStatus(false)}
+            >
+              <X className="mr-2 h-4 w-4" />
+              Unmark Ready
+            </Button>
+          </div>
+        </div>
+      )}
+      
       <div className="overflow-auto">
         <Table className="min-w-[1000px]">
           <TableHeader>
@@ -131,11 +203,11 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
           </TableHeader>
           <TableBody>
             {images.map((image, index) => (
-              <TableRow key={image.originalFileName}>
+              <TableRow key={image.originalFileName} className={selectedRows.includes(index) ? 'bg-primary/10' : ''}>
                 <TableCell>
                   <Checkbox 
-                    checked={image.selected}
-                    onCheckedChange={(checked) => onToggleSelection(index, !!checked)}
+                    checked={selectedRows.includes(index)}
+                    onCheckedChange={() => toggleRowSelection(index)}
                   />
                 </TableCell>
                 <TableCell>
@@ -260,20 +332,24 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
                   )}
                 </TableCell>
                 <TableCell>
-                  <div 
-                    className={`flex items-center justify-center h-8 w-8 rounded-full cursor-pointer ${
-                      image.ready_for_game 
-                        ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300' 
-                        : 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300'
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={`w-full flex items-center justify-center gap-1 ${
+                      image.ready_for_game ? 'text-green-600' : 'text-red-600'
                     }`}
                     onClick={() => onToggleReadyForGame(index, !image.ready_for_game)}
+                    disabled={isUpdating[index]}
                   >
-                    {image.ready_for_game ? (
+                    {isUpdating[index] ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : image.ready_for_game ? (
                       <Check className="h-4 w-4" />
                     ) : (
                       <X className="h-4 w-4" />
                     )}
-                  </div>
+                    {image.ready_for_game ? 'Ready' : 'Not Ready'}
+                  </Button>
                 </TableCell>
                 <TableCell>
                   <div className="flex space-x-1">

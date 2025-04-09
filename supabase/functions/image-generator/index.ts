@@ -57,8 +57,29 @@ serve(async (req) => {
       throw new Error(`Unknown provider: ${provider}`);
     }
     
-    // Get the API key from the environment
-    const apiKey = Deno.env.get(config.keyName);
+    // Get the API key from the environment or from the database
+    let apiKey: string | null = null;
+    
+    // First try to get from environment
+    apiKey = Deno.env.get(config.keyName);
+    
+    // If not in environment, try to get from database
+    if (!apiKey) {
+      logEntry(`API key for ${provider} not found in environment, checking database`);
+      const { data: keyData, error: keyError } = await supabase
+        .from('api_keys')
+        .select('key_value')
+        .eq('key_name', config.keyName)
+        .single();
+        
+      if (keyError) {
+        logEntry(`Error fetching API key from database: ${keyError.message}`);
+      } else if (keyData) {
+        apiKey = keyData.key_value;
+        logEntry(`API key for ${provider} found in database`);
+      }
+    }
+    
     if (!apiKey) {
       throw new Error(`API key not found for provider: ${provider} (${config.keyName})`);
     }
@@ -203,10 +224,30 @@ serve(async (req) => {
       try {
         logEntry('Setting up Vertex AI request');
         
-        // Get project ID from environment
-        const projectId = Deno.env.get('VERTEX_PROJECT_ID');
+        // Get project ID from environment or database
+        let projectId = Deno.env.get('VERTEX_PROJECT_ID');
+        
+        // If not in environment, try to get from database
         if (!projectId) {
-          throw new Error('VERTEX_PROJECT_ID is not set');
+          logEntry('VERTEX_PROJECT_ID not found in environment, checking database');
+          const { data: projectData, error: projectError } = await supabase
+            .from('api_keys')
+            .select('key_value')
+            .eq('key_name', 'VERTEX_PROJECT_ID')
+            .single();
+            
+          if (projectError) {
+            logEntry(`Error fetching project ID from database: ${projectError.message}`);
+          } else if (projectData) {
+            projectId = projectData.key_value;
+            logEntry('Project ID found in database');
+          }
+        }
+        
+        if (!projectId) {
+          // Use the default project ID from the task
+          projectId = 'gen-lang-client-0724142088';
+          logEntry(`Using default project ID: ${projectId}`);
         }
         
         // Construct the Vertex AI API URL
