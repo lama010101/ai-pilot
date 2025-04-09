@@ -9,7 +9,7 @@ import { AlertCircle, EyeIcon, EyeOffIcon, CheckCircle, XCircle } from 'lucide-r
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { providerConfigs } from '@/supabase/functions/image-generator/config';
+import { providerConfigs } from '@/lib/providerConfig';
 import { saveApiKey, getApiKey, testApiKey } from '@/lib/apiKeyService';
 
 interface ProviderField {

@@ -9,6 +9,57 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      api_key_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          key_name: string
+          success: boolean
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          key_name: string
+          success?: boolean
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          key_name?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
+      api_keys: {
+        Row: {
+          created_at: string
+          id: string
+          key_name: string
+          key_value: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key_name: string
+          key_value: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_name?: string
+          key_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       app_builds: {
         Row: {
           app_name: string

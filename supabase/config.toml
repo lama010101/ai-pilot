@@ -34,3 +34,6 @@ verify_jwt = false
 [functions.image-metadata-verification]
 verify_jwt = false
 
+[functions.test-provider-connection]
+verify_jwt = false
+
