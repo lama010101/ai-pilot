@@ -8,12 +8,16 @@ import { toast } from 'sonner';
 
 interface ImageMetadataVerifierProps {
   imageUrl?: string;
+  imageId?: string;
   onVerificationComplete?: (results: any) => void;
+  onComplete?: (results: any) => void;
 }
 
 const ImageMetadataVerifier: React.FC<ImageMetadataVerifierProps> = ({ 
   imageUrl,
-  onVerificationComplete
+  imageId,
+  onVerificationComplete,
+  onComplete
 }) => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [results, setResults] = useState<any>(null);
@@ -47,6 +51,10 @@ const ImageMetadataVerifier: React.FC<ImageMetadataVerifierProps> = ({
       
       if (onVerificationComplete) {
         onVerificationComplete(mockResults);
+      }
+      
+      if (onComplete) {
+        onComplete(mockResults);
       }
       
       toast.success("Image metadata verification complete");

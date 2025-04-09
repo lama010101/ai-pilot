@@ -8,9 +8,13 @@ import { toast } from 'sonner';
 
 interface BackfillImagesButtonProps {
   onBackfillComplete?: () => void;
+  onComplete?: (result: any) => void;
 }
 
-const BackfillImagesButton: React.FC<BackfillImagesButtonProps> = ({ onBackfillComplete }) => {
+const BackfillImagesButton: React.FC<BackfillImagesButtonProps> = ({ 
+  onBackfillComplete, 
+  onComplete 
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -25,10 +29,21 @@ const BackfillImagesButton: React.FC<BackfillImagesButtonProps> = ({ onBackfillC
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Simulate a successful response
-      setResult("Successfully backfilled 25 images from external sources");
+      const backfillResult = {
+        processed: 25,
+        metadata_updated: 18,
+        images_updated: 12,
+        failures: 0
+      };
+      
+      setResult(`Successfully backfilled ${backfillResult.processed} images from external sources`);
       
       if (onBackfillComplete) {
         onBackfillComplete();
+      }
+      
+      if (onComplete) {
+        onComplete(backfillResult);
       }
       
       toast.success("Image backfill complete");
