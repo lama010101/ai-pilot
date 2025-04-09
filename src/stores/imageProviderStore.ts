@@ -45,6 +45,7 @@ export const useImageProviderStore = create<ImageProviderState>()(
                 hasKey = await getApiKey('MIDJOURNEY_API_KEY') !== null;
                 break;
               case 'vertex':
+                // Check both API key and project ID for Vertex
                 hasKey = (await getApiKey('VERTEX_AI_API_KEY') !== null) && 
                          (await getApiKey('VERTEX_PROJECT_ID') !== null);
                 break;

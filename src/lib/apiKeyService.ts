@@ -1,4 +1,3 @@
-
 import { supabase } from "@/lib/supabaseClient";
 
 // Save API key securely
@@ -86,6 +85,35 @@ export const testApiKey = async (providerId: string): Promise<boolean> => {
     return result.success;
   } catch (error) {
     console.error('Error testing API connection:', error);
+    return false;
+  }
+};
+
+// Add a specific function for Vertex AI that requires both API key and project ID
+export const saveVertexAICredentials = async (apiKey: string, projectId: string): Promise<boolean> => {
+  try {
+    // Save API key
+    const apiKeyResult = await saveApiKey('VERTEX_AI_API_KEY', apiKey);
+    
+    // Save Project ID
+    const projectIdResult = await saveApiKey('VERTEX_PROJECT_ID', projectId);
+    
+    return apiKeyResult && projectIdResult;
+  } catch (error) {
+    console.error('Error saving Vertex AI credentials:', error);
+    return false;
+  }
+};
+
+// Add a function to check if Vertex AI is fully configured
+export const isVertexAIConfigured = async (): Promise<boolean> => {
+  try {
+    const apiKey = await getApiKey('VERTEX_AI_API_KEY');
+    const projectId = await getApiKey('VERTEX_PROJECT_ID');
+    
+    return !!apiKey && !!projectId;
+  } catch (error) {
+    console.error('Error checking Vertex AI configuration:', error);
     return false;
   }
 };
