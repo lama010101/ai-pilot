@@ -1,12 +1,11 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import ApiKeysManager from '@/components/settings/ApiKeysManager';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
 
 const ApiKeysSettings = () => {
   const { isAuthenticated, user } = useAuth();
