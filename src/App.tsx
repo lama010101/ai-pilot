@@ -154,14 +154,6 @@ function App() {
             } 
           />
           <Route 
-            path="/settings/api" 
-            element={
-              <AuthGuard>
-                <ApiSettings />
-              </AuthGuard>
-            } 
-          />
-          <Route 
             path="/settings/budget" 
             element={
               <AuthGuard>
@@ -190,6 +182,14 @@ function App() {
             element={
               <AuthGuard>
                 <ImageUpload />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/settings/api" 
+            element={
+              <AuthGuard>
+                <ApiSettings />
               </AuthGuard>
             } 
           />
