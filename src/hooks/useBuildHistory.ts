@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserAppBuilds } from '@/lib/buildService';
-import { AppBuild } from '@/types/supabase';
+import { AppBuild } from '@/lib/supabaseTypes';
 
 export function useBuildHistory() {
   const [appBuilds, setAppBuilds] = useState<AppBuild[]>([]);

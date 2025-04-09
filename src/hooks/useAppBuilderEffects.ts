@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from "sonner";
 import { getAppBuildById } from '@/lib/buildService';
-import { AppBuild } from '@/types/supabase';
+import { AppBuild } from '@/lib/supabaseTypes';
 
 export function useAppBuilderEffects(
   selectedBuildId: string | null,

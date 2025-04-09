@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from "sonner";
 import { getAppBuildById } from '@/lib/buildService';
-import { AppBuild } from '@/types/supabase';
+import { AppBuild } from '@/lib/supabaseTypes';
 
 export function useUrlParams(
   onLoadBuild: (build: AppBuild) => void

@@ -13,7 +13,7 @@ export interface ImageDB {
   created_at?: string;
   updated_at?: string;
   ready_for_game?: boolean;
-  gps?: Json | null;
+  gps?: JSON | null;
   short_description?: string;
   detailed_description?: string;
   hints?: any | null;
@@ -32,4 +32,72 @@ export interface ImageDB {
   image_mobile_url?: string;
   image_tablet_url?: string;
   image_desktop_url?: string;
+}
+
+export interface AppBuild {
+  id: string;
+  prompt: string;
+  status: 'processing' | 'complete' | 'failed';
+  timestamp: string;
+  previewUrl?: string;
+  exportUrl?: string;
+  appName: string;
+  created_at: string;
+}
+
+export interface AppBuildDB {
+  id: string;
+  prompt: string;
+  status: string;
+  timestamp: string;
+  preview_url?: string;
+  export_url?: string;
+  app_name: string;
+  code?: string;
+  spec?: string;
+  build_log?: any[];
+}
+
+export interface ProcessedImage {
+  id: string;
+  title?: string;
+  description?: string;
+  image_url?: string;
+  date?: string;
+  location?: string;
+  accuracy?: number;
+  verified?: boolean;
+}
+
+export interface ImageGenerationResponse {
+  status: string;
+  message: string;
+  data?: any;
+}
+
+export interface ImageGenerationRow {
+  id: string;
+  prompt: string;
+  status: string;
+  image_url?: string;
+  created_at: string;
+}
+
+export interface GPSCoordinates {
+  latitude: number;
+  longitude: number;
+}
+
+export interface WriterPromptEntry {
+  id: string;
+  prompt: string;
+  result?: string;
+  status: string;
+  created_at: string;
+}
+
+export interface WriterResponse {
+  id: string;
+  content: string;
+  metadata?: any;
 }

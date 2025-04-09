@@ -6,7 +6,7 @@ import {
   getAppBuildById, 
   triggerAppBuild 
 } from '@/lib/buildService';
-import { AppBuild } from '@/types/supabase';
+import { AppBuild } from '@/lib/supabaseTypes';
 
 export function useAppBuilderService() {
   const navigate = useNavigate();
