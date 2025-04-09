@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -10,6 +11,22 @@ import DashboardLayout from "./components/DashboardLayout";
 import DashboardDevLayout from "./components/DashboardDevLayout";
 import Index from "./pages/Index";
 import Greeting from "./pages/Greeting";
+
+// Import all page components used in routes
+import Pilot from "./pages/Pilot";
+import AgentDetail from "./pages/AgentDetail";
+import FinanceAI from "./pages/FinanceAI";
+import PlaceholderPage from "./pages/PlaceholderPage";
+import Apps from "./pages/Apps";
+import AppDetail from "./pages/AppDetail";
+import Memory from "./pages/Memory";
+import Chat from "./pages/Chat";
+import Builder from "./pages/Builder";
+import ImageUpload from "./pages/ImageUpload";
+import Project from "./pages/Project";
+import BudgetSettings from "./pages/BudgetSettings";
+import DeveloperSettings from "./pages/DeveloperSettings";
+import Features from "./pages/Features";
 
 // Create a QueryClient instance
 const queryClient = new QueryClient();
