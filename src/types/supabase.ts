@@ -1,4 +1,6 @@
 
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+
 export interface ImageDB {
   id: string;
   title?: string;
@@ -13,7 +15,7 @@ export interface ImageDB {
   created_at?: string;
   updated_at?: string;
   ready_for_game?: boolean;
-  gps?: JSON | null;
+  gps?: Json | null;
   short_description?: string;
   detailed_description?: string;
   hints?: any | null;

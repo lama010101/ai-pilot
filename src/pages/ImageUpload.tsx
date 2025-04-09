@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,7 +19,7 @@ import ImageProcessingButton from "@/components/image-upload/ImageProcessingButt
 import ImageGeneratorUI from "@/components/image-upload/ImageGeneratorUI";
 import SavedImagesGallery from "@/components/image-upload/SavedImagesGallery";
 import BackfillImagesButton from "@/components/image-upload/BackfillImagesButton";
-import { ProcessedImage, ImageDB } from '@/types/supabase';
+import { ProcessedImage, ImageDB, Json } from '@/types/supabase';
 import * as XLSX from 'xlsx';
 
 interface Metadata {
@@ -77,11 +78,13 @@ const ImageUpload = () => {
       }
 
       const processedData = data?.map(img => {
+        // Cast the database result to ensure it has the correct types
+        const typedImg = img as unknown as ImageDB;
         return {
-          ...img,
-          image_mobile_url: img.image_mobile_url || img.image_url,
-          image_tablet_url: img.image_tablet_url || img.image_url,
-          image_desktop_url: img.image_desktop_url || img.image_url
+          ...typedImg,
+          image_mobile_url: typedImg.image_mobile_url || typedImg.image_url,
+          image_tablet_url: typedImg.image_tablet_url || typedImg.image_url,
+          image_desktop_url: typedImg.image_desktop_url || typedImg.image_url
         } as ImageDB;
       });
 
@@ -306,7 +309,7 @@ const ImageUpload = () => {
       date: response.metadata.date,
       year: response.metadata.year,
       location: response.metadata.location,
-      gps: response.metadata.gps,
+      gps: response.metadata.gps as Json,
       is_true_event: response.metadata.is_true_event,
       is_ai_generated: true,
       is_mature_content: response.metadata.is_mature_content,
