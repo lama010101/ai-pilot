@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -50,12 +49,7 @@ function App() {
             path="/chat"
             element={
               <AuthGuard>
-                <Chat 
-                  prompt={prompt}
-                  systemPrompt={systemPrompt}
-                  setPrompt={setPrompt}
-                  setSystemPrompt={setSystemPrompt}
-                />
+                <Chat />
               </AuthGuard>
             }
           />

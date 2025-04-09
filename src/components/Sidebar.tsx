@@ -1,9 +1,8 @@
-
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLocation, Link } from "react-router-dom";
-import { data } from "@/data/agents";
+import { agents } from "@/data/agents";
 import { LEADER_EMAIL } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -80,18 +79,18 @@ export default function Sidebar({ className }: SidebarProps) {
           <div className="space-y-1">
             <ScrollArea className="h-[300px]">
               <div className="space-y-1">
-                {data.map((agent) => (
+                {agents.map((agent) => (
                   <Button
                     key={agent.id}
                     variant={
-                      location.pathname === `/${agent.route}`
+                      location.pathname === `/${agent.id}`
                         ? "default"
                         : "ghost"
                     }
                     className="w-full justify-start"
                     asChild
                   >
-                    <Link to={`/${agent.route}`}>{agent.name}</Link>
+                    <Link to={`/${agent.id}`}>{agent.name}</Link>
                   </Button>
                 ))}
               </div>
