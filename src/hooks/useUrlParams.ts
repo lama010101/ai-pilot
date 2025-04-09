@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from "sonner";
 import { getAppBuildById } from '@/lib/buildService';
-import { AppBuild } from '@/types/supabase';
+import { AppBuild } from '@/lib/supabaseTypes';
 
 export function useUrlParams(
   onLoadBuild: (build: AppBuild) => void
@@ -34,7 +34,8 @@ export function useUrlParams(
               status: buildData.status as 'processing' | 'complete' | 'failed',
               timestamp: buildData.timestamp,
               previewUrl: buildData.preview_url,
-              appName: buildData.app_name
+              appName: buildData.app_name,
+              created_at: buildData.timestamp // Use timestamp as created_at
             };
             
             onLoadBuild(build);

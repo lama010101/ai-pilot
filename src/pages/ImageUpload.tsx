@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,8 +19,9 @@ import ImageProcessingButton from "@/components/image-upload/ImageProcessingButt
 import ImageGeneratorUI from "@/components/image-upload/ImageGeneratorUI";
 import SavedImagesGallery from "@/components/image-upload/SavedImagesGallery";
 import BackfillImagesButton from "@/components/image-upload/BackfillImagesButton";
-import { ProcessedImage, ImageDB } from '@/types/supabase';
+import { ProcessedImage, ImageDB, Json } from '@/types/supabase';
 import * as XLSX from 'xlsx';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Metadata {
   title?: string;
@@ -76,14 +78,16 @@ const ImageUpload = () => {
         throw new Error(error.message);
       }
 
-      // Convert the database response to our ImageDB type
-      // adding responsive image URLs if they don't exist
-      const processedData = data?.map(img => ({
-        ...img,
-        image_mobile_url: img.image_mobile_url || img.image_url,
-        image_tablet_url: img.image_tablet_url || img.image_url,
-        image_desktop_url: img.image_desktop_url || img.image_url
-      } as ImageDB));
+      const processedData = data?.map(img => {
+        // Cast the database result to ensure it has the correct types
+        const typedImg = img as unknown as ImageDB;
+        return {
+          ...typedImg,
+          image_mobile_url: typedImg.image_mobile_url || typedImg.image_url,
+          image_tablet_url: typedImg.image_tablet_url || typedImg.image_url,
+          image_desktop_url: typedImg.image_desktop_url || typedImg.image_url
+        } as ImageDB;
+      });
 
       setAllImages(processedData || []);
     } catch (error: any) {
@@ -144,15 +148,17 @@ const ImageUpload = () => {
         metadataFromFile = await processMetadataFile(metadataFile);
       }
 
-      const newImages = uploadedFiles.map((file, index) => {
+      const newImages: ProcessedImage[] = uploadedFiles.map((file, index) => {
         const { imageUrl, descriptionImageUrl } = uploadResults[index];
         const metadata = metadataFromFile[file.name] || {};
 
+        // Create a proper ProcessedImage object with an id
         return {
+          id: uuidv4(), // Generate a unique ID for each image
           originalFileName: file.name,
           metadata,
           imageUrl,
-          descriptionImageUrl: imageUrl,
+          descriptionImageUrl,
           mobileUrl: imageUrl,
           tabletUrl: imageUrl,
           desktopUrl: imageUrl,
@@ -265,6 +271,7 @@ const ImageUpload = () => {
 
   const handleGeneratedImage = useCallback((response: any) => {
     const newImage: ProcessedImage = {
+      id: `generated-${Date.now()}`,
       originalFileName: `generated-${Date.now()}.png`,
       metadata: {
         title: response.metadata.title,
@@ -305,7 +312,7 @@ const ImageUpload = () => {
       date: response.metadata.date,
       year: response.metadata.year,
       location: response.metadata.location,
-      gps: response.metadata.gps,
+      gps: response.metadata.gps as Json,
       is_true_event: response.metadata.is_true_event,
       is_ai_generated: true,
       is_mature_content: response.metadata.is_mature_content,

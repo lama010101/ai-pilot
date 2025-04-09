@@ -1,46 +1,49 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import { seedInitialAgents } from "./lib/supabase";
-import { initializeChatTable } from "./lib/chatService";
-import { peacefulHello } from "./utils/peacefulHello";
+import { Toaster } from "sonner";
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import AgentDetail from "./pages/AgentDetail";
 import Unauthorized from "./pages/Unauthorized";
 import DashboardLayout from "./components/DashboardLayout";
 import DashboardDevLayout from "./components/DashboardDevLayout";
-import PlaceholderPage from "./pages/PlaceholderPage";
+import Index from "./pages/Index";
+import Greeting from "./pages/Greeting";
+
+// Import all page components used in routes
+import Pilot from "./pages/Pilot";
+import AgentDetail from "./pages/AgentDetail";
 import FinanceAI from "./pages/FinanceAI";
-import BudgetSettings from "./pages/BudgetSettings";
+import PlaceholderPage from "./pages/PlaceholderPage";
 import Apps from "./pages/Apps";
 import AppDetail from "./pages/AppDetail";
-import DeveloperSettings from "./pages/DeveloperSettings";
-import Chat from "./pages/Chat";
-import Greeting from "./pages/Greeting";
-import Builder from "./pages/Builder";
-import Features from "./pages/Features";
 import Memory from "./pages/Memory";
-import Pilot from "./pages/Pilot";
-import Index from "./pages/Index";
+import Chat from "./pages/Chat";
+import Builder from "./pages/Builder";
 import ImageUpload from "./pages/ImageUpload";
 import Project from "./pages/Project";
-import { TooltipProvider } from "@radix-ui/react-tooltip";
+import BudgetSettings from "./pages/BudgetSettings";
+import DeveloperSettings from "./pages/DeveloperSettings";
+import Features from "./pages/Features";
 
-// Create a QueryClient instance outside of the component function
+// Create a QueryClient instance
 const queryClient = new QueryClient();
 
-// App initialization component
-const AppInitializer = ({ children }: { children: React.ReactNode }) => {
+// App initialization component as a proper React component
+const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   React.useEffect(() => {
     // Initialize database with seed data
     const initializeApp = async () => {
       try {
+        const { seedInitialAgents } = await import('./lib/supabase');
+        const { initializeChatTable } = await import('./lib/chatService');
+        const { peacefulHello } = await import('./utils/peacefulHello');
+        
         await seedInitialAgents();
-        await initializeChatTable(); // Initialize the chat table
-        peacefulHello(); // Log our peaceful hello world
+        await initializeChatTable(); 
+        peacefulHello(); 
       } catch (error) {
         console.error("Error initializing app:", error);
       }
@@ -52,8 +55,9 @@ const AppInitializer = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const App = () => {
-  useEffect(() => {
+// Main App component
+const App: React.FC = () => {
+  React.useEffect(() => {
     console.log("App component mounted");
   }, []);
 
@@ -63,6 +67,7 @@ const App = () => {
         <BrowserRouter>
           <AuthProvider>
             <AppInitializer>
+              <Toaster position="top-right" richColors closeButton />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/greeting" element={<Greeting />} />

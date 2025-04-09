@@ -1,5 +1,6 @@
 
 // Types representing Supabase database tables
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export interface AgentTaskDB {
   id: string;
@@ -89,7 +90,7 @@ export interface ImageDB {
   date: string | null;
   year: number | null;
   location: string | null;
-  gps: any | null;
+  gps: Json | null;
   is_true_event: boolean | null;
   is_ai_generated: boolean | null;
   ready_for_game: boolean | null;
@@ -97,10 +98,6 @@ export interface ImageDB {
   updated_at: string | null;
   image_url: string | null;
   description_image_url: string | null;
-  // Added responsive image URL properties
-  image_mobile_url: string | null;
-  image_tablet_url: string | null;
-  image_desktop_url: string | null;
   // Extended fields
   is_mature_content: boolean | null;
   accuracy_description: number | null;
@@ -111,10 +108,13 @@ export interface ImageDB {
   accuracy_maturity: number | null;
   manual_override: boolean | null;
   source: string | null;
-  hints: any | null;  // Added for writer hints
+  hints: Json | null;  // Added for writer hints
   country: string | null;  // Added for writer country
   short_description: string | null;  // Added for writer short description
   detailed_description: string | null;  // Added for writer detailed description
+  image_mobile_url: string | null;  // Added for responsive images
+  image_tablet_url: string | null;  // Added for responsive images
+  image_desktop_url: string | null;  // Added for responsive images
 }
 
 // Command templates based on agent type
@@ -199,3 +199,15 @@ export const AGENT_CHAIN = [
   { role: 'Tester', description: 'Validates functionality and quality' },
   { role: 'Admin', description: 'Deploys and manages applications' }
 ];
+
+// Export the types from src/types/supabase.ts for backward compatibility
+export type {
+  AppBuild,
+  AppBuildDB,
+  ProcessedImage,
+  ImageGenerationResponse,
+  ImageGenerationRow,
+  GPSCoordinates,
+  WriterPromptEntry,
+  WriterResponse
+} from '@/types/supabase';
