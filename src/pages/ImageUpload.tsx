@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,50 +14,36 @@ import SavedImagesGallery from "@/components/image-upload/SavedImagesGallery";
 import WriterPromptGenerator from "@/components/image-upload/WriterPromptGenerator";
 import ImageGeneratorUI from "@/components/image-upload/ImageGeneratorUI";
 import { useImageProviderStore } from '@/stores/imageProviderStore';
+import { useImageUiStore } from '@/stores/imageUiStore';
 import * as XLSX from 'xlsx';
 
-interface Metadata {
-  title?: string;
-  description?: string;
-  date?: string;
-  year?: number;
-  location?: string;
-  country?: string;
-  gps?: {
-    lat: number;
-    lng: number;
-  };
-  is_true_event?: boolean;
-  is_ai_generated?: boolean;
-  is_mature_content?: boolean;
-  source?: string;
-  accuracy_description?: number;
-  accuracy_date?: number;
-  accuracy_location?: number;
-  accuracy_historical?: number;
-  accuracy_realness?: number;
-  accuracy_maturity?: number;
-  manual_override?: boolean;
-  ready?: boolean;
-}
-
 const ImageUpload = () => {
-  const [activeTab, setActiveTab] = useState<string>("gallery");
+  const { 
+    activeTab, 
+    setActiveTab, 
+    gallerySubTab, 
+    setGallerySubTab, 
+    processedImages, 
+    setProcessedImages, 
+    addProcessedImage, 
+    updateProcessedImage 
+  } = useImageUiStore();
+  
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [metadataFile, setMetadataFile] = useState<File | null>(null);
-  const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
-  const [allImages, setAllImages] = useState<ImageDB[]>([]);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  const [isVerified, setIsVerified] = useState(false);
+  const [reviewImages, setReviewImages] = useState<ImageDB[]>([]);
+  const [storedImages, setStoredImages] = useState<ImageDB[]>([]);
   const [isLoadingImages, setIsLoadingImages] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
 
+  // Fetch images on component mount
   useEffect(() => {
     fetchImages();
   }, []);
 
+  // Separate images into review and stored categories
   const fetchImages = async () => {
     setIsLoadingImages(true);
     try {
@@ -78,9 +65,14 @@ const ImageUpload = () => {
           image_tablet_url: typedImg.image_tablet_url || typedImg.image_url,
           image_desktop_url: typedImg.image_desktop_url || typedImg.image_url
         } as ImageDB;
-      });
-
-      setAllImages(processedData || []);
+      }) || [];
+      
+      // Split images into review (not ready) and stored (ready)
+      const review = processedData.filter(img => !img.ready_for_game);
+      const stored = processedData.filter(img => img.ready_for_game);
+      
+      setReviewImages(review);
+      setStoredImages(stored);
     } catch (error: any) {
       toast.error("Error fetching images: " + error.message);
     } finally {
@@ -138,7 +130,7 @@ const ImageUpload = () => {
 
       const uploadResults = await Promise.all(uploadPromises);
 
-      let metadataFromFile: { [key: string]: Metadata } = {};
+      let metadataFromFile: { [key: string]: any } = {};
       if (metadataFile) {
         metadataFromFile = await processMetadataFile(metadataFile);
       }
@@ -162,8 +154,11 @@ const ImageUpload = () => {
         };
       });
 
-      setProcessedImages(prevImages => [...prevImages, ...newImages]);
+      setProcessedImages([...processedImages, ...newImages]);
       toast.success("Successfully uploaded " + files.length + " images");
+      
+      // Switch to the upload tab to show the uploaded images
+      setActiveTab('upload');
     } catch (error: any) {
       toast.error("Upload failed: " + error.message);
     } finally {
@@ -172,9 +167,9 @@ const ImageUpload = () => {
       setIsUploading(false);
       fetchImages();
     }
-  }, []);
+  }, [processedImages, setProcessedImages, setActiveTab]);
 
-  const processMetadataFile = async (file: File): Promise<{ [key: string]: Metadata }> => {
+  const processMetadataFile = async (file: File): Promise<{ [key: string]: any }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
@@ -185,7 +180,7 @@ const ImageUpload = () => {
           const worksheet = workbook.Sheets[sheetName];
           const jsonMetadata: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-          const metadataMap: { [key: string]: Metadata } = {};
+          const metadataMap: { [key: string]: any } = {};
           jsonMetadata.forEach(item => {
             const fileName = item['file_name'] || item['filename'] || item['name'];
             if (fileName) {
@@ -231,43 +226,67 @@ const ImageUpload = () => {
   };
 
   const handleToggleSelection = (index: number, selected: boolean) => {
-    setProcessedImages(prevImages => {
-      const newImages = [...prevImages];
-      newImages[index] = { ...newImages[index], selected };
-      return newImages;
-    });
+    updateProcessedImage(index, { selected });
   };
 
-  const handleToggleReadyForGame = (index: number, ready_for_game: boolean) => {
-    setProcessedImages(prevImages => {
-      const newImages = [...prevImages];
-      newImages[index] = { ...newImages[index], ready_for_game };
-      return newImages;
-    });
+  const handleToggleReadyForGame = async (index: number, ready_for_game: boolean) => {
+    // First update local state
+    updateProcessedImage(index, { ready_for_game });
+    
+    // If the image has an actual ID (is already in Supabase), update it
+    const image = processedImages[index];
+    if (image.id && !image.id.startsWith('temp-')) {
+      try {
+        const { error } = await supabase
+          .from('images')
+          .update({ ready_for_game })
+          .eq('id', image.id);
+          
+        if (error) throw error;
+        
+        toast.success(`Image marked as ${ready_for_game ? 'ready' : 'not ready'} for use`);
+        // Refresh the gallery to show the updated state
+        fetchImages();
+      } catch (error: any) {
+        toast.error(`Failed to update image status: ${error.message}`);
+      }
+    }
   };
 
   const handleImageMetadataUpdate = (index: number, metadata: any) => {
-    setProcessedImages(prevImages => {
-      const newImages = [...prevImages];
-      newImages[index] = { ...newImages[index], metadata };
-      return newImages;
-    });
+    updateProcessedImage(index, { metadata });
   };
 
   const handleMetadataFileSelect = (file: File | null) => {
     setMetadataFile(file);
   };
 
-  const handleProcessingComplete = (metadata: any) => {
-    setIsProcessing(false);
-    setIsVerified(true);
-    toast.success("Successfully processed image metadata");
-  };
-
   const handleGeneratedImage = useCallback((response: any) => {
-    fetchImages(); // Refresh the image gallery when a new image is generated
+    // Add generated image to processed list
+    if (response && response.imageUrl) {
+      const newImage: ProcessedImage = {
+        id: uuidv4(),
+        originalFileName: `generated-${Date.now()}.png`,
+        metadata: response.metadata || {},
+        imageUrl: response.imageUrl,
+        descriptionImageUrl: response.imageUrl,
+        mobileUrl: response.imageUrl,
+        tabletUrl: response.imageUrl,
+        desktopUrl: response.imageUrl,
+        ready_for_game: false,
+        selected: true
+      };
+      
+      addProcessedImage(newImage);
+    }
+    
+    fetchImages(); // Refresh gallery
     toast.success("Successfully generated image from prompt");
-  }, []);
+    
+    // Switch to gallery tab to show the generated image
+    setActiveTab('gallery');
+    setGallerySubTab('review');
+  }, [addProcessedImage, setActiveTab, setGallerySubTab]);
 
   return (
     <>
@@ -285,28 +304,45 @@ const ImageUpload = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList>
-            <TabsTrigger value="gallery">Gallery</TabsTrigger>
-            <TabsTrigger value="upload">Upload</TabsTrigger>
-            <TabsTrigger value="manual">Manual</TabsTrigger>
             <TabsTrigger value="writer">Writer</TabsTrigger>
+            <TabsTrigger value="manual">Manual</TabsTrigger>
+            <TabsTrigger value="upload">Upload</TabsTrigger>
+            <TabsTrigger value="gallery">Gallery</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="gallery" className="space-y-4">
+          <TabsContent value="writer" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Image Gallery</CardTitle>
+                <CardTitle>Writer Image Generation</CardTitle>
                 <CardDescription>
-                  Browse and manage all saved images
+                  Use the Writer agent to generate structured image prompts
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <SavedImagesGallery
-                  images={allImages}
-                  isLoading={isLoadingImages}
-                  onImageClick={(image) => {
-                    console.log("Image clicked:", image);
+                <WriterPromptGenerator
+                  onPromptsGenerated={(prompts) => {
+                    console.log("Generated prompts:", prompts);
+                    addToLog(`✅ Generated ${prompts.length} prompts successfully`);
                   }}
-                  onRefresh={fetchImages}
+                  onImageGenerated={handleGeneratedImage}
+                  addToLog={addToLog}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="manual" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Manual Image Generation</CardTitle>
+                <CardDescription>
+                  Generate images using AI based on a prompt
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ImageGeneratorUI
+                  onImageGenerated={handleGeneratedImage}
+                  addToLog={addToLog}
                 />
               </CardContent>
             </Card>
@@ -350,40 +386,43 @@ const ImageUpload = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="manual" className="space-y-4">
+          <TabsContent value="gallery" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Manual Image Generation</CardTitle>
+                <CardTitle>Image Gallery</CardTitle>
                 <CardDescription>
-                  Generate images using AI based on a prompt
+                  Browse and manage all saved images
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ImageGeneratorUI
-                  onImageGenerated={handleGeneratedImage}
-                  addToLog={addToLog}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="writer" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Writer Image Generation</CardTitle>
-                <CardDescription>
-                  Use the Writer agent to generate structured image prompts
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <WriterPromptGenerator
-                  onPromptsGenerated={(prompts) => {
-                    console.log("Generated prompts:", prompts);
-                    addToLog(`✅ Generated ${prompts.length} prompts successfully`);
-                  }}
-                  onImageGenerated={handleGeneratedImage}
-                  addToLog={addToLog}
-                />
+                <Tabs value={gallerySubTab} onValueChange={setGallerySubTab} className="space-y-4">
+                  <TabsList>
+                    <TabsTrigger value="review">Review</TabsTrigger>
+                    <TabsTrigger value="stored">Stored</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="review" className="space-y-4">
+                    <SavedImagesGallery
+                      images={reviewImages}
+                      isLoading={isLoadingImages}
+                      onImageClick={(image) => {
+                        console.log("Review image clicked:", image);
+                      }}
+                      onRefresh={fetchImages}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="stored" className="space-y-4">
+                    <SavedImagesGallery
+                      images={storedImages}
+                      isLoading={isLoadingImages}
+                      onImageClick={(image) => {
+                        console.log("Stored image clicked:", image);
+                      }}
+                      onRefresh={fetchImages}
+                    />
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           </TabsContent>

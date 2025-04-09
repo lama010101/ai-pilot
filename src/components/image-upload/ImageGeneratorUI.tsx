@@ -20,6 +20,7 @@ import useSavedPrompts from '@/hooks/useSavedPrompts';
 import { useImageProviderStore, ImageProvider } from '@/stores/imageProviderStore';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getApiKey, isVertexAIConfigured } from '@/lib/apiKeyService';
+import { useImageUiStore } from '@/stores/imageUiStore';
 
 interface ImageGeneratorUIProps {
   onImageGenerated?: (response: ImageGenerationResponse) => void;
@@ -35,7 +36,6 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAutoMode, setIsAutoMode] = useState(false);
-  const [generatedImage, setGeneratedImage] = useState<ImageGenerationResponse | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('manual');
   const [providerStatus, setProviderStatus] = useState<{
@@ -51,6 +51,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   
   const { savedPrompts, savePrompt } = useSavedPrompts();
   const { provider, setProvider, checkProviderStatus } = useImageProviderStore();
+  const { setGeneratedImage, generatedImage } = useImageUiStore();
   
   // Check which providers are configured
   useEffect(() => {
@@ -95,6 +96,11 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       return;
     }
 
+    if (!providerStatus[provider]) {
+      toast.error(`The selected provider (${getProviderLabel(provider)}) is not properly configured. Please check your API settings.`);
+      return;
+    }
+
     try {
       setIsGenerating(true);
       addLogMessage(`Starting image generation with ${provider.toUpperCase()}...`);
@@ -109,12 +115,14 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
           manualPrompt: prompt,
           autoMode: isAutoMode,
           provider: provider,
-          mode: 'manual'
+          mode: 'manual',
+          forcedProvider: true // Don't silently fallback
         }
       });
 
       if (response.error) {
         addLogMessage(`❌ Error: ${response.error.message || "Edge Function error"}`);
+        toast.error(`Image generation with ${getProviderLabel(provider)} failed. Please check your API key or try another.`);
         throw new Error(response.error.message || "Failed to generate image");
       }
 
@@ -122,6 +130,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       
       if (data.error) {
         addLogMessage(`❌ Error: ${data.error}`);
+        toast.error(`Image generation with ${getProviderLabel(provider)} failed: ${data.error}`);
         throw new Error(data.error);
       }
       
@@ -138,7 +147,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       
       addLogMessage(`✅ Image generated successfully with ${provider.toUpperCase()}: ${data.imageUrl}`);
       
-      toast.success(`Successfully generated image from prompt using ${provider.toUpperCase()}`);
+      toast.success(`Successfully generated image from prompt using ${getProviderLabel(provider)}`);
       
       if (onImageGenerated) {
         onImageGenerated(data);
@@ -147,11 +156,11 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       console.error("Error generating image:", error);
       addLogMessage(`❌ ERROR: ${error.message}`);
       
-      toast.error(error.message || "There was an error generating the image");
+      toast.error(`Image generation with ${getProviderLabel(provider)} failed. Please check your API key or try another.`);
     } finally {
       setIsGenerating(false);
     }
-  }, [prompt, isAutoMode, provider, savePrompt, onImageGenerated, addToLog]);
+  }, [prompt, isAutoMode, provider, savePrompt, onImageGenerated, addToLog, providerStatus, setGeneratedImage]);
 
   const copyPrompt = useCallback(() => {
     if (generatedImage?.promptUsed) {
@@ -167,7 +176,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     setLogs([]);
     
     toast.success("Prompt and generated image have been cleared");
-  }, []);
+  }, [setGeneratedImage]);
 
   const getProviderLabel = (providerKey: string): string => {
     switch(providerKey) {
