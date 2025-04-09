@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Helmet } from 'react-helmet';
-import DashboardLayout from '@/components/DashboardLayout';
 import ApiKeySettingsPanel from '@/components/settings/ApiKeySettingsPanel';
 import { LEADER_EMAIL } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
