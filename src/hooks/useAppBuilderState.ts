@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from 'react';
-import { AppBuild } from '@/lib/supabaseTypes';
+import { AppBuild } from '@/types/supabase';
 
 export function useAppBuilderState() {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);

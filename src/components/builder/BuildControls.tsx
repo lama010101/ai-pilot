@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Download, ExternalLink, Rocket } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { AppBuild } from '@/lib/supabaseTypes';
+import { AppBuild } from '@/types/supabase';
 import { getShareableUrl } from '@/lib/buildService';
 import { cn } from "@/lib/utils";
 

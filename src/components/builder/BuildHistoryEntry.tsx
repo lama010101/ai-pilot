@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AppBuild } from '@/lib/supabaseTypes';
+import { AppBuild } from '@/types/supabase';
 import { formatDistance } from 'date-fns';
 import { Check, AlertTriangle, X, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';

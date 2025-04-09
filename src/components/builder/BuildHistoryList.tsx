@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Spinner } from '@/components/ui/spinner';
-import { AppBuild } from '@/lib/supabaseTypes';
+import { AppBuild } from '@/types/supabase';
 import BuildHistoryEntry from './BuildHistoryEntry';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp } from 'lucide-react';

@@ -6,7 +6,7 @@ import {
   getAppBuildById, 
   triggerAppBuild 
 } from '@/lib/buildService';
-import { AppBuild } from '@/lib/supabaseTypes';
+import { AppBuild } from '@/types/supabase';
 
 export function useAppBuilderService() {
   const navigate = useNavigate();
@@ -85,8 +85,7 @@ export function useAppBuilderService() {
           timestamp: buildData.timestamp,
           previewUrl: buildData.preview_url,
           exportUrl: buildData.export_url,
-          appName: buildData.app_name,
-          created_at: buildData.timestamp // Use timestamp as created_at
+          appName: buildData.app_name
         };
         
         return {

@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { toast } from "sonner";
-import { AppBuild } from '@/lib/supabaseTypes';
+import { AppBuild } from '@/types/supabase';
 import { exportBuild, triggerHostingPreview } from '@/lib/buildService';
 
 type User = {
