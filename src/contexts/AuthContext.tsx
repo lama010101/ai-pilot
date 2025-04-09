@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, USE_FAKE_AUTH } from '@/lib/supabaseClient';
@@ -21,9 +20,21 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Create a default context value
+const defaultContextValue: AuthContextType = {
+  user: null,
+  session: null,
+  isLoading: !USE_FAKE_AUTH,
+  isAuthenticated: USE_FAKE_AUTH,
+  signInWithGoogle: async () => {},
+  signInWithEmail: async () => {},
+  signOut: async () => {},
+};
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+// Create the context with default value
+const AuthContext = createContext<AuthContextType>(defaultContextValue);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(!USE_FAKE_AUTH);
@@ -300,7 +311,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
