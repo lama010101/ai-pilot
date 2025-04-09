@@ -3,13 +3,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, USE_FAKE_AUTH } from '@/lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 
 // Get the leader email from environment variables
 const LEADER_EMAIL = import.meta.env.VITE_LEADER_EMAIL || 'emartin6867@gmail.com';
-
-// Maximum number of retries for auth operations
-const MAX_AUTH_RETRIES = 3;
 
 interface AuthContextType {
   user: User | null;
@@ -17,7 +13,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   signInWithGoogle: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<void>; 
+  signInWithEmail: (email: string, password: string) => Promise<void>; // Ensure this is here
   signOut: () => Promise<void>;
 }
 
@@ -29,23 +25,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(!USE_FAKE_AUTH);
   const [isAuthenticated, setIsAuthenticated] = useState(USE_FAKE_AUTH);
   const navigate = useNavigate();
-
-  // Function to retry auth operations with exponential backoff
-  const retryOperation = async (operation: () => Promise<any>, retries = MAX_AUTH_RETRIES, delay = 1000) => {
-    try {
-      return await operation();
-    } catch (error) {
-      if (retries <= 0) {
-        console.error('Operation failed after maximum retries:', error);
-        toast.error('Authentication failed after multiple attempts');
-        throw error;
-      }
-      
-      console.log(`Retrying operation, ${retries} attempts left. Waiting ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return retryOperation(operation, retries - 1, delay * 2);
-    }
-  };
 
   useEffect(() => {
     console.log("AuthProvider mounted, USE_FAKE_AUTH:", USE_FAKE_AUTH);
@@ -59,13 +38,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const checkSession = async () => {
       try {
         console.log("Checking for existing session...");
-        const { data: { session }, error } = await retryOperation(() => 
-          supabase.auth.getSession()
-        );
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Error getting session:', error);
-          toast.error('Failed to check authentication status');
           setIsLoading(false);
           return;
         }
@@ -75,7 +51,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // If we have a session, check if the user is authorized
         if (session) {
           const userEmail = session.user?.email;
-          console.log("Found user with email:", userEmail);
           
           if (userEmail !== LEADER_EMAIL) {
             console.log('Unauthorized access attempt:', userEmail);
@@ -84,19 +59,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setSession(null);
             setUser(null);
             setIsAuthenticated(false);
-            toast.error('Unauthorized access attempt');
           } else {
             setSession(session);
             setUser(session.user);
             setIsAuthenticated(true);
-            toast.success(`Welcome back, ${session.user.email}`);
           }
         }
         
         setIsLoading(false);
       } catch (error) {
         console.error('Error checking session:', error);
-        toast.error('Authentication check failed');
         setIsLoading(false);
       }
     };
@@ -117,26 +89,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setSession(null);
           setUser(null);
           setIsAuthenticated(false);
-          toast.error('Unauthorized access attempt');
         } else {
           setSession(session);
           setUser(session.user);
           setIsAuthenticated(true);
-          
-          // Only show welcome toast on sign_in event, not on every state change
-          if (_event === 'SIGNED_IN') {
-            toast.success(`Welcome, ${session.user.email}`);
-          }
         }
       } else {
         setSession(null);
         setUser(null);
         setIsAuthenticated(false);
-        
-        // Only show sign out toast on sign_out event
-        if (_event === 'SIGNED_OUT') {
-          toast.info('You have been signed out');
-        }
       }
       
       setIsLoading(false);
@@ -159,29 +120,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsAuthenticated(true);
       console.log("Redirecting to dashboard (fake auth)");
       navigate('/dashboard/builder');
-      toast.success('Signed in with fake auth');
       return;
     }
 
     try {
       console.log("Starting Google OAuth flow");
-      const { error } = await retryOperation(() => 
-        supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/dashboard/builder`,
-          },
-        })
-      );
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard/builder`,
+        },
+      });
       
       if (error) {
-        console.error('Error during Google sign in:', error);
-        toast.error(`Google sign-in failed: ${error.message}`);
         throw error;
       }
     } catch (error) {
       console.error('Error signing in:', error);
-      toast.error('Failed to sign in with Google');
     }
   };
 
@@ -194,7 +149,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsAuthenticated(true);
       console.log("Redirecting to dashboard (fake auth)");
       navigate('/dashboard/builder');
-      toast.success('Signed in with fake auth');
       return;
     }
 
@@ -203,45 +157,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (email !== LEADER_EMAIL) {
         console.log('Unauthorized email attempt:', email);
-        toast.error('Unauthorized email address');
         navigate('/unauthorized');
         return;
       }
       
       // In production, this would check the actual password
       // For now, we just allow the Leader email to sign in
-      const { data, error } = await retryOperation(() => 
-        supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-      );
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
       if (error) {
         console.error('Error signing in with email:', error);
-        toast.error(`Email login failed: ${error.message}`);
-        
         // If the user doesn't exist, try to create the account
         if (error.message.includes('Invalid login credentials')) {
           console.log('User not found, attempting to create account');
-          toast.info('Account not found, creating new account');
-          
-          const { error: signUpError } = await retryOperation(() => 
-            supabase.auth.signUp({
-              email,
-              password,
-            })
-          );
+          const { error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+          });
           
           if (signUpError) {
             console.error('Error creating account:', signUpError);
-            toast.error(`Failed to create account: ${signUpError.message}`);
             return;
           }
           
           // Account created, navigate to dashboard
           console.log('Account created, setting isAuthenticated to true');
-          toast.success('Account created successfully');
           setIsAuthenticated(true);
           navigate('/dashboard/builder');
         }
@@ -252,11 +195,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(data.session);
       setUser(data.user);
       setIsAuthenticated(true);
-      toast.success('Signed in successfully');
       navigate('/dashboard/builder');
     } catch (error) {
       console.error('Error signing in with email:', error);
-      toast.error('Failed to sign in with email');
     }
   };
 
@@ -269,19 +210,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsAuthenticated(false);
       console.log("Redirecting to login (fake auth)");
       navigate('/login');
-      toast.info('Signed out (fake auth)');
       return;
     }
 
     try {
       console.log("Signing out via Supabase");
-      await retryOperation(() => supabase.auth.signOut());
+      await supabase.auth.signOut();
       console.log("Sign out complete, redirecting to login");
-      toast.info('You have been signed out');
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
-      toast.error('Failed to sign out');
     }
   };
 
