@@ -7,6 +7,7 @@ export interface ProviderConfig {
   defaultModel: string;
   maxPromptLength: number;
   models: string[];
+  additionalFields?: string[];
 }
 
 export const providerConfigs: Record<string, ProviderConfig> = {
@@ -35,7 +36,8 @@ export const providerConfigs: Record<string, ProviderConfig> = {
     keyName: 'VERTEX_AI_API_KEY',
     defaultModel: 'imagegeneration',
     maxPromptLength: 4000,
-    models: ['imagegeneration']
+    models: ['imagegeneration'],
+    additionalFields: ['VERTEX_PROJECT_ID']
   }
 };
 

@@ -26,6 +26,7 @@ import ImageUpload from "./pages/ImageUpload";
 import Project from "./pages/Project";
 import BudgetSettings from "./pages/BudgetSettings";
 import DeveloperSettings from "./pages/DeveloperSettings";
+import ApiKeysSettings from "./pages/ApiKeysSettings";
 import Features from "./pages/Features";
 
 // Create a QueryClient instance
@@ -91,6 +92,7 @@ const App: React.FC = () => {
                   <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                   <Route path="settings/budget" element={<BudgetSettings />} />
                   <Route path="settings/developer" element={<DeveloperSettings />} />
+                  <Route path="settings/api-keys" element={<ApiKeysSettings />} />
                   <Route path="features" element={<Features />} />
                 </Route>
                 
@@ -111,6 +113,7 @@ const App: React.FC = () => {
                   <Route path="settings" element={<PlaceholderPage title="Settings" />} />
                   <Route path="settings/budget" element={<BudgetSettings />} />
                   <Route path="settings/developer" element={<DeveloperSettings />} />
+                  <Route path="settings/api-keys" element={<ApiKeysSettings />} />
                   <Route path="features" element={<Features />} />
                 </Route>
                 

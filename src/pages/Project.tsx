@@ -3,9 +3,16 @@ import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Key } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from '@/contexts/AuthContext';
 
 const Project: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const isLeader = isAuthenticated && user?.email === import.meta.env.VITE_LEADER_EMAIL;
   
   return (
     <>
@@ -14,11 +21,24 @@ const Project: React.FC = () => {
       </Helmet>
       
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Project</h1>
-          <p className="text-muted-foreground">
-            Manage and view your current project
-          </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Project</h1>
+            <p className="text-muted-foreground">
+              Manage and view your current project
+            </p>
+          </div>
+          
+          {isLeader && (
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={() => navigate('/dashboard/settings/api-keys')}
+            >
+              <Key size={16} />
+              Manage API Keys
+            </Button>
+          )}
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
