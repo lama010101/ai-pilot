@@ -21,6 +21,7 @@ import SavedImagesGallery from "@/components/image-upload/SavedImagesGallery";
 import BackfillImagesButton from "@/components/image-upload/BackfillImagesButton";
 import { ProcessedImage, ImageDB, Json } from '@/types/supabase';
 import * as XLSX from 'xlsx';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Metadata {
   title?: string;
@@ -147,15 +148,17 @@ const ImageUpload = () => {
         metadataFromFile = await processMetadataFile(metadataFile);
       }
 
-      const newImages = uploadedFiles.map((file, index) => {
+      const newImages: ProcessedImage[] = uploadedFiles.map((file, index) => {
         const { imageUrl, descriptionImageUrl } = uploadResults[index];
         const metadata = metadataFromFile[file.name] || {};
 
+        // Create a proper ProcessedImage object with an id
         return {
+          id: uuidv4(), // Generate a unique ID for each image
           originalFileName: file.name,
           metadata,
           imageUrl,
-          descriptionImageUrl: imageUrl,
+          descriptionImageUrl,
           mobileUrl: imageUrl,
           tabletUrl: imageUrl,
           desktopUrl: imageUrl,

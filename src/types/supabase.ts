@@ -18,7 +18,7 @@ export interface ImageDB {
   gps?: Json | null;
   short_description?: string;
   detailed_description?: string;
-  hints?: any | null;
+  hints?: Json | null;
   source?: string;
   manual_override?: boolean;
   description_image_url?: string;
