@@ -13,8 +13,10 @@ import {
   MessageSquare,
   Sparkles,
   MemoryStick,
-  Image
+  Image,
+  Key
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SidebarItemProps {
   icon: React.ReactNode;
@@ -23,6 +25,7 @@ interface SidebarItemProps {
   isCollapsed: boolean;
 }
 
+// Regular sidebar item
 const SidebarItem = ({ icon, label, to, isCollapsed }: SidebarItemProps) => (
   <NavLink 
     to={to} 
@@ -37,12 +40,23 @@ const SidebarItem = ({ icon, label, to, isCollapsed }: SidebarItemProps) => (
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
   const location = useLocation();
   const isDev = location.pathname.startsWith('/dashboard-dev');
   const baseUrl = isDev ? '/dashboard-dev' : '/dashboard';
+  const { user } = useAuth();
+  
+  // Check if user is leader
+  const isLeader = user?.email === import.meta.env.VITE_LEADER_EMAIL;
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
+  };
+  
+  const toggleSettings = () => {
+    if (!isCollapsed) {
+      setIsSettingsExpanded(!isSettingsExpanded);
+    }
   };
 
   return (
@@ -111,12 +125,79 @@ const Sidebar = () => {
           to={`${baseUrl}/features`}
           isCollapsed={isCollapsed} 
         />
-        <SidebarItem 
-          icon={<Settings size={20} />} 
-          label="Settings" 
-          to={`${baseUrl}/settings`} 
-          isCollapsed={isCollapsed} 
-        />
+        
+        {/* Settings section with dropdown */}
+        <div className="pt-2">
+          {isCollapsed ? (
+            <SidebarItem
+              icon={<Settings size={20} />}
+              label="Settings"
+              to={`${baseUrl}/settings`}
+              isCollapsed={isCollapsed}
+            />
+          ) : (
+            <div className="space-y-1">
+              <button
+                onClick={toggleSettings}
+                className={`sidebar-item w-full ${
+                  location.pathname.includes('/settings') ? 'active' : ''
+                }`}
+              >
+                <Settings size={20} />
+                <span className="flex-1 text-left">Settings</span>
+                <ChevronRight
+                  size={16}
+                  className={`transition-transform duration-200 ${
+                    isSettingsExpanded ? 'rotate-90' : ''
+                  }`}
+                />
+              </button>
+              
+              {isSettingsExpanded && (
+                <div className="pl-8 space-y-1">
+                  <NavLink
+                    to={`${baseUrl}/settings`}
+                    className={({ isActive }) =>
+                      `sidebar-item ${isActive && location.pathname === `${baseUrl}/settings` ? 'active' : ''}`
+                    }
+                  >
+                    <span>General</span>
+                  </NavLink>
+                  
+                  <NavLink
+                    to={`${baseUrl}/settings/budget`}
+                    className={({ isActive }) =>
+                      `sidebar-item ${isActive ? 'active' : ''}`
+                    }
+                  >
+                    <span>Budget</span>
+                  </NavLink>
+                  
+                  {isLeader && (
+                    <NavLink
+                      to={`${baseUrl}/settings/api-keys`}
+                      className={({ isActive }) =>
+                        `sidebar-item ${isActive ? 'active' : ''}`
+                      }
+                    >
+                      <Key size={16} className="mr-2" />
+                      <span>API Keys</span>
+                    </NavLink>
+                  )}
+                  
+                  <NavLink
+                    to={`${baseUrl}/settings/developer`}
+                    className={({ isActive }) =>
+                      `sidebar-item ${isActive ? 'active' : ''}`
+                    }
+                  >
+                    <span>Developer</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </nav>
       
       <div className="p-3 border-t border-sidebar-border">

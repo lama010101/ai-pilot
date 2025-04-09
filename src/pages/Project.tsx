@@ -57,9 +57,39 @@ const Project: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="py-10 text-center text-muted-foreground">
-                  Project overview is currently being implemented...
-                </p>
+                <div className="py-4">
+                  <h3 className="text-lg font-medium mb-2">Project Configuration</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Configure the project settings and API keys for external services.
+                  </p>
+                  
+                  {isLeader ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center p-3 border rounded-md">
+                        <div className="flex-1">
+                          <h4 className="font-medium">API Keys</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Configure API keys for external services like DALL·E, Midjourney, and more
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => navigate('/dashboard/settings/api-keys')}
+                          className="flex items-center gap-2"
+                        >
+                          <Key size={16} />
+                          Manage Keys
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-muted rounded-md text-center">
+                      <p className="text-muted-foreground">
+                        Only the Leader can configure API keys and project settings.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
