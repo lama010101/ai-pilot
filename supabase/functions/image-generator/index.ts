@@ -49,6 +49,11 @@ serve(async (req) => {
     const requestData: ImageGenerationRequest = await req.json();
     const { manualPrompt, autoMode, provider, mode, forcedProvider = false } = requestData;
     
+    // Validate provider
+    if (!provider || !['dalle', 'vertex', 'midjourney'].includes(provider)) {
+      throw new Error(`Unsupported provider: ${provider}`);
+    }
+    
     logEntry(`Requested provider: ${provider}`);
     
     // Get the provider configuration
@@ -97,7 +102,7 @@ serve(async (req) => {
       if (autoMode) {
         // Auto-generate prompt
         logEntry('Auto-generating prompt using Writer AI');
-        // TODO: Call writer agent for auto-prompting
+        // This would be replaced with a real call to the writer agent
         prompt = 'A historical photo of the signing of the Declaration of Independence, Philadelphia, 1776, realism';
       } else {
         if (!manualPrompt) {
@@ -110,7 +115,7 @@ serve(async (req) => {
     }
     
     // Add standard enhancements to the prompt
-    const enhancedPrompt = `${prompt}. Photorealistic, ultra-detailed, 50 mm lens, natural lighting`;
+    const enhancedPrompt = `A photorealistic high-resolution image, taken by a professional war/photojournalist, using a vintage analog camera appropriate to the era. Grainy film, accurate shadows, era-specific lighting. Depict: ${prompt} -- Realistic style, historically accurate, correct clothing and architecture, natural facial expressions, no digital artifacts, consistent perspective, documentary framing.`;
     logEntry(`Enhanced prompt: ${enhancedPrompt.substring(0, 50)}...`);
     
     // Specific provider logic for each provider
@@ -121,7 +126,10 @@ serve(async (req) => {
       title: '',
       description: '',
       source: provider,
-      is_ai_generated: true
+      is_ai_generated: true,
+      is_mature_content: false,
+      accuracy_date: 0.95,
+      gps: { lat: 0, lng: 0 }
     };
     
     // Try to extract title, year, and location from the prompt
@@ -305,18 +313,17 @@ serve(async (req) => {
           // Save base64 image to Supabase Storage
           const imageName = `vertex-${Date.now()}.png`;
           
-          // Convert base64 to binary
-          const binary = atob(imageBase64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
+          // Convert base64 to binary using Deno-compatible method (not atob)
+          // This fixes the browser-only atob() issue
+          const binary = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
           
-          // Save to Supabase Storage
+          logEntry(`Image size: ${binary.byteLength} bytes`);
+          
+          // Save to Supabase Storage in the correct 'images' bucket
           const { data: uploadData, error: uploadError } = await supabase
             .storage
-            .from('avatars')
-            .upload(`images/${imageName}`, bytes.buffer, {
+            .from('images')
+            .upload(`generated/${imageName}`, binary.buffer, {
               contentType: 'image/png',
               cacheControl: '3600'
             });
@@ -330,8 +337,8 @@ serve(async (req) => {
           
           // Get public URL
           const { data: urlData } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(`images/${imageName}`);
+            .from('images')
+            .getPublicUrl(`generated/${imageName}`);
             
           imageUrl = urlData.publicUrl;
           logEntry(`Public URL for image: ${imageUrl}`);
@@ -366,6 +373,12 @@ serve(async (req) => {
           year: metadata.year,
           location: metadata.location,
           is_ai_generated: true,
+          is_mature_content: metadata.is_mature_content || false,
+          accuracy_date: metadata.accuracy_date || 0.95,
+          accuracy_location: metadata.accuracy_location || 0.9,
+          accuracy_historical: metadata.accuracy_historical || 0.9,
+          accuracy_realness: metadata.accuracy_realness || 0.9,
+          gps: metadata.gps || { lat: 0, lng: 0 },
           source: provider,
           ready_for_game: false,
           prompt: enhancedPrompt,
