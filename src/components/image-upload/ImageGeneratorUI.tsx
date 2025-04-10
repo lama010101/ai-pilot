@@ -37,21 +37,15 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('manual');
-  const [providerStatus, setProviderStatus] = useState<{
-    dalle: boolean;
-    vertex: boolean;
-    midjourney: boolean;
-    luma: boolean;
-  }>({
-    dalle: false,
-    vertex: false,
-    midjourney: false,
-    luma: false
-  });
   const [isCheckingProviders, setIsCheckingProviders] = useState(true);
   
   const { savedPrompts, savePrompt } = useSavedPrompts();
-  const { provider, setProvider, checkProviderStatus, providerStatus } = useImageProviderStore();
+  const { 
+    provider, 
+    setProvider, 
+    checkProviderStatus, 
+    providerStatus 
+  } = useImageProviderStore();
   const { setGeneratedImage, generatedImage } = useImageUiStore();
   
   useEffect(() => {
