@@ -277,106 +277,99 @@ async function getAccessToken(): Promise<string> {
   try {
     // First check if we have a service account JSON
     const serviceAccountJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
-    if (serviceAccountJson) {
-      // Parse the service account JSON
-      const serviceAccount = JSON.parse(serviceAccountJson);
+    if (!serviceAccountJson) {
+      throw new Error("GOOGLE_SERVICE_ACCOUNT environment variable is not set");
+    }
+    
+    // Parse the service account JSON
+    const serviceAccount = JSON.parse(serviceAccountJson);
+    
+    // Create a JWT for OAuth token exchange
+    const now = Math.floor(Date.now() / 1000);
+    const expiry = now + 3600; // 1 hour expiry
+    
+    const jwt_payload = {
+      iss: serviceAccount.client_email,
+      sub: serviceAccount.client_email,
+      aud: OAUTH_TOKEN_URL,
+      iat: now,
+      exp: expiry,
+      scope: "https://www.googleapis.com/auth/cloud-platform"
+    };
+    
+    // Log the client email being used for debugging
+    console.log(`Using service account: ${serviceAccount.client_email}`);
+    
+    // Prepare JWT header
+    const jwt_header = {
+      alg: "RS256",
+      typ: "JWT"
+    };
+    
+    // Encode header and payload to base64
+    const encoder = new TextEncoder();
+    const header_b64 = encodeBase64(encoder.encode(JSON.stringify(jwt_header)));
+    const payload_b64 = encodeBase64(encoder.encode(JSON.stringify(jwt_payload)));
+    
+    // Create the JWT signature base
+    const signature_base = `${header_b64}.${payload_b64}`;
+    
+    try {
+      // Remove header/footer from PEM key and decode from base64
+      const key_b64 = serviceAccount.private_key
+        .replace(/-----BEGIN PRIVATE KEY-----/, '')
+        .replace(/-----END PRIVATE KEY-----/, '')
+        .replace(/\n/g, '');
       
-      // Create a JWT for OAuth token exchange
-      const now = Math.floor(Date.now() / 1000);
-      const expiry = now + 3600; // 1 hour expiry
+      // Import the private key for signing
+      const private_key = await crypto.subtle.importKey(
+        "pkcs8",
+        decode(key_b64),
+        {
+          name: "RSASSA-PKCS1-v1_5",
+          hash: "SHA-256"
+        },
+        false,
+        ["sign"]
+      );
       
-      const jwt_payload = {
-        iss: serviceAccount.client_email,
-        sub: serviceAccount.client_email,
-        aud: OAUTH_TOKEN_URL,  // Ensure this is correct
-        iat: now,
-        exp: expiry,
-        scope: "https://www.googleapis.com/auth/cloud-platform"
-      };
+      // Sign the JWT
+      const signature = await crypto.subtle.sign(
+        "RSASSA-PKCS1-v1_5",
+        private_key,
+        encoder.encode(signature_base)
+      );
       
-      // Log the client email being used for debugging
-      console.log(`Using service account: ${serviceAccount.client_email}`);
+      // Encode the signature to base64
+      const signature_b64 = encodeBase64(new Uint8Array(signature));
       
-      // Prepare JWT header
-      const jwt_header = {
-        alg: "RS256",
-        typ: "JWT"
-      };
+      // Assemble the full JWT
+      const jwt = `${signature_base}.${signature_b64}`;
       
-      // Encode header and payload to base64
-      const encoder = new TextEncoder();
-      const header_b64 = encodeBase64(encoder.encode(JSON.stringify(jwt_header)));
-      const payload_b64 = encodeBase64(encoder.encode(JSON.stringify(jwt_payload)));
+      // Exchange the JWT for an OAuth token
+      const response = await fetch(OAUTH_TOKEN_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          assertion: jwt
+        })
+      });
       
-      // Create the JWT signature base
-      const signature_base = `${header_b64}.${payload_b64}`;
+      // Parse the response
+      const token_data = await response.json();
       
-      try {
-        // Remove header/footer from PEM key and decode from base64
-        const key_b64 = serviceAccount.private_key
-          .replace(/-----BEGIN PRIVATE KEY-----/, '')
-          .replace(/-----END PRIVATE KEY-----/, '')
-          .replace(/\n/g, '');
-        
-        // Import the private key for signing
-        const private_key = await crypto.subtle.importKey(
-          "pkcs8",
-          decode(key_b64),
-          {
-            name: "RSASSA-PKCS1-v1_5",
-            hash: "SHA-256"
-          },
-          false,
-          ["sign"]
-        );
-        
-        // Sign the JWT
-        const signature = await crypto.subtle.sign(
-          "RSASSA-PKCS1-v1_5",
-          private_key,
-          encoder.encode(signature_base)
-        );
-        
-        // Encode the signature to base64
-        const signature_b64 = encodeBase64(new Uint8Array(signature));
-        
-        // Assemble the full JWT
-        const jwt = `${signature_base}.${signature_b64}`;
-        
-        // Exchange the JWT for an OAuth token
-        const response = await fetch(OAUTH_TOKEN_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
-          body: new URLSearchParams({
-            grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            assertion: jwt
-          })
-        });
-        
-        // Parse the response
-        const token_data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(`Failed to get token: ${response.status} ${JSON.stringify(token_data)}`);
-        }
-        
-        return token_data.access_token;
-      } catch (error) {
-        console.error("JWT signing error:", error);
-        throw error;
+      if (!response.ok) {
+        throw new Error(`Failed to get token: ${response.status} ${JSON.stringify(token_data)}`);
       }
+      
+      return token_data.access_token;
+    } catch (error) {
+      console.error("JWT signing error:", error);
+      throw error;
     }
-    
-    // For development, we can use a pre-generated access token
-    // In production, this should be replaced with proper JWT signing and token exchange
-    const accessToken = Deno.env.get("VERTEX_AI_API_KEY");
-    if (!accessToken) {
-      throw new Error("No authentication credentials found. Please set VERTEX_AI_API_KEY or GOOGLE_SERVICE_ACCOUNT");
-    }
-    
-    return accessToken;
   } catch (error) {
     console.error("Error getting access token:", error);
     throw new Error(`Authentication failed: ${error.message}`);
