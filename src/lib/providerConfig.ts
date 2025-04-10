@@ -42,11 +42,11 @@ export const providerConfigs: Record<string, ProviderConfig> = {
     name: 'Vertex AI',
     endpointUrl: 'https://us-central1-aiplatform.googleapis.com/v1/projects/{projectId}/locations/us-central1/publishers/google/models/imagegeneration:predict',
     keyRequired: true,
-    keyName: 'VERTEX_AI_API_KEY', // Update this to match Supabase secret name
+    keyName: 'VERTEX_AI_API_KEY',
     defaultModel: 'imagegeneration',
     maxPromptLength: 4000,
     models: ['imagegeneration'],
-    additionalFields: ['VERTEX_PROJECT_ID'] // Ensure project ID is also stored
+    additionalFields: ['VERTEX_PROJECT_ID']
   }
 };
 

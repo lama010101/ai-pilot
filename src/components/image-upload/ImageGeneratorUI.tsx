@@ -51,7 +51,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const [isCheckingProviders, setIsCheckingProviders] = useState(true);
   
   const { savedPrompts, savePrompt } = useSavedPrompts();
-  const { provider, setProvider, checkProviderStatus } = useImageProviderStore();
+  const { provider, setProvider, checkProviderStatus, providerStatus } = useImageProviderStore();
   const { setGeneratedImage, generatedImage } = useImageUiStore();
   
   useEffect(() => {
