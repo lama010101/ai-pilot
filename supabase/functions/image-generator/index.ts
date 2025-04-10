@@ -2,6 +2,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { decode } from 'https://deno.land/std@0.170.0/encoding/base64.ts';
+import { encode as encodeBase64 } from 'https://deno.land/std@0.170.0/encoding/base64.ts';
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
 
 // Constants for API endpoints and configuration
 const VERTEX_MODEL_BASE_URL = "https://us-central1-aiplatform.googleapis.com/v1/projects";
@@ -295,8 +297,76 @@ async function getAccessToken(): Promise<string> {
       // Log the client email being used for debugging
       console.log(`Using service account: ${serviceAccount.client_email}`);
       
-      // In a production environment, you would sign the JWT with the private key
-      // For now, as we're using a pre-generated token, we'll use that directly
+      // Prepare JWT header
+      const jwt_header = {
+        alg: "RS256",
+        typ: "JWT"
+      };
+      
+      // Encode header and payload to base64
+      const encoder = new TextEncoder();
+      const header_b64 = encodeBase64(encoder.encode(JSON.stringify(jwt_header)));
+      const payload_b64 = encodeBase64(encoder.encode(JSON.stringify(jwt_payload)));
+      
+      // Create the JWT signature base
+      const signature_base = `${header_b64}.${payload_b64}`;
+      
+      try {
+        // Remove header/footer from PEM key and decode from base64
+        const key_b64 = serviceAccount.private_key
+          .replace(/-----BEGIN PRIVATE KEY-----/, '')
+          .replace(/-----END PRIVATE KEY-----/, '')
+          .replace(/\n/g, '');
+        
+        // Import the private key for signing
+        const private_key = await crypto.subtle.importKey(
+          "pkcs8",
+          decode(key_b64),
+          {
+            name: "RSASSA-PKCS1-v1_5",
+            hash: "SHA-256"
+          },
+          false,
+          ["sign"]
+        );
+        
+        // Sign the JWT
+        const signature = await crypto.subtle.sign(
+          "RSASSA-PKCS1-v1_5",
+          private_key,
+          encoder.encode(signature_base)
+        );
+        
+        // Encode the signature to base64
+        const signature_b64 = encodeBase64(new Uint8Array(signature));
+        
+        // Assemble the full JWT
+        const jwt = `${signature_base}.${signature_b64}`;
+        
+        // Exchange the JWT for an OAuth token
+        const response = await fetch(OAUTH_TOKEN_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: new URLSearchParams({
+            grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            assertion: jwt
+          })
+        });
+        
+        // Parse the response
+        const token_data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(`Failed to get token: ${response.status} ${JSON.stringify(token_data)}`);
+        }
+        
+        return token_data.access_token;
+      } catch (error) {
+        console.error("JWT signing error:", error);
+        throw error;
+      }
     }
     
     // For development, we can use a pre-generated access token
