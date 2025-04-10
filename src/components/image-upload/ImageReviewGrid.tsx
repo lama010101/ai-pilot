@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Check, X, Edit, Save, Eye, Trash2, CheckSquare } from "lucide-react";
+import { Check, X, Edit, Save, Eye, Trash2, CheckSquare, RefreshCw } from "lucide-react";
 import { ProcessedImage } from '@/types/supabase';
 import {
   Table,
@@ -104,7 +103,6 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
       return;
     }
     
-    // Mark selected rows as updating
     const updating = { ...isUpdating };
     selectedRows.forEach(index => {
       updating[index] = true;
@@ -112,7 +110,6 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
     setIsUpdating(updating);
     
     try {
-      // Update each selected image
       for (const index of selectedRows) {
         onToggleReadyForGame(index, readyStatus);
       }
@@ -122,7 +119,6 @@ const ImageReviewGrid: React.FC<ImageReviewGridProps> = ({
       toast.error('Failed to update images');
       console.error('Error updating ready status:', error);
     } finally {
-      // Clear updating state
       const newUpdating = { ...isUpdating };
       selectedRows.forEach(index => {
         newUpdating[index] = false;
