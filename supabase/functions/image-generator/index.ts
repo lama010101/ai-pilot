@@ -9,6 +9,11 @@ interface ImageGenerationRequest {
   provider: 'dalle' | 'midjourney' | 'vertex';
   mode: 'manual' | 'writer';
   forcedProvider?: boolean;
+  modelVersion?: string;
+  aspectRatio?: string;
+  addWatermark?: boolean;
+  personGeneration?: 'allow' | 'dont_allow';
+  safetyFilterLevel?: string;
 }
 
 interface ImageGenerationResult {
@@ -47,7 +52,18 @@ serve(async (req) => {
     logEntry('Starting image generation');
     
     const requestData: ImageGenerationRequest = await req.json();
-    const { manualPrompt, autoMode, provider, mode, forcedProvider = false } = requestData;
+    const { 
+      manualPrompt, 
+      autoMode, 
+      provider, 
+      mode, 
+      forcedProvider = false,
+      modelVersion = 'imagen-3.0-generate-002',
+      aspectRatio = '1:1',
+      addWatermark = false,
+      personGeneration = 'dont_allow',
+      safetyFilterLevel = 'block_only_high'
+    } = requestData;
     
     // Validate provider
     if (!provider || !['dalle', 'vertex', 'midjourney'].includes(provider)) {
@@ -258,27 +274,28 @@ serve(async (req) => {
           logEntry(`Using default project ID: ${projectId}`);
         }
         
-        // Construct the Vertex AI API URL
-        const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagegeneration:predict`;
+        // Construct the Vertex AI API URL with proper model versioning
+        const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/${modelVersion}:predict`;
         
         logEntry(`Calling Vertex AI API at: ${vertexUrl}`);
         
-        // Debug: Log the request payload
+        // Prepare the payload according to Vertex AI specifications
         const vertexPayload = {
           instances: [
             {
-              prompt: enhancedPrompt
+              prompt: enhancedPrompt,
+              aspectRatio: aspectRatio,
+              safetyFilterLevel: safetyFilterLevel,
+              personGeneration: personGeneration,
+              addWatermark: addWatermark
             }
-          ],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: "1:1"
-          }
+          ]
         };
         
+        // Log the full request payload for debugging
         logEntry(`Request payload: ${JSON.stringify(vertexPayload)}`);
         
-        // Fix: Use Bearer token for authentication instead of Authorization header directly
+        // Make the API request with proper authentication
         const vertexResponse = await fetch(vertexUrl, {
           method: 'POST',
           headers: {
@@ -288,64 +305,131 @@ serve(async (req) => {
           body: JSON.stringify(vertexPayload)
         });
         
+        // Handle non-200 responses with detailed error logging
         if (!vertexResponse.ok) {
           const responseText = await vertexResponse.text();
           logEntry(`Vertex AI API error (${vertexResponse.status}): ${responseText}`);
           
-          // Add more detailed diagnostic information
-          if (vertexResponse.status === 403) {
-            throw new Error(`Vertex AI API access denied (403). Please verify your API key has sufficient permissions for the Vertex AI API and the project ID (${projectId}) is correct.`);
-          } else if (vertexResponse.status === 404) {
-            throw new Error(`Vertex AI API endpoint not found (404). The model or project ID (${projectId}) may be incorrect.`);
-          } else {
-            throw new Error(`Vertex AI API error (${vertexResponse.status}): ${responseText || 'Unknown error'}`);
-          }
-        }
-        
-        const vertexData = await vertexResponse.json();
-        logEntry(`Vertex API response received successfully`);
-        
-        // Extract image from response
-        if (vertexData.predictions && vertexData.predictions[0] && vertexData.predictions[0].bytesBase64Encoded) {
-          const imageBase64 = vertexData.predictions[0].bytesBase64Encoded;
-          logEntry('Successfully extracted base64 image from response');
-          
-          // Save base64 image to Supabase Storage
-          const imageName = `vertex-${Date.now()}.png`;
-          
-          // Convert base64 to binary using Deno-compatible method (not atob)
-          // This fixes the browser-only atob() issue
-          const binary = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
-          
-          logEntry(`Image size: ${binary.byteLength} bytes`);
-          
-          // Save to Supabase Storage in the correct 'images' bucket
-          const { data: uploadData, error: uploadError } = await supabase
-            .storage
-            .from('images')
-            .upload(`generated/${imageName}`, binary.buffer, {
-              contentType: 'image/png',
-              cacheControl: '3600'
+          // Check if we should retry for specific error codes
+          if (vertexResponse.status === 429 || vertexResponse.status === 502) {
+            logEntry(`Retrying in 1s due to ${vertexResponse.status} error...`);
+            // Wait 1 second
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Retry the request
+            const retryResponse = await fetch(vertexUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+              },
+              body: JSON.stringify(vertexPayload)
             });
             
-          if (uploadError) {
-            logEntry(`Error uploading Vertex image: ${uploadError.message}`);
-            throw new Error(`Failed to save Vertex image: ${uploadError.message}`);
-          }
-          
-          logEntry(`Successfully uploaded image to storage: ${imageName}`);
-          
-          // Get public URL
-          const { data: urlData } = supabase.storage
-            .from('images')
-            .getPublicUrl(`generated/${imageName}`);
+            // If retry still fails, throw error with details
+            if (!retryResponse.ok) {
+              const retryErrorText = await retryResponse.text();
+              throw new Error(`Vertex AI API retry failed (${retryResponse.status}): ${retryErrorText}`);
+            }
             
-          imageUrl = urlData.publicUrl;
-          logEntry(`Public URL for image: ${imageUrl}`);
+            // Process successful retry response
+            const vertexData = await retryResponse.json();
+            logEntry(`Retry successful, processing response`);
+            
+            // Extract image and process it
+            if (vertexData.predictions && vertexData.predictions[0] && vertexData.predictions[0].bytesBase64Encoded) {
+              const imageBase64 = vertexData.predictions[0].bytesBase64Encoded;
+              logEntry('Successfully extracted base64 image from retry response');
+              
+              // Convert base64 to binary using Deno-compatible method
+              const binary = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+              logEntry(`Image size: ${binary.byteLength} bytes`);
+              
+              // Save to Supabase Storage in the correct 'images' bucket
+              const imageName = `vertex-${Date.now()}.png`;
+              const { data: uploadData, error: uploadError } = await supabase
+                .storage
+                .from('images')
+                .upload(`generated/${imageName}`, binary.buffer, {
+                  contentType: 'image/png',
+                  cacheControl: '3600'
+                });
+                
+              if (uploadError) {
+                logEntry(`Error uploading Vertex image: ${uploadError.message}`);
+                throw new Error(`Failed to save Vertex image: ${uploadError.message}`);
+              }
+              
+              logEntry(`Successfully uploaded image to storage: ${imageName}`);
+              
+              // Get public URL
+              const { data: urlData } = supabase.storage
+                .from('images')
+                .getPublicUrl(`generated/${imageName}`);
+                
+              imageUrl = urlData.publicUrl;
+              logEntry(`Public URL for image: ${imageUrl}`);
+            } else {
+              logEntry(`Unexpected response format from Vertex API retry: ${JSON.stringify(vertexData)}`);
+              throw new Error('Could not extract image from Vertex AI retry response');
+            }
+          } else {
+            // Add more detailed diagnostic information for non-retryable errors
+            if (vertexResponse.status === 403) {
+              throw new Error(`Vertex AI API access denied (403). Please verify your API key has sufficient permissions for the Vertex AI API and the project ID (${projectId}) is correct.`);
+            } else if (vertexResponse.status === 404) {
+              throw new Error(`Vertex AI API endpoint not found (404). The model version (${modelVersion}) or project ID (${projectId}) may be incorrect.`);
+            } else {
+              throw new Error(`Vertex AI API error (${vertexResponse.status}): ${responseText || 'Unknown error'}`);
+            }
+          }
         } else {
-          logEntry(`Unexpected response format from Vertex API: ${JSON.stringify(vertexData)}`);
-          // Fallback if we can't extract the image
-          throw new Error('Could not extract image from Vertex AI response. The response format was unexpected.');
+          // Process successful first-attempt response
+          const vertexData = await vertexResponse.json();
+          logEntry(`Vertex API response received successfully`);
+          
+          // Extract image from response
+          if (vertexData.predictions && vertexData.predictions[0] && vertexData.predictions[0].bytesBase64Encoded) {
+            const imageBase64 = vertexData.predictions[0].bytesBase64Encoded;
+            logEntry('Successfully extracted base64 image from response');
+            
+            // Save base64 image to Supabase Storage
+            const imageName = `vertex-${Date.now()}.png`;
+            
+            // Convert base64 to binary using Deno-compatible method (not atob)
+            // This fixes the browser-only atob() issue
+            const binary = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+            
+            logEntry(`Image size: ${binary.byteLength} bytes`);
+            
+            // Save to Supabase Storage in the correct 'images' bucket
+            const { data: uploadData, error: uploadError } = await supabase
+              .storage
+              .from('images')
+              .upload(`generated/${imageName}`, binary.buffer, {
+                contentType: 'image/png',
+                cacheControl: '3600'
+              });
+              
+            if (uploadError) {
+              logEntry(`Error uploading Vertex image: ${uploadError.message}`);
+              throw new Error(`Failed to save Vertex image: ${uploadError.message}`);
+            }
+            
+            logEntry(`Successfully uploaded image to storage: ${imageName}`);
+            
+            // Get public URL
+            const { data: urlData } = supabase.storage
+              .from('images')
+              .getPublicUrl(`generated/${imageName}`);
+              
+            imageUrl = urlData.publicUrl;
+            logEntry(`Public URL for image: ${imageUrl}`);
+          } else {
+            logEntry(`Unexpected response format from Vertex API: ${JSON.stringify(vertexData)}`);
+            // Fallback if we can't extract the image
+            throw new Error('Could not extract image from Vertex AI response. The response format was unexpected.');
+          }
         }
         
         logEntry(`Successfully generated image with Vertex AI: ${imageUrl?.substring(0, 50)}...`);
