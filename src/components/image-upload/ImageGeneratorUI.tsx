@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,10 +41,12 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     dalle: boolean;
     vertex: boolean;
     midjourney: boolean;
+    luma: boolean;
   }>({
     dalle: false,
     vertex: false,
-    midjourney: false
+    midjourney: false,
+    luma: false
   });
   const [isCheckingProviders, setIsCheckingProviders] = useState(true);
   
@@ -53,7 +54,6 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const { provider, setProvider, checkProviderStatus } = useImageProviderStore();
   const { setGeneratedImage, generatedImage } = useImageUiStore();
   
-  // Check which providers are configured
   useEffect(() => {
     const checkProviders = async () => {
       setIsCheckingProviders(true);
@@ -64,20 +64,18 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     checkProviders();
   }, [checkProviderStatus]);
   
-  // Get provider status from store for UI display
   useEffect(() => {
     const getStatus = async () => {
-      // For DALL-E
       const openAiKey = await getApiKey('OPENAI_API_KEY');
-      // For Vertex AI
       const vertexConfigured = await isVertexAIConfigured();
-      // For Midjourney
       const midjourneyKey = await getApiKey('MIDJOURNEY_API_KEY');
+      const lumaKey = await getApiKey('LUMA_API_KEY');
       
       setProviderStatus({
         dalle: !!openAiKey,
         vertex: !!vertexConfigured,
-        midjourney: !!midjourneyKey
+        midjourney: !!midjourneyKey,
+        luma: !!lumaKey
       });
     };
     
@@ -112,11 +110,10 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
 
       const response = await supabase.functions.invoke('image-generator', {
         body: {
-          manualPrompt: prompt,
-          autoMode: isAutoMode,
+          prompt,
           provider: provider,
-          mode: 'manual',
-          forcedProvider: true // Don't silently fallback
+          autoMode: isAutoMode,
+          forcedProvider: true
         }
       });
 
@@ -134,7 +131,6 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
         throw new Error(data.error);
       }
       
-      // Add logs from the response
       if (data.logs && data.logs.length > 0) {
         data.logs.forEach(log => {
           const parts = log.split(' - ');
@@ -186,6 +182,8 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
         return 'Midjourney';
       case 'vertex':
         return 'Vertex AI';
+      case 'luma':
+        return 'Luma Labs';
       default:
         return providerKey.charAt(0).toUpperCase() + providerKey.slice(1);
     }
@@ -194,6 +192,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
   const providerOptions: { value: ImageProvider; label: string }[] = [
     { value: 'dalle', label: 'DALL·E' },
     { value: 'vertex', label: 'Vertex AI' },
+    { value: 'luma', label: 'Luma Labs' },
     { value: 'midjourney', label: 'Midjourney' }
   ];
 
@@ -358,6 +357,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
                         {generatedImage.metadata.source === 'dalle' ? 'DALL·E' :
                          generatedImage.metadata.source === 'midjourney' ? 'Midjourney' :
                          generatedImage.metadata.source === 'vertex' ? 'Vertex AI' :
+                         generatedImage.metadata.source === 'luma' ? 'Luma Labs' :
                          generatedImage.metadata.source || provider}
                       </Badge>
                     </p>

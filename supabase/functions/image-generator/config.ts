@@ -29,6 +29,15 @@ export const providerConfigs: Record<string, ProviderConfig> = {
     maxPromptLength: 6000,
     models: ['midjourney-5', 'midjourney-4']
   },
+  luma: {
+    name: 'Luma Labs',
+    endpointUrl: 'https://lumalabs.ai/api/generate',
+    keyRequired: true,
+    keyName: 'LUMA_API_KEY',
+    defaultModel: 'luma-default',
+    maxPromptLength: 4000,
+    models: ['luma-default']
+  },
   vertex: {
     name: 'Vertex AI',
     endpointUrl: 'https://us-central1-aiplatform.googleapis.com/v1/projects/{projectId}/locations/us-central1/publishers/google/models/imagegeneration:predict',

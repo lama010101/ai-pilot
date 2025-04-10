@@ -4,7 +4,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { decode } from 'https://deno.land/std@0.170.0/encoding/base64.ts';
 
 // Constants for API endpoints and configuration
-const LUMA_API_URL = "https://lumalabs.ai/api/generate";
 const LUMA_API_KEY = "luma-dbe157ea-3c60-4bde-bf17-60692e0aabc3-54239a80-9bf7-4da1-a260-2a3b75de4294";
 
 // CORS headers for browser compatibility
@@ -35,87 +34,216 @@ serve(async (req) => {
   };
 
   try {
-    logEntry('Starting image generation process with Luma Labs');
+    logEntry('Starting image generation process');
     
     // Parse the request body
     const requestData = await req.json();
-    const { prompt } = requestData;
+    const { prompt, provider = 'luma', forcedProvider = false } = requestData;
     
     // Use a default test prompt if none provided
     const userPrompt = prompt || "A photorealistic crowd scene in the 1950s";
     
     logEntry(`Request received with prompt: ${userPrompt.substring(0, 100)}...`);
+    logEntry(`Using provider: ${provider}`);
     
     // Enhance the prompt for better results
     const enhancedPrompt = `A photorealistic high-resolution image, taken by a professional war/photojournalist, using a vintage analog camera appropriate to the era. Grainy film, accurate shadows, era-specific lighting. Depict: ${userPrompt} -- Realistic style, historically accurate, correct clothing and architecture, natural facial expressions, no digital artifacts, consistent perspective, documentary framing.`;
     logEntry(`Enhanced prompt: ${enhancedPrompt.substring(0, 100)}...`);
     
-    // Call Luma Labs API
-    logEntry(`Calling Luma Labs API at: ${LUMA_API_URL}`);
+    // Initialize variables for the response
+    let imageUrl = '';
+    let imageArrayBuffer: ArrayBuffer | null = null;
+    let providerUsed = provider;
     
-    // Prepare the payload for Luma Labs
-    const lumaPayload = {
-      prompt: enhancedPrompt,
-      // Add other Luma-specific parameters as needed
-      // Using defaults for other parameters
-    };
-    
-    logEntry(`Sending payload to Luma Labs: ${JSON.stringify(lumaPayload).substring(0, 200)}...`);
-    
-    // Make the API request to Luma Labs
-    const lumaResponse = await fetch(LUMA_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LUMA_API_KEY}`
-      },
-      body: JSON.stringify(lumaPayload)
-    });
-    
-    // Check if the response was successful
-    if (!lumaResponse.ok) {
-      const errorText = await lumaResponse.text();
-      logEntry(`Luma Labs API error (${lumaResponse.status}): ${errorText}`);
+    // Use the selected provider with no fallbacks
+    if (provider === 'luma') {
+      // Call Luma Labs API
+      logEntry(`Calling Luma Labs API`);
       
-      // No fallback - return error as requested
-      return new Response(
-        JSON.stringify({
-          status: "error",
-          message: `Luma Labs API error: ${lumaResponse.status} - ${errorText}`,
-          logs: logs
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500
+      // Prepare the payload for Luma Labs
+      const lumaPayload = {
+        prompt: enhancedPrompt,
+        // Using defaults for other parameters
+      };
+      
+      logEntry(`Sending payload to Luma Labs: ${JSON.stringify(lumaPayload).substring(0, 200)}...`);
+      
+      // Make the API request to Luma Labs
+      const lumaResponse = await fetch('https://lumalabs.ai/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${LUMA_API_KEY}`
+        },
+        body: JSON.stringify(lumaPayload)
+      });
+      
+      // Check if the response was successful
+      if (!lumaResponse.ok) {
+        const errorText = await lumaResponse.text();
+        logEntry(`Luma Labs API error (${lumaResponse.status}): ${errorText}`);
+        throw new Error(`Luma Labs API error: ${lumaResponse.status} - ${errorText}`);
+      }
+      
+      // Parse the response
+      const lumaData = await lumaResponse.json();
+      logEntry('Luma Labs API response received successfully');
+      
+      // Extract the image from the response
+      if (!lumaData.image || !lumaData.image.url) {
+        throw new Error('Could not extract image from Luma Labs response. The response format was unexpected.');
+      }
+      
+      imageUrl = lumaData.image.url;
+      logEntry(`Received image URL from Luma: ${imageUrl}`);
+      
+      // Fetch the image from the URL
+      const imageResponse = await fetch(imageUrl);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch image from URL: ${imageResponse.status}`);
+      }
+      
+      // Convert the image to binary data
+      imageArrayBuffer = await imageResponse.arrayBuffer();
+      
+    } else if (provider === 'vertex') {
+      // Call Vertex AI API
+      logEntry(`Calling Vertex AI API`);
+      
+      // Get Vertex API key and project ID
+      const vertexApiKey = Deno.env.get('VERTEX_AI_API_KEY');
+      const projectId = Deno.env.get('VERTEX_PROJECT_ID');
+      
+      if (!vertexApiKey || !projectId) {
+        logEntry('Vertex AI API key or project ID not found');
+        throw new Error('Vertex AI API key or project ID not configured');
+      }
+      
+      // Format the endpoint URL with the project ID
+      const vertexEndpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagegeneration:predict`;
+      
+      // Prepare the payload for Vertex AI
+      const vertexPayload = {
+        instances: [
+          {
+            prompt: enhancedPrompt
+          }
+        ],
+        parameters: {
+          sampleCount: 1
         }
-      );
+      };
+      
+      logEntry(`Sending payload to Vertex AI: ${JSON.stringify(vertexPayload).substring(0, 200)}...`);
+      
+      // Make the API request to Vertex AI
+      const vertexResponse = await fetch(vertexEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${vertexApiKey}`
+        },
+        body: JSON.stringify(vertexPayload)
+      });
+      
+      // Check if the response was successful
+      if (!vertexResponse.ok) {
+        const errorText = await vertexResponse.text();
+        logEntry(`Vertex AI API error (${vertexResponse.status}): ${errorText}`);
+        throw new Error(`Vertex AI API error: ${vertexResponse.status} - ${errorText}`);
+      }
+      
+      // Parse the response
+      const vertexData = await vertexResponse.json();
+      logEntry('Vertex AI API response received successfully');
+      
+      // Extract the image from the response
+      if (!vertexData.predictions || !vertexData.predictions[0] || !vertexData.predictions[0].bytesBase64Encoded) {
+        throw new Error('Could not extract image from Vertex AI response. The response format was unexpected.');
+      }
+      
+      // Decode the base64 image data
+      const base64Data = vertexData.predictions[0].bytesBase64Encoded;
+      const binaryData = decode(base64Data);
+      
+      imageArrayBuffer = binaryData.buffer;
+      logEntry(`Received base64 image from Vertex, size: ${base64Data.length} chars`);
+      
+    } else if (provider === 'dalle') {
+      // Call OpenAI DALL·E API
+      logEntry(`Calling OpenAI DALL·E API`);
+      
+      // Get OpenAI API key
+      const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+      
+      if (!openaiApiKey) {
+        logEntry('OpenAI API key not found');
+        throw new Error('OpenAI API key not configured');
+      }
+      
+      // Prepare the payload for DALL·E
+      const dallePayload = {
+        prompt: enhancedPrompt,
+        n: 1,
+        size: "1024x1024",
+        model: "dall-e-3"
+      };
+      
+      logEntry(`Sending payload to DALL·E: ${JSON.stringify(dallePayload).substring(0, 200)}...`);
+      
+      // Make the API request to OpenAI
+      const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey}`
+        },
+        body: JSON.stringify(dallePayload)
+      });
+      
+      // Check if the response was successful
+      if (!dalleResponse.ok) {
+        const errorText = await dalleResponse.text();
+        logEntry(`DALL·E API error (${dalleResponse.status}): ${errorText}`);
+        throw new Error(`DALL·E API error: ${dalleResponse.status} - ${errorText}`);
+      }
+      
+      // Parse the response
+      const dalleData = await dalleResponse.json();
+      logEntry('DALL·E API response received successfully');
+      
+      // Extract the image from the response
+      if (!dalleData.data || !dalleData.data[0] || !dalleData.data[0].url) {
+        throw new Error('Could not extract image from DALL·E response. The response format was unexpected.');
+      }
+      
+      imageUrl = dalleData.data[0].url;
+      logEntry(`Received image URL from DALL·E: ${imageUrl}`);
+      
+      // Fetch the image from the URL
+      const imageResponse = await fetch(imageUrl);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch image from URL: ${imageResponse.status}`);
+      }
+      
+      // Convert the image to binary data
+      imageArrayBuffer = await imageResponse.arrayBuffer();
+      
+    } else {
+      logEntry(`Invalid provider: ${provider}`);
+      throw new Error(`Invalid provider: ${provider}. Supported providers are: luma, vertex, dalle`);
     }
     
-    // Parse the response
-    const lumaData = await lumaResponse.json();
-    logEntry('Luma Labs API response received successfully');
-    
-    // Extract the image from the response - adjust based on actual Luma response format
-    if (!lumaData.image || !lumaData.image.url) {
-      throw new Error('Could not extract image from Luma Labs response. The response format was unexpected.');
+    if (!imageArrayBuffer) {
+      throw new Error('Failed to get image data from provider');
     }
     
-    const imageUrl = lumaData.image.url;
-    logEntry(`Received image URL from Luma: ${imageUrl}`);
-    
-    // Fetch the image from the URL
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to fetch image from URL: ${imageResponse.status}`);
-    }
-    
-    // Convert the image to binary data
-    const imageArrayBuffer = await imageResponse.arrayBuffer();
+    // Convert the binary data to a Uint8Array
     const binaryData = new Uint8Array(imageArrayBuffer);
     logEntry(`Downloaded image size: ${binaryData.byteLength} bytes`);
     
     // Save to Supabase Storage in the 'images' bucket
-    const imageName = `luma-${Date.now()}.png`;
+    const imageName = `${providerUsed}-${Date.now()}.png`;
     const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from('images')
@@ -125,8 +253,8 @@ serve(async (req) => {
       });
       
     if (uploadError) {
-      logEntry(`Error uploading Luma image: ${uploadError.message}`);
-      throw new Error(`Failed to save Luma image: ${uploadError.message}`);
+      logEntry(`Error uploading image: ${uploadError.message}`);
+      throw new Error(`Failed to save image: ${uploadError.message}`);
     }
     
     logEntry(`Successfully uploaded image to storage: ${imageName}`);
@@ -141,7 +269,7 @@ serve(async (req) => {
     
     // Extract metadata from the prompt
     const metadata = extractMetadata(userPrompt);
-    metadata.source = 'luma';
+    metadata.source = providerUsed;
     metadata.is_ai_generated = true;
     
     // Save image metadata to database
@@ -154,9 +282,6 @@ serve(async (req) => {
           title: metadata.title || 'AI Generated Image',
           description: metadata.description || enhancedPrompt,
           image_url: storedImageUrl,
-          image_mobile_url: storedImageUrl,
-          image_tablet_url: storedImageUrl,
-          image_desktop_url: storedImageUrl,
           year: metadata.year,
           location: metadata.location,
           is_ai_generated: true,
@@ -166,7 +291,7 @@ serve(async (req) => {
           accuracy_historical: metadata.accuracy_historical || 0.9,
           accuracy_realness: metadata.accuracy_realness || 0.9,
           gps: metadata.gps || { lat: 0, lng: 0 },
-          source: 'luma',
+          source: providerUsed,
           ready_for_game: false,
           prompt: enhancedPrompt,
           logs: logs
@@ -191,10 +316,11 @@ serve(async (req) => {
       imageUrl: storedImageUrl,
       metadata: metadata,
       promptUsed: enhancedPrompt,
-      logs: logs
+      logs: logs,
+      provider: providerUsed
     };
     
-    logEntry('Image generation completed successfully');
+    logEntry(`Image generation completed successfully using provider: ${providerUsed}`);
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
