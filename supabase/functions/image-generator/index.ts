@@ -1,44 +1,35 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { providerConfigs } from './config.ts';
+import { decode } from 'https://deno.land/std@0.170.0/encoding/base64.ts';
 
-interface ImageGenerationRequest {
-  manualPrompt?: string;
-  autoMode?: boolean;
-  provider: 'dalle' | 'midjourney' | 'vertex';
-  mode: 'manual' | 'writer';
-  forcedProvider?: boolean;
-  modelVersion?: string;
-  aspectRatio?: string;
-  addWatermark?: boolean;
-  personGeneration?: 'allow' | 'dont_allow';
-  safetyFilterLevel?: string;
-}
+// Constants for API endpoints and configuration
+const VERTEX_MODEL_BASE_URL = "https://us-central1-aiplatform.googleapis.com/v1/projects";
+const PROJECT_ID = Deno.env.get("VERTEX_PROJECT_ID") || "gen-lang-client-0724142088";
+const DEFAULT_MODEL_VERSION = "imagen-3.0-generate-002";
+const DEFAULT_ASPECT_RATIO = "1:1";
+const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
-interface ImageGenerationResult {
-  imageUrl: string;
-  metadata: any;
-  promptUsed: string;
-  logs: string[];
-  error?: string;
-}
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
+// CORS headers for browser compatibility
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Create Supabase client
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Main request handler
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  let logs: string[] = [];
+  // Initialize logs array to track the execution flow
+  const logs: string[] = [];
   const logEntry = (message: string) => {
     const timestamp = new Date().toISOString();
     const entry = `${timestamp} - ${message}`;
@@ -47,399 +38,128 @@ serve(async (req) => {
   };
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    logEntry('Starting image generation process');
     
-    logEntry('Starting image generation');
-    
-    const requestData: ImageGenerationRequest = await req.json();
+    // Parse the request body
+    const requestData = await req.json();
     const { 
-      manualPrompt, 
-      autoMode, 
-      provider, 
-      mode, 
-      forcedProvider = false,
-      modelVersion = 'imagen-3.0-generate-002',
-      aspectRatio = '1:1',
+      prompt, 
+      modelVersion = DEFAULT_MODEL_VERSION,
+      aspectRatio = DEFAULT_ASPECT_RATIO,
       addWatermark = false,
-      personGeneration = 'dont_allow',
-      safetyFilterLevel = 'block_only_high'
+      personGeneration = "dont_allow",
+      safetyFilterLevel = "block_only_high"
     } = requestData;
     
-    // Validate provider
-    if (!provider || !['dalle', 'vertex', 'midjourney'].includes(provider)) {
-      throw new Error(`Unsupported provider: ${provider}`);
+    // Validate the required prompt parameter
+    if (!prompt) {
+      throw new Error('Prompt is required');
     }
     
-    logEntry(`Requested provider: ${provider}`);
+    logEntry(`Request parameters: model=${modelVersion}, aspectRatio=${aspectRatio}, watermark=${addWatermark}`);
     
-    // Get the provider configuration
-    const config = providerConfigs[provider];
-    if (!config) {
-      throw new Error(`Unknown provider: ${provider}`);
-    }
-    
-    // Get the API key from the environment or from the database
-    let apiKey: string | null = null;
-    
-    // First try to get from environment
-    apiKey = Deno.env.get(config.keyName);
-    
-    // If not in environment, try to get from database
-    if (!apiKey) {
-      logEntry(`API key for ${provider} not found in environment, checking database`);
-      const { data: keyData, error: keyError } = await supabase
-        .from('api_keys')
-        .select('key_value')
-        .eq('key_name', config.keyName)
-        .single();
-        
-      if (keyError) {
-        logEntry(`Error fetching API key from database: ${keyError.message}`);
-      } else if (keyData) {
-        apiKey = keyData.key_value;
-        logEntry(`API key for ${provider} found in database`);
-      }
-    }
-    
-    if (!apiKey) {
-      throw new Error(`API key not found for provider: ${provider} (${config.keyName})`);
-    }
-    
-    let prompt: string;
-    
-    if (mode === 'writer') {
-      if (!manualPrompt) {
-        throw new Error('Manual prompt is required for writer mode');
-      }
-      prompt = manualPrompt;
-      logEntry(`Using Writer mode with prompt: ${prompt.substring(0, 50)}...`);
-    } else {
-      // Manual mode
-      if (autoMode) {
-        // Auto-generate prompt
-        logEntry('Auto-generating prompt using Writer AI');
-        // This would be replaced with a real call to the writer agent
-        prompt = 'A historical photo of the signing of the Declaration of Independence, Philadelphia, 1776, realism';
-      } else {
-        if (!manualPrompt) {
-          throw new Error('Manual prompt is required when auto-mode is disabled');
-        }
-        prompt = manualPrompt;
-      }
-      
-      logEntry(`Using prompt: ${prompt.substring(0, 50)}...`);
-    }
-    
-    // Add standard enhancements to the prompt
+    // Enhance the prompt for better results
     const enhancedPrompt = `A photorealistic high-resolution image, taken by a professional war/photojournalist, using a vintage analog camera appropriate to the era. Grainy film, accurate shadows, era-specific lighting. Depict: ${prompt} -- Realistic style, historically accurate, correct clothing and architecture, natural facial expressions, no digital artifacts, consistent perspective, documentary framing.`;
-    logEntry(`Enhanced prompt: ${enhancedPrompt.substring(0, 50)}...`);
+    logEntry(`Enhanced prompt: ${enhancedPrompt.substring(0, 100)}...`);
     
-    // Specific provider logic for each provider
-    logEntry(`Generating image with ${provider}`);
+    // Get OAuth token for authentication
+    const accessToken = await getAccessToken();
+    logEntry('Successfully obtained OAuth access token');
     
-    let imageUrl: string;
-    let metadata: any = {
-      title: '',
-      description: '',
-      source: provider,
-      is_ai_generated: true,
-      is_mature_content: false,
-      accuracy_date: 0.95,
-      gps: { lat: 0, lng: 0 }
+    // Build the request to Vertex AI
+    const vertexApiUrl = `${VERTEX_MODEL_BASE_URL}/${PROJECT_ID}/locations/us-central1/publishers/google/models/${modelVersion}:predict`;
+    logEntry(`Calling Vertex AI at: ${vertexApiUrl}`);
+    
+    // Prepare the payload according to Vertex AI specifications
+    const vertexPayload = {
+      instances: [
+        {
+          prompt: enhancedPrompt,
+          aspectRatio: aspectRatio,
+          safetyFilterLevel: safetyFilterLevel,
+          personGeneration: personGeneration,
+          addWatermark: addWatermark
+        }
+      ]
     };
     
-    // Try to extract title, year, and location from the prompt
-    const extractMetadata = (prompt: string) => {
-      // Basic extraction - in a real app you'd use NLP
-      const yearMatch = prompt.match(/\b(18|19|20)\d{2}\b/);
-      if (yearMatch) {
-        metadata.year = parseInt(yearMatch[0]);
-      }
+    logEntry(`Sending payload to Vertex AI: ${JSON.stringify(vertexPayload).substring(0, 200)}...`);
+    
+    // Function to make the API request with retry capability
+    const callVertexApi = async (retryCount = 0): Promise<Response> => {
+      const vertexResponse = await fetch(vertexApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(vertexPayload)
+      });
       
-      // Try to extract a location
-      const locationKeywords = ['in', 'at', 'near', 'from'];
-      for (const keyword of locationKeywords) {
-        const regex = new RegExp(`${keyword} ([A-Z][a-z]+(?: [A-Z][a-z]+)*)`);
-        const match = prompt.match(regex);
-        if (match && match[1]) {
-          metadata.location = match[1];
-          break;
+      // Handle non-200 responses with retry logic for specific status codes
+      if (!vertexResponse.ok) {
+        const responseText = await vertexResponse.text();
+        logEntry(`Vertex AI error (${vertexResponse.status}): ${responseText}`);
+        
+        // Retry once for 429 (Too Many Requests) or 502 (Bad Gateway)
+        if ((vertexResponse.status === 429 || vertexResponse.status === 502) && retryCount < 1) {
+          logEntry(`Retrying in 1s due to ${vertexResponse.status} error...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return callVertexApi(retryCount + 1);
         }
+        
+        throw new Error(`Vertex AI API error (${vertexResponse.status}): ${responseText}`);
       }
       
-      // Use the first part as title if not too long
-      const firstPart = prompt.split(',')[0];
-      if (firstPart && firstPart.length < 60) {
-        metadata.title = firstPart;
-      } else {
-        metadata.title = prompt.substring(0, 50);
-      }
-      
-      metadata.description = prompt;
+      return vertexResponse;
     };
     
-    extractMetadata(prompt);
+    // Call Vertex AI and process the response
+    const vertexResponse = await callVertexApi();
+    const vertexData = await vertexResponse.json();
+    logEntry('Vertex API response received successfully');
     
-    // Generate with DALL-E provider
-    if (provider === 'dalle') {
-      try {
-        logEntry('Calling DALL-E API');
-        
-        const openaiResponse = await fetch('https://api.openai.com/v1/images/generations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: 'dall-e-3',
-            prompt: enhancedPrompt,
-            n: 1,
-            size: '1024x1024'
-          })
-        });
-        
-        if (!openaiResponse.ok) {
-          const errorData = await openaiResponse.json();
-          logEntry(`DALL-E API error: ${JSON.stringify(errorData)}`);
-          throw new Error(`DALL-E API error: ${errorData.error?.message || 'Unknown error'}`);
-        }
-        
-        const dalleData = await openaiResponse.json();
-        imageUrl = dalleData.data[0].url;
-        
-        // DALL-E specific metadata
-        metadata.revised_prompt = dalleData.data[0].revised_prompt;
-        
-        logEntry(`Successfully generated image with DALL-E: ${imageUrl.substring(0, 50)}...`);
-      } catch (error) {
-        logEntry(`Error with DALL-E: ${error.message}`);
-        throw new Error(`DALL-E generation failed: ${error.message}`);
-      }
-    } 
-    // Generate with Midjourney provider
-    else if (provider === 'midjourney') {
-      try {
-        logEntry('Calling Midjourney API');
-        // Midjourney API is not publicly available in the same way as DALL-E
-        // This is a placeholder for Midjourney API integration
-        // For the purpose of this example, we'll simulate a Midjourney response
-        
-        if (!forcedProvider) {
-          // In reality, we would try to call Midjourney API here
-          logEntry('Midjourney API not available, would fallback to DALL-E if not in forced mode');
-          throw new Error('Midjourney API is not available');
-        }
-        
-        // Simulate a delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Placeholder response - in a real app, this would be the actual API call
-        imageUrl = 'https://picsum.photos/seed/midjourney/1024/1024';
-        
-        logEntry(`Successfully generated image with simulated Midjourney: ${imageUrl}`);
-      } catch (error) {
-        logEntry(`Error with Midjourney: ${error.message}`);
-        throw new Error(`Midjourney generation failed: ${error.message}`);
-      }
-    } 
-    // Generate with Vertex AI provider
-    else if (provider === 'vertex') {
-      try {
-        logEntry('Setting up Vertex AI request');
-        
-        // Get project ID from environment or database
-        let projectId = Deno.env.get('VERTEX_PROJECT_ID');
-        
-        // If not in environment, try to get from database
-        if (!projectId) {
-          logEntry('VERTEX_PROJECT_ID not found in environment, checking database');
-          const { data: projectData, error: projectError } = await supabase
-            .from('api_keys')
-            .select('key_value')
-            .eq('key_name', 'VERTEX_PROJECT_ID')
-            .single();
-            
-          if (projectError) {
-            logEntry(`Error fetching project ID from database: ${projectError.message}`);
-          } else if (projectData) {
-            projectId = projectData.key_value;
-            logEntry(`Project ID found in database: ${projectId}`);
-          }
-        }
-        
-        if (!projectId) {
-          // Use the default project ID from the task
-          projectId = 'gen-lang-client-0724142088';
-          logEntry(`Using default project ID: ${projectId}`);
-        }
-        
-        // Construct the Vertex AI API URL with proper model versioning
-        const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/${modelVersion}:predict`;
-        
-        logEntry(`Calling Vertex AI API at: ${vertexUrl}`);
-        
-        // Prepare the payload according to Vertex AI specifications
-        const vertexPayload = {
-          instances: [
-            {
-              prompt: enhancedPrompt,
-              aspectRatio: aspectRatio,
-              safetyFilterLevel: safetyFilterLevel,
-              personGeneration: personGeneration,
-              addWatermark: addWatermark
-            }
-          ]
-        };
-        
-        // Log the full request payload for debugging
-        logEntry(`Request payload: ${JSON.stringify(vertexPayload)}`);
-        
-        // Make the API request with proper authentication
-        const vertexResponse = await fetch(vertexUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify(vertexPayload)
-        });
-        
-        // Handle non-200 responses with detailed error logging
-        if (!vertexResponse.ok) {
-          const responseText = await vertexResponse.text();
-          logEntry(`Vertex AI API error (${vertexResponse.status}): ${responseText}`);
-          
-          // Check if we should retry for specific error codes
-          if (vertexResponse.status === 429 || vertexResponse.status === 502) {
-            logEntry(`Retrying in 1s due to ${vertexResponse.status} error...`);
-            // Wait 1 second
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Retry the request
-            const retryResponse = await fetch(vertexUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-              },
-              body: JSON.stringify(vertexPayload)
-            });
-            
-            // If retry still fails, throw error with details
-            if (!retryResponse.ok) {
-              const retryErrorText = await retryResponse.text();
-              throw new Error(`Vertex AI API retry failed (${retryResponse.status}): ${retryErrorText}`);
-            }
-            
-            // Process successful retry response
-            const vertexData = await retryResponse.json();
-            logEntry(`Retry successful, processing response`);
-            
-            // Extract image and process it
-            if (vertexData.predictions && vertexData.predictions[0] && vertexData.predictions[0].bytesBase64Encoded) {
-              const imageBase64 = vertexData.predictions[0].bytesBase64Encoded;
-              logEntry('Successfully extracted base64 image from retry response');
-              
-              // Convert base64 to binary using Deno-compatible method
-              const binary = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
-              logEntry(`Image size: ${binary.byteLength} bytes`);
-              
-              // Save to Supabase Storage in the correct 'images' bucket
-              const imageName = `vertex-${Date.now()}.png`;
-              const { data: uploadData, error: uploadError } = await supabase
-                .storage
-                .from('images')
-                .upload(`generated/${imageName}`, binary.buffer, {
-                  contentType: 'image/png',
-                  cacheControl: '3600'
-                });
-                
-              if (uploadError) {
-                logEntry(`Error uploading Vertex image: ${uploadError.message}`);
-                throw new Error(`Failed to save Vertex image: ${uploadError.message}`);
-              }
-              
-              logEntry(`Successfully uploaded image to storage: ${imageName}`);
-              
-              // Get public URL
-              const { data: urlData } = supabase.storage
-                .from('images')
-                .getPublicUrl(`generated/${imageName}`);
-                
-              imageUrl = urlData.publicUrl;
-              logEntry(`Public URL for image: ${imageUrl}`);
-            } else {
-              logEntry(`Unexpected response format from Vertex API retry: ${JSON.stringify(vertexData)}`);
-              throw new Error('Could not extract image from Vertex AI retry response');
-            }
-          } else {
-            // Add more detailed diagnostic information for non-retryable errors
-            if (vertexResponse.status === 403) {
-              throw new Error(`Vertex AI API access denied (403). Please verify your API key has sufficient permissions for the Vertex AI API and the project ID (${projectId}) is correct.`);
-            } else if (vertexResponse.status === 404) {
-              throw new Error(`Vertex AI API endpoint not found (404). The model version (${modelVersion}) or project ID (${projectId}) may be incorrect.`);
-            } else {
-              throw new Error(`Vertex AI API error (${vertexResponse.status}): ${responseText || 'Unknown error'}`);
-            }
-          }
-        } else {
-          // Process successful first-attempt response
-          const vertexData = await vertexResponse.json();
-          logEntry(`Vertex API response received successfully`);
-          
-          // Extract image from response
-          if (vertexData.predictions && vertexData.predictions[0] && vertexData.predictions[0].bytesBase64Encoded) {
-            const imageBase64 = vertexData.predictions[0].bytesBase64Encoded;
-            logEntry('Successfully extracted base64 image from response');
-            
-            // Save base64 image to Supabase Storage
-            const imageName = `vertex-${Date.now()}.png`;
-            
-            // Convert base64 to binary using Deno-compatible method (not atob)
-            // This fixes the browser-only atob() issue
-            const binary = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
-            
-            logEntry(`Image size: ${binary.byteLength} bytes`);
-            
-            // Save to Supabase Storage in the correct 'images' bucket
-            const { data: uploadData, error: uploadError } = await supabase
-              .storage
-              .from('images')
-              .upload(`generated/${imageName}`, binary.buffer, {
-                contentType: 'image/png',
-                cacheControl: '3600'
-              });
-              
-            if (uploadError) {
-              logEntry(`Error uploading Vertex image: ${uploadError.message}`);
-              throw new Error(`Failed to save Vertex image: ${uploadError.message}`);
-            }
-            
-            logEntry(`Successfully uploaded image to storage: ${imageName}`);
-            
-            // Get public URL
-            const { data: urlData } = supabase.storage
-              .from('images')
-              .getPublicUrl(`generated/${imageName}`);
-              
-            imageUrl = urlData.publicUrl;
-            logEntry(`Public URL for image: ${imageUrl}`);
-          } else {
-            logEntry(`Unexpected response format from Vertex API: ${JSON.stringify(vertexData)}`);
-            // Fallback if we can't extract the image
-            throw new Error('Could not extract image from Vertex AI response. The response format was unexpected.');
-          }
-        }
-        
-        logEntry(`Successfully generated image with Vertex AI: ${imageUrl?.substring(0, 50)}...`);
-      } catch (error: any) {
-        logEntry(`Error with Vertex AI: ${error.message}`);
-        throw new Error(`Vertex AI generation failed: ${error.message}`);
-      }
-    } else {
-      throw new Error(`Unsupported provider: ${provider}`);
+    // Extract the image from the response
+    if (!vertexData.predictions || !vertexData.predictions[0] || !vertexData.predictions[0].bytesBase64Encoded) {
+      throw new Error('Could not extract image from Vertex AI response. The response format was unexpected.');
     }
+    
+    const imageBase64 = vertexData.predictions[0].bytesBase64Encoded;
+    logEntry('Successfully extracted base64 image from response');
+    
+    // Decode the base64 image using Deno-compatible method
+    const binaryData = decode(imageBase64);
+    logEntry(`Decoded image size: ${binaryData.byteLength} bytes`);
+    
+    // Save to Supabase Storage in the 'images' bucket
+    const imageName = `vertex-${Date.now()}.png`;
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('images')
+      .upload(`generated/${imageName}`, binaryData, {
+        contentType: 'image/png',
+        cacheControl: '3600'
+      });
+      
+    if (uploadError) {
+      logEntry(`Error uploading Vertex image: ${uploadError.message}`);
+      throw new Error(`Failed to save Vertex image: ${uploadError.message}`);
+    }
+    
+    logEntry(`Successfully uploaded image to storage: ${imageName}`);
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('images')
+      .getPublicUrl(`generated/${imageName}`);
+      
+    const imageUrl = urlData.publicUrl;
+    logEntry(`Public URL for image: ${imageUrl}`);
+    
+    // Extract metadata from the prompt
+    const metadata = extractMetadata(prompt);
+    metadata.source = 'vertex';
+    metadata.is_ai_generated = true;
     
     // Save image metadata to database
     try {
@@ -463,7 +183,7 @@ serve(async (req) => {
           accuracy_historical: metadata.accuracy_historical || 0.9,
           accuracy_realness: metadata.accuracy_realness || 0.9,
           gps: metadata.gps || { lat: 0, lng: 0 },
-          source: provider,
+          source: 'vertex',
           ready_for_game: false,
           prompt: enhancedPrompt,
           logs: logs
@@ -482,12 +202,13 @@ serve(async (req) => {
       // Continue execution even if DB save fails
     }
     
-    // Prepare the final result
-    const result: ImageGenerationResult = {
-      imageUrl,
-      metadata,
+    // Return the successful response
+    const result = {
+      status: "success",
+      imageUrl: imageUrl,
+      metadata: metadata,
       promptUsed: enhancedPrompt,
-      logs
+      logs: logs
     };
     
     logEntry('Image generation completed successfully');
@@ -496,12 +217,15 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
     });
+    
   } catch (error: any) {
     logEntry(`ERROR: ${error.message}`);
     
+    // Return a structured error response
     return new Response(
       JSON.stringify({
-        error: error.message,
+        status: "error",
+        message: error.message,
         logs
       }),
       {
@@ -511,3 +235,87 @@ serve(async (req) => {
     );
   }
 });
+
+/**
+ * Get an OAuth access token for authenticating with Vertex AI
+ */
+async function getAccessToken(): Promise<string> {
+  try {
+    // First check if we have a service account JSON
+    const serviceAccountJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
+    if (serviceAccountJson) {
+      // Parse the service account JSON
+      const serviceAccount = JSON.parse(serviceAccountJson);
+      
+      // Create a JWT for OAuth token exchange
+      const now = Math.floor(Date.now() / 1000);
+      const expiry = now + 3600; // 1 hour expiry
+      
+      const jwt_payload = {
+        iss: serviceAccount.client_email,
+        sub: serviceAccount.client_email,
+        aud: OAUTH_TOKEN_URL,
+        iat: now,
+        exp: expiry,
+        scope: "https://www.googleapis.com/auth/cloud-platform"
+      };
+      
+      // In a production environment, you would sign the JWT with the private key
+      // For now, as we're using a pre-generated token, we'll use that directly
+    }
+    
+    // For development, we can use a pre-generated access token
+    // In production, this should be replaced with proper JWT signing and token exchange
+    const accessToken = Deno.env.get("VERTEX_AI_API_KEY");
+    if (!accessToken) {
+      throw new Error("No authentication credentials found. Please set VERTEX_AI_API_KEY or GOOGLE_SERVICE_ACCOUNT");
+    }
+    
+    return accessToken;
+  } catch (error) {
+    console.error("Error getting access token:", error);
+    throw new Error(`Authentication failed: ${error.message}`);
+  }
+}
+
+/**
+ * Extract metadata from the prompt
+ */
+function extractMetadata(prompt: string): any {
+  const metadata: any = {
+    title: '',
+    description: '',
+    is_mature_content: false,
+    accuracy_date: 0.95,
+    gps: { lat: 0, lng: 0 }
+  };
+  
+  // Basic extraction - in a real app you'd use NLP
+  const yearMatch = prompt.match(/\b(18|19|20)\d{2}\b/);
+  if (yearMatch) {
+    metadata.year = parseInt(yearMatch[0]);
+  }
+  
+  // Try to extract a location
+  const locationKeywords = ['in', 'at', 'near', 'from'];
+  for (const keyword of locationKeywords) {
+    const regex = new RegExp(`${keyword} ([A-Z][a-z]+(?: [A-Z][a-z]+)*)`);
+    const match = prompt.match(regex);
+    if (match && match[1]) {
+      metadata.location = match[1];
+      break;
+    }
+  }
+  
+  // Use the first part as title if not too long
+  const firstPart = prompt.split(',')[0];
+  if (firstPart && firstPart.length < 60) {
+    metadata.title = firstPart;
+  } else {
+    metadata.title = prompt.substring(0, 50);
+  }
+  
+  metadata.description = prompt;
+  
+  return metadata;
+}

@@ -1,39 +1,82 @@
 
+# A string used to distinguish different Supabase projects on the same host. Defaults to the
+# working directory name when running `supabase init`.
 project_id = "zwdkywvgoowrqbhftbkc"
 
 [api]
 enabled = true
+# Port to use for the API URL.
 port = 54321
-schemas = ["public", "storage", "graphql_public"]
+# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
+# endpoints. public and storage are always included.
+schemas = ["public", "storage"]
+# Extra schemas to add to the search_path of every request. public is always included.
+extra_search_path = ["public", "extensions"]
+# Maximum rows returns in a single REST request.
+max_rows = 1000
 
 [db]
+# Port to use for the local database URL.
 port = 54322
+# Port used by psql to connect to the database.
+shadow_port = 54320
+# The database major version to use. This has to be the same as your remote database's. Run `SHOW
+# server_version;` on the remote database to check.
+major_version = 15
 
-[studio]
-enabled = true
-port = 54323
-api_url = "http://localhost:54321"
-
-[inbucket]
-enabled = true
-port = 54324
-
-[auth]
-enabled = true
-site_url = "http://localhost:3000"
-
-[storage]
-enabled = true
+[db.pooler]
+enabled = false
+# Port to use for the local connection pooler.
+port = 54329
+# Maximum number of connections to store in the pool for each user/database pair.
+pool_mode = "transaction"
+# Default pool size i.e. number of connections to use.
+default_pool_size = 15
+# Maximum number of connections to store in the pool for each user/database pair.
+max_client_conn = 100
 
 [realtime]
 enabled = true
+# Bind realtime via either IPv4 or IPv6. IPv4 is the default to not affect existing customers.
+# This will be defaulted to IPv6 in the future so new projects created with this setting will
+# default to IPv6.
+ip_version = "IPv4"
+
+[studio]
+enabled = true
+# Port to use for Supabase Studio.
+port = 54323
+# External URL of the API server that frontend connects to.
+api_url = "http://localhost"
+
+# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
+# are monitored, and you can view the emails that would have been sent from the web interface.
+[inbucket]
+enabled = true
+# Port to use for the email testing server web interface.
+port = 54324
+# Uncomment to expose additional ports for testing user applications that send emails.
+# smtp_port = 54325
+# pop3_port = 54326
+
+[storage]
+enabled = true
+# The maximum file size allowed (e.g. "5MB", "500KB").
+file_size_limit = "50MiB"
+
+[analytics]
+enabled = false
+# Port to use for the analytics query node.
+port = 54327
+# Endpoint database which analytics query node connects to.
+backend = "postgres://postgres:postgres@localhost:54322/postgres"
+# Vector store connection string
+vector_port = 54328
+
+[functions]
+enabled = true
+# Valid ports range for the edge functions.
+port_range = [9000, 9400]
 
 [functions.image-generator]
-verify_jwt = false
-
-[functions.image-metadata-verification]
-verify_jwt = false
-
-[functions.test-provider-connection]
-verify_jwt = false
-
+verify_jwt = true
