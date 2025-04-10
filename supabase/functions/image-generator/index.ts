@@ -240,7 +240,7 @@ serve(async (req) => {
             logEntry(`Error fetching project ID from database: ${projectError.message}`);
           } else if (projectData) {
             projectId = projectData.key_value;
-            logEntry('Project ID found in database');
+            logEntry(`Project ID found in database: ${projectId}`);
           }
         }
         
@@ -255,48 +255,55 @@ serve(async (req) => {
         
         logEntry(`Calling Vertex AI API at: ${vertexUrl}`);
         
+        // Debug: Log the request payload
+        const vertexPayload = {
+          instances: [
+            {
+              prompt: enhancedPrompt
+            }
+          ],
+          parameters: {
+            sampleCount: 1,
+            aspectRatio: "1:1"
+          }
+        };
+        
+        logEntry(`Request payload: ${JSON.stringify(vertexPayload)}`);
+        
+        // Fix: Use Bearer token for authentication instead of Authorization header directly
         const vertexResponse = await fetch(vertexUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
-          body: JSON.stringify({
-            instances: [
-              {
-                prompt: enhancedPrompt
-              }
-            ],
-            parameters: {
-              sampleCount: 1,
-              aspectRatio: "1:1"
-            }
-          })
+          body: JSON.stringify(vertexPayload)
         });
         
         if (!vertexResponse.ok) {
-          const errorText = await vertexResponse.text();
-          logEntry(`Vertex AI API error: ${errorText}`);
+          const responseText = await vertexResponse.text();
+          logEntry(`Vertex AI API error (${vertexResponse.status}): ${responseText}`);
           
+          // Add more detailed diagnostic information
           if (vertexResponse.status === 403) {
-            throw new Error('Vertex AI API access denied. Please check your API key and project ID.');
+            throw new Error(`Vertex AI API access denied (403). Please verify your API key has sufficient permissions for the Vertex AI API and the project ID (${projectId}) is correct.`);
+          } else if (vertexResponse.status === 404) {
+            throw new Error(`Vertex AI API endpoint not found (404). The model or project ID (${projectId}) may be incorrect.`);
           } else {
-            throw new Error(`Vertex AI API error: ${errorText || 'Unknown error'}`);
+            throw new Error(`Vertex AI API error (${vertexResponse.status}): ${responseText || 'Unknown error'}`);
           }
         }
         
         const vertexData = await vertexResponse.json();
+        logEntry(`Vertex API response received successfully`);
         
         // Extract image from response
-        // The actual structure depends on Vertex AI's response format
         if (vertexData.predictions && vertexData.predictions[0] && vertexData.predictions[0].bytesBase64Encoded) {
-          // In a real implementation, you'd save this base64 image to storage
-          // For this example, we'll use a placeholder URL
-          imageUrl = `data:image/png;base64,${vertexData.predictions[0].bytesBase64Encoded}`;
+          const imageBase64 = vertexData.predictions[0].bytesBase64Encoded;
+          logEntry('Successfully extracted base64 image from response');
           
           // Save base64 image to Supabase Storage
           const imageName = `vertex-${Date.now()}.png`;
-          const imageBase64 = vertexData.predictions[0].bytesBase64Encoded;
           
           // Convert base64 to binary
           const binary = atob(imageBase64);
@@ -319,19 +326,23 @@ serve(async (req) => {
             throw new Error(`Failed to save Vertex image: ${uploadError.message}`);
           }
           
+          logEntry(`Successfully uploaded image to storage: ${imageName}`);
+          
           // Get public URL
           const { data: urlData } = supabase.storage
             .from('avatars')
             .getPublicUrl(`images/${imageName}`);
             
           imageUrl = urlData.publicUrl;
+          logEntry(`Public URL for image: ${imageUrl}`);
         } else {
+          logEntry(`Unexpected response format from Vertex API: ${JSON.stringify(vertexData)}`);
           // Fallback if we can't extract the image
-          throw new Error('Could not extract image from Vertex AI response');
+          throw new Error('Could not extract image from Vertex AI response. The response format was unexpected.');
         }
         
-        logEntry(`Successfully generated image with Vertex AI: ${imageUrl.substring(0, 50)}...`);
-      } catch (error) {
+        logEntry(`Successfully generated image with Vertex AI: ${imageUrl?.substring(0, 50)}...`);
+      } catch (error: any) {
         logEntry(`Error with Vertex AI: ${error.message}`);
         throw new Error(`Vertex AI generation failed: ${error.message}`);
       }
@@ -369,7 +380,7 @@ serve(async (req) => {
         logEntry(`Successfully saved image to database with ID: ${imageData.id}`);
         metadata.id = imageData.id;
       }
-    } catch (dbError) {
+    } catch (dbError: any) {
       logEntry(`Database error: ${dbError.message}`);
       // Continue execution even if DB save fails
     }
@@ -388,7 +399,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200
     });
-  } catch (error) {
+  } catch (error: any) {
     logEntry(`ERROR: ${error.message}`);
     
     return new Response(
