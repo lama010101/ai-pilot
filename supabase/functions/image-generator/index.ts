@@ -40,6 +40,11 @@ serve(async (req) => {
   try {
     logEntry('Starting image generation process');
     
+    // Validate GOOGLE_SERVICE_ACCOUNT is present
+    if (!Deno.env.get("GOOGLE_SERVICE_ACCOUNT")) {
+      throw new Error("GOOGLE_SERVICE_ACCOUNT secret is missing. Aborting.");
+    }
+    
     // Parse the request body
     const requestData = await req.json();
     const { 
@@ -51,20 +56,21 @@ serve(async (req) => {
       safetyFilterLevel = "block_only_high"
     } = requestData;
     
-    // Validate the required prompt parameter
-    if (!prompt) {
-      throw new Error('Prompt is required');
-    }
+    // Use a default test prompt if none provided
+    const userPrompt = prompt || "A photorealistic crowd scene in the 1950s";
     
     logEntry(`Request parameters: model=${modelVersion}, aspectRatio=${aspectRatio}, watermark=${addWatermark}`);
     
     // Enhance the prompt for better results
-    const enhancedPrompt = `A photorealistic high-resolution image, taken by a professional war/photojournalist, using a vintage analog camera appropriate to the era. Grainy film, accurate shadows, era-specific lighting. Depict: ${prompt} -- Realistic style, historically accurate, correct clothing and architecture, natural facial expressions, no digital artifacts, consistent perspective, documentary framing.`;
+    const enhancedPrompt = `A photorealistic high-resolution image, taken by a professional war/photojournalist, using a vintage analog camera appropriate to the era. Grainy film, accurate shadows, era-specific lighting. Depict: ${userPrompt} -- Realistic style, historically accurate, correct clothing and architecture, natural facial expressions, no digital artifacts, consistent perspective, documentary framing.`;
     logEntry(`Enhanced prompt: ${enhancedPrompt.substring(0, 100)}...`);
     
     // Get OAuth token for authentication
     const accessToken = await getAccessToken();
-    logEntry('Successfully obtained OAuth access token');
+    if (!accessToken || accessToken.length < 20) {
+      throw new Error("Failed to obtain valid access token. Token is missing or too short.");
+    }
+    logEntry(`Access token (first 10 chars): ${accessToken.slice(0, 10)}`);
     
     // Build the request to Vertex AI
     const vertexApiUrl = `${VERTEX_MODEL_BASE_URL}/${PROJECT_ID}/locations/us-central1/publishers/google/models/${modelVersion}:predict`;
@@ -99,6 +105,14 @@ serve(async (req) => {
       // Handle non-200 responses with retry logic for specific status codes
       if (!vertexResponse.ok) {
         const responseText = await vertexResponse.text();
+        
+        // Log detailed error information including headers
+        console.error("🔥 Full Vertex AI Error:", {
+          status: vertexResponse.status,
+          headers: Object.fromEntries(vertexResponse.headers.entries()),
+          body: responseText
+        });
+        
         logEntry(`Vertex AI error (${vertexResponse.status}): ${responseText}`);
         
         // Retry once for 429 (Too Many Requests) or 502 (Bad Gateway)
@@ -108,7 +122,19 @@ serve(async (req) => {
           return callVertexApi(retryCount + 1);
         }
         
-        throw new Error(`Vertex AI API error (${vertexResponse.status}): ${responseText}`);
+        // Return the error details to the client
+        return new Response(
+          JSON.stringify({
+            status: "error",
+            vertex_status: vertexResponse.status,
+            message: responseText,
+            logs: logs
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500
+          }
+        );
       }
       
       return vertexResponse;
@@ -116,6 +142,12 @@ serve(async (req) => {
     
     // Call Vertex AI and process the response
     const vertexResponse = await callVertexApi();
+    
+    // If vertexResponse is an error Response, return it directly
+    if (vertexResponse instanceof Response && vertexResponse.status !== 200) {
+      return vertexResponse;
+    }
+    
     const vertexData = await vertexResponse.json();
     logEntry('Vertex API response received successfully');
     
@@ -157,7 +189,7 @@ serve(async (req) => {
     logEntry(`Public URL for image: ${imageUrl}`);
     
     // Extract metadata from the prompt
-    const metadata = extractMetadata(prompt);
+    const metadata = extractMetadata(userPrompt);
     metadata.source = 'vertex';
     metadata.is_ai_generated = true;
     
@@ -254,11 +286,14 @@ async function getAccessToken(): Promise<string> {
       const jwt_payload = {
         iss: serviceAccount.client_email,
         sub: serviceAccount.client_email,
-        aud: OAUTH_TOKEN_URL,
+        aud: OAUTH_TOKEN_URL,  // Ensure this is correct
         iat: now,
         exp: expiry,
         scope: "https://www.googleapis.com/auth/cloud-platform"
       };
+      
+      // Log the client email being used for debugging
+      console.log(`Using service account: ${serviceAccount.client_email}`);
       
       // In a production environment, you would sign the JWT with the private key
       // For now, as we're using a pre-generated token, we'll use that directly
