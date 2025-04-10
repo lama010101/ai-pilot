@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getApiKey } from '@/lib/apiKeyService';
 
-export type ImageProvider = 'dalle' | 'midjourney' | 'vertex';
+export type ImageProvider = 'dalle' | 'midjourney' | 'vertex' | 'luma';
 
 interface ImageProviderState {
   provider: ImageProvider;
@@ -20,7 +20,8 @@ export const useImageProviderStore = create<ImageProviderState>()(
       providerStatus: {
         dalle: null,
         midjourney: null,
-        vertex: null
+        vertex: null,
+        luma: null
       },
       isCheckingStatus: false,
       
@@ -30,7 +31,7 @@ export const useImageProviderStore = create<ImageProviderState>()(
         try {
           set({ isCheckingStatus: true });
           
-          const providersToCheck = provider ? [provider] : ['dalle', 'midjourney', 'vertex'] as ImageProvider[];
+          const providersToCheck = provider ? [provider] : ['dalle', 'midjourney', 'vertex', 'luma'] as ImageProvider[];
           const newStatus = { ...get().providerStatus };
           
           for (const p of providersToCheck) {
@@ -48,6 +49,9 @@ export const useImageProviderStore = create<ImageProviderState>()(
                 // Check both API key and project ID for Vertex
                 hasKey = (await getApiKey('VERTEX_AI_API_KEY') !== null) && 
                          (await getApiKey('VERTEX_PROJECT_ID') !== null);
+                break;
+              case 'luma':
+                hasKey = await getApiKey('LUMA_API_KEY') !== null;
                 break;
             }
             
