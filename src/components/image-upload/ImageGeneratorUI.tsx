@@ -44,7 +44,8 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     provider, 
     setProvider, 
     checkProviderStatus, 
-    providerStatus 
+    providerStatus,
+    updateProviderStatus 
   } = useImageProviderStore();
   const { setGeneratedImage, generatedImage } = useImageUiStore();
   
@@ -65,7 +66,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
       const midjourneyKey = await getApiKey('MIDJOURNEY_API_KEY');
       const lumaKey = await getApiKey('LUMA_API_KEY');
       
-      setProviderStatus({
+      updateProviderStatus({
         dalle: !!openAiKey,
         vertex: !!vertexConfigured,
         midjourney: !!midjourneyKey,
@@ -74,7 +75,7 @@ const ImageGeneratorUI: React.FC<ImageGeneratorUIProps> = ({
     };
     
     getStatus();
-  }, []);
+  }, [updateProviderStatus]);
   
   const addLogMessage = (message: string) => {
     const logEntry = `${new Date().toLocaleTimeString()} - ${message}`;

@@ -1,16 +1,16 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
-import { Activity, Rocket, Code, MessageSquare, Database, Settings, LayoutGrid, Image } from "lucide-react";
+import { Activity, Rocket, Code, MessageSquare, Database, Settings, LayoutGrid, Image, ListTodo } from "lucide-react";
 import { getAgents, getActivityLogs } from "@/lib/supabaseService";
 import { useBuildHistory } from "@/hooks/useBuildHistory";
 import { AgentDB } from "@/lib/supabaseTypes";
 import { agents } from "@/data/agents";
 import { toast } from "sonner";
+import TaskManager from '@/components/task-manager/TaskManager';
 
 const PilotDashboard = () => {
   const [dbAgents, setDbAgents] = useState<AgentDB[]>([]);
@@ -131,9 +131,10 @@ const PilotDashboard = () => {
       
       {/* Quick Access Tabs */}
       <Tabs defaultValue="tools" className="w-full">
-        <TabsList className="grid grid-cols-4 mb-4">
+        <TabsList className="grid grid-cols-5 mb-4">
           <TabsTrigger value="tools">Tools</TabsTrigger>
           <TabsTrigger value="agents">Agents</TabsTrigger>
+          <TabsTrigger value="tasks">Task Manager</TabsTrigger>
           <TabsTrigger value="logs">Activity</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -212,6 +213,18 @@ const PilotDashboard = () => {
                   View full Pilot interface
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="tasks" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Task Management System</CardTitle>
+              <CardDescription>Plan, execute and monitor AI tasks across projects</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TaskManager />
             </CardContent>
           </Card>
         </TabsContent>
