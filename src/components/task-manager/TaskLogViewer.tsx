@@ -8,7 +8,7 @@ import { Loader2, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useMediaQuery } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TaskLogViewerProps {
   taskId: string | null;
@@ -19,7 +19,7 @@ interface TaskLogViewerProps {
 export default function TaskLogViewer({ taskId, open, onClose }: TaskLogViewerProps) {
   const [logs, setLogs] = useState<TaskLog[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const isMobile = useMediaQuery("(max-width: 640px)");
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!taskId || !open) return;
@@ -39,7 +39,17 @@ export default function TaskLogViewer({ taskId, open, onClose }: TaskLogViewerPr
           return;
         }
         
-        setLogs(data || []);
+        // Transform the data to match our TaskLog interface
+        const transformedLogs: TaskLog[] = (data || []).map(log => ({
+          id: log.id,
+          taskId: log.task_id || '',
+          timestamp: log.timestamp,
+          message: log.message,
+          level: log.level as 'info' | 'warning' | 'error' | 'success',
+          context: log.context
+        }));
+        
+        setLogs(transformedLogs);
       } catch (err) {
         console.error('Unexpected error fetching logs:', err);
         toast.error('Failed to load task logs');
@@ -59,8 +69,18 @@ export default function TaskLogViewer({ taskId, open, onClose }: TaskLogViewerPr
         table: 'task_logs',
         filter: `task_id=eq.${taskId}`
       }, (payload) => {
+        // Transform the new log to match our TaskLog interface
+        const newLog: TaskLog = {
+          id: payload.new.id,
+          taskId: payload.new.task_id || '',
+          timestamp: payload.new.timestamp,
+          message: payload.new.message,
+          level: payload.new.level as 'info' | 'warning' | 'error' | 'success',
+          context: payload.new.context
+        };
+        
         // Add the new log to our local state
-        setLogs((prevLogs) => [...prevLogs, payload.new as TaskLog]);
+        setLogs((prevLogs) => [...prevLogs, newLog]);
       })
       .subscribe();
 
