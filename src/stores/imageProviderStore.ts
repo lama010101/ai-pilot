@@ -11,6 +11,7 @@ interface ImageProviderState {
   providerStatus: Record<ImageProvider, boolean | null>;
   checkProviderStatus: (provider?: ImageProvider) => Promise<void>;
   isCheckingStatus: boolean;
+  updateProviderStatus: (statuses: Record<ImageProvider, boolean>) => void;
 }
 
 export const useImageProviderStore = create<ImageProviderState>()(
@@ -26,6 +27,10 @@ export const useImageProviderStore = create<ImageProviderState>()(
       isCheckingStatus: false,
       
       setProvider: (provider) => set({ provider }),
+      
+      updateProviderStatus: (statuses) => {
+        set({ providerStatus: { ...get().providerStatus, ...statuses } });
+      },
       
       checkProviderStatus: async (provider) => {
         try {
