@@ -46,7 +46,7 @@ export default function TaskLogViewer({ taskId, open, onClose }: TaskLogViewerPr
           timestamp: log.timestamp,
           message: log.message,
           level: log.level as 'info' | 'warning' | 'error' | 'success',
-          context: log.context
+          context: log.context as Record<string, any> || {}
         }));
         
         setLogs(transformedLogs);
@@ -76,7 +76,7 @@ export default function TaskLogViewer({ taskId, open, onClose }: TaskLogViewerPr
           timestamp: payload.new.timestamp,
           message: payload.new.message,
           level: payload.new.level as 'info' | 'warning' | 'error' | 'success',
-          context: payload.new.context
+          context: payload.new.context as Record<string, any> || {}
         };
         
         // Add the new log to our local state
