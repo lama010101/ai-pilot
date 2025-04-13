@@ -61,5 +61,17 @@ export const tasksClient = {
       .from('task_logs')
       .select('*')
       .eq('task_id', taskId)
-      .order('timestamp', { ascending: true }) as unknown as Promise<{ data: TaskLog[] | null, error: any }>
+      .order('timestamp', { ascending: true }) as unknown as Promise<{ data: TaskLog[] | null, error: any }>,
+      
+  createTaskLog: (log: Omit<TaskLog, 'id'> & { id: string }) =>
+    supabase
+      .from('task_logs')
+      .insert({
+        id: log.id,
+        task_id: log.taskId,
+        message: log.message,
+        level: log.level,
+        timestamp: log.timestamp,
+        context: log.context
+      }) as unknown as Promise<{ data: any, error: any }>
 };

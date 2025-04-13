@@ -4,14 +4,17 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Task, TaskStatus } from './taskTypes';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Edit, Trash2, Loader2 } from "lucide-react";
+import { Play, Edit, Trash2, Loader2, MessageSquare, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import TaskEvaluationSection from './TaskEvaluationSection';
 
 interface KanbanViewProps {
   tasks: Task[];
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onRunTask: (taskId: string) => void;
+  onViewLogs: (taskId: string) => void;
+  onRetryTask: (taskId: string) => void;
   isLoading?: boolean;
   runningTaskId?: string | null;
 }
@@ -21,6 +24,8 @@ const KanbanView = ({
   onUpdateTask, 
   onDeleteTask, 
   onRunTask, 
+  onViewLogs,
+  onRetryTask,
   isLoading = false, 
   runningTaskId = null 
 }: KanbanViewProps) => {
@@ -133,7 +138,7 @@ const KanbanView = ({
                                 </div>
                               )}
                             </CardContent>
-                            <CardFooter className="p-2 flex justify-between">
+                            <CardFooter className="p-2 flex justify-between flex-wrap gap-2">
                               <div className="flex space-x-1">
                                 <Button 
                                   variant="outline" 
@@ -151,6 +156,25 @@ const KanbanView = ({
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="icon" 
+                                  className="h-7 w-7"
+                                  onClick={() => onViewLogs(task.id)}
+                                >
+                                  <MessageSquare className="h-3 w-3" />
+                                </Button>
+                                {task.status === 'failed' && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="icon" 
+                                    className="h-7 w-7"
+                                    onClick={() => onRetryTask(task.id)}
+                                    disabled={runningTaskId !== null}
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                  </Button>
+                                )}
                               </div>
                               {column === 'todo' && (
                                 <Button 

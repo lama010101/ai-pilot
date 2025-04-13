@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -5,6 +6,7 @@ import ProjectSelector from './ProjectSelector';
 import KanbanView from './KanbanView';
 import TableView from './TableView';
 import TaskCreator from './TaskCreator';
+import TaskLogViewer from './TaskLogViewer';
 import { Task, TaskStatus } from './taskTypes';
 import { toast } from "sonner";
 import { useTaskExecution } from '@/hooks/useTaskExecution';
@@ -15,7 +17,16 @@ const TaskManager = () => {
   const [viewType, setViewType] = useState<'kanban' | 'table'>('kanban');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState<boolean>(false);
-  const { executeTask, isExecuting, currentTaskId } = useTaskExecution();
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [logViewerOpen, setLogViewerOpen] = useState<boolean>(false);
+  
+  const { 
+    executeTask, 
+    isExecuting, 
+    currentTaskId,
+    taskLogs,
+    getTaskLogs
+  } = useTaskExecution();
 
   // Load tasks from Supabase on mount and when project changes
   useEffect(() => {
@@ -152,6 +163,38 @@ const TaskManager = () => {
     }
   };
 
+  const handleViewTaskLogs = async (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setLogViewerOpen(true);
+    // Pre-fetch logs when opening the viewer
+    await getTaskLogs(taskId);
+  };
+
+  const handleCloseLogViewer = () => {
+    setLogViewerOpen(false);
+    setSelectedTaskId(null);
+  };
+
+  const handleRetryTask = async (taskId: string) => {
+    // Find the task
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) {
+      toast.error(`Task ${taskId} not found`);
+      return;
+    }
+    
+    // Update status to retrying
+    const retryingTask = { 
+      ...task, 
+      status: 'running' as TaskStatus,
+      updatedAt: new Date().toISOString()
+    };
+    handleUpdateTask(retryingTask);
+    
+    // Re-execute the task
+    await handleRunTask(taskId);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -177,6 +220,8 @@ const TaskManager = () => {
             onUpdateTask={handleUpdateTask} 
             onDeleteTask={handleDeleteTask}
             onRunTask={handleRunTask}
+            onViewLogs={handleViewTaskLogs}
+            onRetryTask={handleRetryTask}
             isLoading={isLoadingTasks}
             runningTaskId={currentTaskId}
           />
@@ -188,11 +233,19 @@ const TaskManager = () => {
             onUpdateTask={handleUpdateTask} 
             onDeleteTask={handleDeleteTask}
             onRunTask={handleRunTask}
+            onViewLogs={handleViewTaskLogs}
+            onRetryTask={handleRetryTask}
             isLoading={isLoadingTasks}
             runningTaskId={currentTaskId}
           />
         </TabsContent>
       </Tabs>
+
+      <TaskLogViewer 
+        taskId={selectedTaskId}
+        open={logViewerOpen}
+        onClose={handleCloseLogViewer}
+      />
     </div>
   );
 };

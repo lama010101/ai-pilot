@@ -18,6 +18,9 @@ export interface Task {
   executionCount?: number;
   assignedAgent?: string;
   lastRunAt?: string;
+  error_summary?: string; // For failed tasks
+  self_evaluation?: string; // For completed tasks
+  retry_count?: number; // Number of times task has been retried
 }
 
 export interface TaskLog {
