@@ -17,6 +17,7 @@ export interface Task {
   logs?: TaskLog[];
   executionCount?: number;
   assignedAgent?: string;
+  lastRunAt?: string;
 }
 
 export interface TaskLog {

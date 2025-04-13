@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Task } from './taskTypes';
-import { Play, Edit, Trash2 } from "lucide-react";
+import { Play, Edit, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface TableViewProps {
@@ -18,9 +18,18 @@ interface TableViewProps {
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onRunTask: (taskId: string) => void;
+  isLoading?: boolean;
+  runningTaskId?: string | null;
 }
 
-const TableView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: TableViewProps) => {
+const TableView = ({ 
+  tasks, 
+  onUpdateTask, 
+  onDeleteTask, 
+  onRunTask,
+  isLoading = false,
+  runningTaskId = null
+}: TableViewProps) => {
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'todo': return 'outline';
@@ -43,6 +52,15 @@ const TableView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: TableViewPr
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64 border rounded-md">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading tasks...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -53,13 +71,14 @@ const TableView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: TableViewPr
             <TableHead>Status</TableHead>
             <TableHead>Dependencies</TableHead>
             <TableHead>Created</TableHead>
+            <TableHead>Last Run</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {tasks.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={7} className="h-24 text-center">
                 No tasks found. Create a new task to get started.
               </TableCell>
             </TableRow>
@@ -79,6 +98,9 @@ const TableView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: TableViewPr
                 </TableCell>
                 <TableCell>{task.dependencies.length}</TableCell>
                 <TableCell>{new Date(task.createdAt).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  {task.lastRunAt ? new Date(task.lastRunAt).toLocaleDateString() : 'Never'}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end space-x-1">
                     <Button
@@ -102,9 +124,19 @@ const TableView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: TableViewPr
                         size="sm"
                         className="h-8"
                         onClick={() => onRunTask(task.id)}
+                        disabled={runningTaskId !== null}
                       >
-                        <Play className="h-4 w-4 mr-1" />
-                        Run
+                        {runningTaskId === task.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            Running
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-1" />
+                            Run
+                          </>
+                        )}
                       </Button>
                     )}
                   </div>

@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Task, TaskStatus } from './taskTypes';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Edit, Trash2 } from "lucide-react";
+import { Play, Edit, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface KanbanViewProps {
@@ -12,9 +12,18 @@ interface KanbanViewProps {
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onRunTask: (taskId: string) => void;
+  isLoading?: boolean;
+  runningTaskId?: string | null;
 }
 
-const KanbanView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: KanbanViewProps) => {
+const KanbanView = ({ 
+  tasks, 
+  onUpdateTask, 
+  onDeleteTask, 
+  onRunTask, 
+  isLoading = false, 
+  runningTaskId = null 
+}: KanbanViewProps) => {
   const columns: TaskStatus[] = ['todo', 'planning', 'running', 'verifying', 'done', 'failed'];
   
   const getColumnTasks = (status: TaskStatus) => {
@@ -62,6 +71,15 @@ const KanbanView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: KanbanView
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-[500px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading tasks...</span>
+      </div>
+    );
+  }
+
   return (
     <div>
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -76,6 +94,11 @@ const KanbanView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: KanbanView
                     {...provided.droppableProps}
                     className="bg-muted p-2 rounded-md min-h-[500px] flex-1"
                   >
+                    {getColumnTasks(column).length === 0 && (
+                      <div className="flex items-center justify-center h-16 text-sm text-muted-foreground">
+                        No tasks
+                      </div>
+                    )}
                     {getColumnTasks(column).map((task, index) => (
                       <Draggable key={task.id} draggableId={task.id} index={index}>
                         {(provided) => (
@@ -99,6 +122,13 @@ const KanbanView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: KanbanView
                                 <div className="mt-1">
                                   <span className="text-xs text-muted-foreground">
                                     Dependencies: {task.dependencies.length}
+                                  </span>
+                                </div>
+                              )}
+                              {task.executionCount !== undefined && task.executionCount > 0 && (
+                                <div className="mt-1">
+                                  <span className="text-xs text-muted-foreground">
+                                    Runs: {task.executionCount}
                                   </span>
                                 </div>
                               )}
@@ -127,9 +157,19 @@ const KanbanView = ({ tasks, onUpdateTask, onDeleteTask, onRunTask }: KanbanView
                                   size="sm" 
                                   className="h-7"
                                   onClick={() => onRunTask(task.id)}
+                                  disabled={runningTaskId !== null}
                                 >
-                                  <Play className="h-3 w-3 mr-1" />
-                                  Run
+                                  {runningTaskId === task.id ? (
+                                    <>
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      Running
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="h-3 w-3 mr-1" />
+                                      Run
+                                    </>
+                                  )}
                                 </Button>
                               )}
                             </CardFooter>
