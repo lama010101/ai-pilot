@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Task, TaskLog } from '@/components/task-manager/taskTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { tasksClient } from '@/lib/customSupabase';
 
 export function useTaskExecution() {
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
@@ -96,35 +97,27 @@ export function useTaskExecution() {
       return taskLogs[taskId];
     }
     
-    // Otherwise fetch them from Supabase
+    // Otherwise fetch them from Supabase using our custom client
     try {
-      const { data, error } = await supabase
-        .from('task_logs')
-        .select('*')
-        .eq('task_id', taskId)
-        .order('timestamp', { ascending: true });
+      const { data, error } = await tasksClient.getTaskLogs(taskId);
         
       if (error) {
         console.error('Error fetching task logs:', error);
         return [];
       }
       
-      const formattedLogs: TaskLog[] = data.map(log => ({
-        id: log.id,
-        taskId: log.task_id,
-        timestamp: log.timestamp,
-        message: log.message,
-        level: log.level,
-        context: log.context
-      }));
+      // Data is already properly formatted by our custom client
+      if (data) {
+        // Update local state
+        setTaskLogs(prev => ({
+          ...prev,
+          [taskId]: data
+        }));
+        
+        return data;
+      }
       
-      // Update local state
-      setTaskLogs(prev => ({
-        ...prev,
-        [taskId]: formattedLogs
-      }));
-      
-      return formattedLogs;
+      return [];
     } catch (err) {
       console.error('Unexpected error fetching task logs:', err);
       return [];

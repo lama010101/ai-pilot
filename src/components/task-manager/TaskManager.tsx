@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -9,7 +8,7 @@ import TaskCreator from './TaskCreator';
 import { Task, TaskStatus } from './taskTypes';
 import { toast } from "sonner";
 import { useTaskExecution } from '@/hooks/useTaskExecution';
-import { supabase } from '@/integrations/supabase/client';
+import { tasksClient } from '@/lib/customSupabase';
 
 const TaskManager = () => {
   const [selectedProject, setSelectedProject] = useState<string>('guess-history');
@@ -24,35 +23,15 @@ const TaskManager = () => {
       setIsLoadingTasks(true);
       try {
         // Attempt to load tasks from Supabase
-        const { data, error } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('project_id', selectedProject);
+        const { data, error } = await tasksClient.getTasks(selectedProject);
           
         if (error) {
           console.error('Error loading tasks:', error);
           // Fall back to local state for now
           setTasks([]);
         } else if (data && data.length > 0) {
-          // Map from DB format to our Task type
-          const mappedTasks: Task[] = data.map(task => ({
-            id: task.id,
-            projectId: task.project_id,
-            title: task.title,
-            description: task.description,
-            status: task.status as TaskStatus,
-            priority: task.priority,
-            dependencies: task.dependencies || [],
-            createdAt: task.created_at,
-            updatedAt: task.updated_at,
-            prdLink: task.prd_link,
-            verificationCriteria: task.verification_criteria,
-            logs: task.logs,
-            executionCount: task.execution_count,
-            assignedAgent: task.assigned_agent,
-            lastRunAt: task.last_run_at
-          }));
-          setTasks(mappedTasks);
+          // Map from DB format to our Task type (already done by our custom client)
+          setTasks(data);
         } else {
           // No tasks found, use empty array
           setTasks([]);
@@ -78,20 +57,8 @@ const TaskManager = () => {
     setTasks([...tasks, newTask]);
     
     try {
-      // Try to insert task into Supabase
-      const { error } = await supabase.from('tasks').insert({
-        id: newTask.id,
-        project_id: newTask.projectId,
-        title: newTask.title,
-        description: newTask.description,
-        status: newTask.status,
-        priority: newTask.priority,
-        dependencies: newTask.dependencies,
-        created_at: newTask.createdAt,
-        updated_at: newTask.updatedAt,
-        prd_link: newTask.prdLink,
-        verification_criteria: newTask.verificationCriteria
-      });
+      // Try to insert task into Supabase using our custom client
+      const { error } = await tasksClient.createTask(newTask);
       
       if (error) {
         console.error('Error saving task to Supabase:', error);
@@ -111,21 +78,8 @@ const TaskManager = () => {
     setTasks(updatedTasks);
     
     try {
-      // Try to update task in Supabase
-      const { error } = await supabase
-        .from('tasks')
-        .update({
-          title: updatedTask.title,
-          description: updatedTask.description,
-          status: updatedTask.status,
-          priority: updatedTask.priority,
-          dependencies: updatedTask.dependencies,
-          updated_at: new Date().toISOString(),
-          prd_link: updatedTask.prdLink,
-          verification_criteria: updatedTask.verificationCriteria,
-          assigned_agent: updatedTask.assignedAgent
-        })
-        .eq('id', updatedTask.id);
+      // Try to update task in Supabase using our custom client
+      const { error } = await tasksClient.updateTask(updatedTask.id, updatedTask);
         
       if (error) {
         console.error('Error updating task in Supabase:', error);
@@ -143,11 +97,8 @@ const TaskManager = () => {
     setTasks(filteredTasks);
     
     try {
-      // Try to delete task from Supabase
-      const { error } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('id', taskId);
+      // Try to delete task from Supabase using our custom client
+      const { error } = await tasksClient.deleteTask(taskId);
         
       if (error) {
         console.error('Error deleting task from Supabase:', error);

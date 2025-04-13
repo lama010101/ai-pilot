@@ -201,6 +201,92 @@ export type Database = {
         }
         Relationships: []
       }
+      task_logs: {
+        Row: {
+          context: Json | null
+          id: string
+          level: string
+          message: string
+          task_id: string | null
+          timestamp: string
+        }
+        Insert: {
+          context?: Json | null
+          id: string
+          level: string
+          message: string
+          task_id?: string | null
+          timestamp?: string
+        }
+        Update: {
+          context?: Json | null
+          id?: string
+          level?: string
+          message?: string
+          task_id?: string | null
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_logs_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_agent: string | null
+          created_at: string
+          dependencies: string[] | null
+          description: string
+          execution_count: number | null
+          id: string
+          last_run_at: string | null
+          prd_link: string | null
+          priority: string
+          project_id: string
+          status: string
+          title: string
+          updated_at: string
+          verification_criteria: string[] | null
+        }
+        Insert: {
+          assigned_agent?: string | null
+          created_at?: string
+          dependencies?: string[] | null
+          description: string
+          execution_count?: number | null
+          id: string
+          last_run_at?: string | null
+          prd_link?: string | null
+          priority: string
+          project_id: string
+          status: string
+          title: string
+          updated_at?: string
+          verification_criteria?: string[] | null
+        }
+        Update: {
+          assigned_agent?: string | null
+          created_at?: string
+          dependencies?: string[] | null
+          description?: string
+          execution_count?: number | null
+          id?: string
+          last_run_at?: string | null
+          prd_link?: string | null
+          priority?: string
+          project_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          verification_criteria?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
