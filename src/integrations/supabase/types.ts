@@ -236,6 +236,35 @@ export type Database = {
           },
         ]
       }
+      task_outputs: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_outputs_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_agent: string | null
