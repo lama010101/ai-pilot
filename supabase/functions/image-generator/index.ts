@@ -17,6 +17,23 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Get API key from Supabase
+async function getApiKey(keyName: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('key_value')
+      .eq('key_name', keyName)
+      .maybeSingle();
+      
+    if (error) throw error;
+    return data?.key_value || null;
+  } catch (error) {
+    console.error(`Error getting API key ${keyName}:`, error);
+    return null;
+  }
+}
+
 // Main request handler
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -54,6 +71,7 @@ serve(async (req) => {
     let imageUrl = '';
     let imageArrayBuffer: ArrayBuffer | null = null;
     let providerUsed = provider;
+    let authMethodUsed = '';
     
     // Use the selected provider with no fallbacks
     if (provider === 'luma') {
@@ -110,71 +128,247 @@ serve(async (req) => {
       // Call Vertex AI API
       logEntry(`Calling Vertex AI API`);
       
-      // Get Vertex API key and project ID
-      const vertexApiKey = Deno.env.get('VERTEX_AI_API_KEY');
-      const projectId = Deno.env.get('VERTEX_PROJECT_ID');
+      // Check if JSON credentials exist first
+      const jsonExists = await getApiKey('VERTEX_AI_JSON_EXISTS');
       
-      if (!vertexApiKey || !projectId) {
-        logEntry('Vertex AI API key or project ID not found');
-        throw new Error('Vertex AI API key or project ID not configured');
-      }
-      
-      // Format the endpoint URL with the project ID
-      const vertexEndpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagegeneration:predict`;
-      
-      // Prepare the payload for Vertex AI
-      const vertexPayload = {
-        instances: [
-          {
-            prompt: enhancedPrompt
+      if (jsonExists === 'true') {
+        // Try JSON credentials first
+        const jsonCredentials = await getApiKey('VERTEX_AI_JSON_CREDENTIALS');
+        
+        if (jsonCredentials) {
+          logEntry('Using Vertex AI JSON credentials');
+          authMethodUsed = 'JSON';
+          
+          try {
+            // Parse the JSON credentials
+            const credentials = JSON.parse(jsonCredentials);
+            
+            if (!credentials.private_key || !credentials.client_email || !credentials.project_id) {
+              throw new Error("Invalid JSON credentials format. Missing required fields.");
+            }
+            
+            // For JWT token generation, we need crypto and encode functions
+            const encodeBase64Url = (buffer: ArrayBuffer): string => {
+              return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+            };
+            
+            // Generate JWT token for authentication
+            const generateJwt = async (): Promise<string> => {
+              const header = { alg: "RS256", typ: "JWT" };
+              const now = Math.floor(Date.now() / 1000);
+              const expiry = now + 3600; // 1 hour
+              
+              const payload = {
+                iss: credentials.client_email,
+                sub: credentials.client_email,
+                aud: "https://aiplatform.googleapis.com/",
+                iat: now,
+                exp: expiry,
+                scope: "https://www.googleapis.com/auth/cloud-platform"
+              };
+              
+              const headerB64 = encodeBase64Url(new TextEncoder().encode(JSON.stringify(header)));
+              const payloadB64 = encodeBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
+              
+              const signatureInput = `${headerB64}.${payloadB64}`;
+              
+              // Convert PEM private key to CryptoKey
+              const privateKey = credentials.private_key.replace(/\\n/g, '\n');
+              const pemHeader = "-----BEGIN PRIVATE KEY-----";
+              const pemFooter = "-----END PRIVATE KEY-----";
+              const pemContents = privateKey.substring(
+                privateKey.indexOf(pemHeader) + pemHeader.length,
+                privateKey.indexOf(pemFooter)
+              ).replace(/\s/g, '');
+              
+              const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+              
+              const cryptoKey = await crypto.subtle.importKey(
+                "pkcs8",
+                binaryDer,
+                {
+                  name: "RSASSA-PKCS1-v1_5",
+                  hash: "SHA-256"
+                },
+                false,
+                ["sign"]
+              );
+              
+              const signature = await crypto.subtle.sign(
+                { name: "RSASSA-PKCS1-v1_5" },
+                cryptoKey,
+                new TextEncoder().encode(signatureInput)
+              );
+              
+              const signatureB64 = encodeBase64Url(signature);
+              
+              return `${signatureInput}.${signatureB64}`;
+            };
+            
+            // Get JWT token
+            const jwt = await generateJwt();
+            
+            // Get access token
+            const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+              },
+              body: new URLSearchParams({
+                grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                assertion: jwt
+              })
+            });
+            
+            if (!tokenResponse.ok) {
+              const errorText = await tokenResponse.text();
+              throw new Error(`Failed to get access token: ${tokenResponse.status} - ${errorText}`);
+            }
+            
+            const tokenData = await tokenResponse.json();
+            const accessToken = tokenData.access_token;
+            
+            if (!accessToken) {
+              throw new Error("Failed to get access token from Google OAuth");
+            }
+            
+            // Generate image with Vertex AI
+            const projectId = credentials.project_id;
+            const location = "us-central1";
+            const publisherModel = "imagegeneration@002";
+            
+            const vertexEndpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${publisherModel}:predict`;
+            
+            const vertexRequest = {
+              instances: [
+                {
+                  prompt: enhancedPrompt
+                }
+              ],
+              parameters: {
+                sampleCount: 1
+              }
+            };
+            
+            logEntry(`Sending request to Vertex AI using JSON auth: ${JSON.stringify(vertexRequest).substring(0, 200)}...`);
+            
+            const vertexResponse = await fetch(vertexEndpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${accessToken}`
+              },
+              body: JSON.stringify(vertexRequest)
+            });
+            
+            if (!vertexResponse.ok) {
+              const errorText = await vertexResponse.text();
+              throw new Error(`Vertex AI API error: ${vertexResponse.status} - ${errorText}`);
+            }
+            
+            const vertexData = await vertexResponse.json();
+            logEntry('Vertex AI API response (JSON auth) received successfully');
+            
+            // Check if the response contains the image data
+            if (!vertexData.predictions || !vertexData.predictions[0] || !vertexData.predictions[0].bytesBase64Encoded) {
+              throw new Error("Unexpected response format from Vertex AI. The response format was unexpected.");
+            }
+            
+            // Decode the base64 image data
+            const base64Data = vertexData.predictions[0].bytesBase64Encoded;
+            const binaryData = decode(base64Data);
+            
+            imageArrayBuffer = binaryData.buffer;
+            logEntry(`Received base64 image from Vertex (JSON auth), size: ${base64Data.length} chars`);
+            
+          } catch (jsonError) {
+            // If JSON auth fails, log the error and fall back to API key
+            logEntry(`Error using JSON credentials: ${jsonError instanceof Error ? jsonError.message : 'Unknown error'}`);
+            logEntry('Falling back to API Key method');
+            
+            // Continue to API key method below
+            authMethodUsed = 'API Key (fallback)';
           }
-        ],
-        parameters: {
-          sampleCount: 1
         }
-      };
-      
-      logEntry(`Sending payload to Vertex AI: ${JSON.stringify(vertexPayload).substring(0, 200)}...`);
-      
-      // Make the API request to Vertex AI
-      const vertexResponse = await fetch(vertexEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${vertexApiKey}`
-        },
-        body: JSON.stringify(vertexPayload)
-      });
-      
-      // Check if the response was successful
-      if (!vertexResponse.ok) {
-        const errorText = await vertexResponse.text();
-        logEntry(`Vertex AI API error (${vertexResponse.status}): ${errorText}`);
-        throw new Error(`Vertex AI API error: ${vertexResponse.status} - ${errorText}`);
       }
       
-      // Parse the response
-      const vertexData = await vertexResponse.json();
-      logEntry('Vertex AI API response received successfully');
-      
-      // Extract the image from the response
-      if (!vertexData.predictions || !vertexData.predictions[0] || !vertexData.predictions[0].bytesBase64Encoded) {
-        throw new Error('Could not extract image from Vertex AI response. The response format was unexpected.');
+      // If we haven't got an image yet (JSON auth failed or not present), try API key
+      if (!imageArrayBuffer) {
+        // Get Vertex API key and project ID
+        const vertexApiKey = await getApiKey('VERTEX_AI_API_KEY');
+        const projectId = await getApiKey('VERTEX_PROJECT_ID');
+        
+        if (!vertexApiKey || !projectId) {
+          logEntry('Vertex AI API key or project ID not found');
+          throw new Error('Vertex AI API key or project ID not configured');
+        }
+        
+        if (!authMethodUsed) {
+          authMethodUsed = 'API Key';
+        }
+        
+        logEntry(`Using Vertex AI API Key authentication method`);
+        
+        // Format the endpoint URL with the project ID
+        const vertexEndpoint = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/imagegeneration:predict`;
+        
+        // Prepare the payload for Vertex AI
+        const vertexPayload = {
+          instances: [
+            {
+              prompt: enhancedPrompt
+            }
+          ],
+          parameters: {
+            sampleCount: 1
+          }
+        };
+        
+        logEntry(`Sending payload to Vertex AI: ${JSON.stringify(vertexPayload).substring(0, 200)}...`);
+        
+        // Make the API request to Vertex AI
+        const vertexResponse = await fetch(vertexEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${vertexApiKey}`
+          },
+          body: JSON.stringify(vertexPayload)
+        });
+        
+        // Check if the response was successful
+        if (!vertexResponse.ok) {
+          const errorText = await vertexResponse.text();
+          logEntry(`Vertex AI API error (${vertexResponse.status}): ${errorText}`);
+          throw new Error(`Vertex AI API error: ${vertexResponse.status} - ${errorText}`);
+        }
+        
+        // Parse the response
+        const vertexData = await vertexResponse.json();
+        logEntry('Vertex AI API response received successfully');
+        
+        // Extract the image from the response
+        if (!vertexData.predictions || !vertexData.predictions[0] || !vertexData.predictions[0].bytesBase64Encoded) {
+          throw new Error('Could not extract image from Vertex AI response. The response format was unexpected.');
+        }
+        
+        // Decode the base64 image data
+        const base64Data = vertexData.predictions[0].bytesBase64Encoded;
+        const binaryData = decode(base64Data);
+        
+        imageArrayBuffer = binaryData.buffer;
+        logEntry(`Received base64 image from Vertex, size: ${base64Data.length} chars`);
       }
-      
-      // Decode the base64 image data
-      const base64Data = vertexData.predictions[0].bytesBase64Encoded;
-      const binaryData = decode(base64Data);
-      
-      imageArrayBuffer = binaryData.buffer;
-      logEntry(`Received base64 image from Vertex, size: ${base64Data.length} chars`);
       
     } else if (provider === 'dalle') {
       // Call OpenAI DALL·E API
       logEntry(`Calling OpenAI DALL·E API`);
       
       // Get OpenAI API key
-      const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+      const openaiApiKey = await getApiKey('OPENAI_API_KEY');
       
       if (!openaiApiKey) {
         logEntry('OpenAI API key not found');
@@ -270,6 +464,7 @@ serve(async (req) => {
     // Extract metadata from the prompt
     const metadata = extractMetadata(userPrompt);
     metadata.source = providerUsed;
+    metadata.authMethod = authMethodUsed;
     metadata.is_ai_generated = true;
     
     // Save image metadata to database
@@ -292,6 +487,7 @@ serve(async (req) => {
           accuracy_realness: metadata.accuracy_realness || 0.9,
           gps: metadata.gps || { lat: 0, lng: 0 },
           source: providerUsed,
+          auth_method: authMethodUsed,
           ready_for_game: false,
           prompt: enhancedPrompt,
           logs: logs
@@ -317,10 +513,11 @@ serve(async (req) => {
       metadata: metadata,
       promptUsed: enhancedPrompt,
       logs: logs,
-      provider: providerUsed
+      provider: providerUsed,
+      authMethod: authMethodUsed
     };
     
-    logEntry(`Image generation completed successfully using provider: ${providerUsed}`);
+    logEntry(`Image generation completed successfully using provider: ${providerUsed} (Auth: ${authMethodUsed})`);
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

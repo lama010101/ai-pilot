@@ -1,7 +1,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { getApiKey } from '@/lib/apiKeyService';
+import { getApiKey, isVertexAIConfigured, getVertexAIJsonStatus } from '@/lib/apiKeyService';
 
 export type ImageProvider = 'dalle' | 'midjourney' | 'vertex' | 'luma';
 
@@ -9,9 +9,11 @@ interface ImageProviderState {
   provider: ImageProvider;
   setProvider: (provider: ImageProvider) => void;
   providerStatus: Record<ImageProvider, boolean | null>;
+  providerAuthMethod: Record<string, string | null>;
   checkProviderStatus: (provider?: ImageProvider) => Promise<void>;
   isCheckingStatus: boolean;
   updateProviderStatus: (statuses: Record<ImageProvider, boolean>) => void;
+  updateProviderAuthMethod: (provider: string, method: string) => void;
 }
 
 export const useImageProviderStore = create<ImageProviderState>()(
@@ -24,6 +26,9 @@ export const useImageProviderStore = create<ImageProviderState>()(
         vertex: null,
         luma: null
       },
+      providerAuthMethod: {
+        vertex: null
+      },
       isCheckingStatus: false,
       
       setProvider: (provider) => set({ provider }),
@@ -32,12 +37,22 @@ export const useImageProviderStore = create<ImageProviderState>()(
         set({ providerStatus: { ...get().providerStatus, ...statuses } });
       },
       
+      updateProviderAuthMethod: (provider, method) => {
+        set({ 
+          providerAuthMethod: { 
+            ...get().providerAuthMethod, 
+            [provider]: method 
+          } 
+        });
+      },
+      
       checkProviderStatus: async (provider) => {
         try {
           set({ isCheckingStatus: true });
           
           const providersToCheck = provider ? [provider] : ['dalle', 'midjourney', 'vertex', 'luma'] as ImageProvider[];
           const newStatus = { ...get().providerStatus };
+          const newAuthMethods = { ...get().providerAuthMethod };
           
           for (const p of providersToCheck) {
             let hasKey = false;
@@ -51,9 +66,21 @@ export const useImageProviderStore = create<ImageProviderState>()(
                 hasKey = await getApiKey('MIDJOURNEY_API_KEY') !== null;
                 break;
               case 'vertex':
-                // Check both API key and project ID for Vertex
-                hasKey = (await getApiKey('VERTEX_AI_API_KEY') !== null) && 
-                         (await getApiKey('VERTEX_PROJECT_ID') !== null);
+                // Check if Vertex AI is configured (JSON or API key)
+                hasKey = await isVertexAIConfigured();
+                
+                // Check which auth method is being used
+                const jsonStatus = await getVertexAIJsonStatus();
+                if (jsonStatus.exists) {
+                  newAuthMethods.vertex = 'JSON';
+                } else {
+                  // Using API key method
+                  const hasApiKey = await getApiKey('VERTEX_AI_API_KEY') !== null;
+                  const hasProjectId = await getApiKey('VERTEX_PROJECT_ID') !== null;
+                  if (hasApiKey && hasProjectId) {
+                    newAuthMethods.vertex = 'API Key';
+                  }
+                }
                 break;
               case 'luma':
                 hasKey = await getApiKey('LUMA_API_KEY') !== null;
@@ -63,7 +90,10 @@ export const useImageProviderStore = create<ImageProviderState>()(
             newStatus[p] = hasKey;
           }
           
-          set({ providerStatus: newStatus });
+          set({ 
+            providerStatus: newStatus,
+            providerAuthMethod: newAuthMethods
+          });
         } catch (error) {
           console.error('Error checking provider status:', error);
         } finally {

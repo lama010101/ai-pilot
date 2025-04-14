@@ -1,3 +1,4 @@
+
 import { supabase } from "@/lib/supabaseClient";
 
 // Save API key securely
@@ -98,16 +99,73 @@ export const saveVertexAICredentials = async (apiKey: string, projectId: string)
     // Save Project ID
     const projectIdResult = await saveApiKey('VERTEX_PROJECT_ID', projectId);
     
-    return apiKeyResult && projectIdResult;
+    // Clear any existing JSON credentials flag when using API key method
+    const clearJsonResult = await saveApiKey('VERTEX_AI_JSON_EXISTS', 'false');
+    
+    return apiKeyResult && projectIdResult && clearJsonResult;
   } catch (error) {
     console.error('Error saving Vertex AI credentials:', error);
     return false;
   }
 };
 
+// Save Vertex AI JSON credentials
+export const saveVertexAIJsonCredentials = async (jsonContent: string, fileName: string): Promise<boolean> => {
+  try {
+    // Save the JSON content
+    const jsonResult = await saveApiKey('VERTEX_AI_JSON_CREDENTIALS', jsonContent);
+    
+    // Save the file name for reference
+    const fileNameResult = await saveApiKey('VERTEX_AI_JSON_FILENAME', fileName);
+    
+    // Flag that JSON exists
+    const flagResult = await saveApiKey('VERTEX_AI_JSON_EXISTS', 'true');
+    
+    return jsonResult && fileNameResult && flagResult;
+  } catch (error) {
+    console.error('Error saving Vertex AI JSON credentials:', error);
+    return false;
+  }
+};
+
+// Get Vertex AI JSON credentials status
+export const getVertexAIJsonStatus = async (): Promise<{ exists: boolean, filename: string | null }> => {
+  try {
+    const exists = await getApiKey('VERTEX_AI_JSON_EXISTS');
+    const filename = await getApiKey('VERTEX_AI_JSON_FILENAME');
+    
+    return { 
+      exists: exists === 'true', 
+      filename: filename 
+    };
+  } catch (error) {
+    console.error('Error checking Vertex AI JSON credentials:', error);
+    return { exists: false, filename: null };
+  }
+};
+
+// Get Vertex AI JSON credentials
+export const getVertexAIJsonCredentials = async (): Promise<string | null> => {
+  try {
+    return await getApiKey('VERTEX_AI_JSON_CREDENTIALS');
+  } catch (error) {
+    console.error('Error retrieving Vertex AI JSON credentials:', error);
+    return null;
+  }
+};
+
 // Add a function to check if Vertex AI is fully configured
 export const isVertexAIConfigured = async (): Promise<boolean> => {
   try {
+    // Check if JSON credentials exist first
+    const jsonExists = await getApiKey('VERTEX_AI_JSON_EXISTS');
+    if (jsonExists === 'true') {
+      // If JSON exists, check if the JSON credentials are present
+      const jsonCredentials = await getApiKey('VERTEX_AI_JSON_CREDENTIALS');
+      return !!jsonCredentials;
+    }
+    
+    // Fall back to API key and project ID check
     const apiKey = await getApiKey('VERTEX_AI_API_KEY');
     const projectId = await getApiKey('VERTEX_PROJECT_ID');
     
